@@ -8,7 +8,32 @@ The first piece is a scores page. Pick a date and see every game's linescore (go
 period, OT/SO when played, total, shots) and the goal scorers with assists.
 Live games refresh every 30 seconds.
 
-## Run it
+## Hosting (GitHub Pages)
+
+| Site | Branch | URL |
+| --- | --- | --- |
+| Production | `main` | https://xdionx.github.io/hockey-visual/ |
+| Test | `develop` | https://xdionx.github.io/hockey-visual/test/ |
+
+GitHub Pages only serves static files, and the NHL API can't be called from a
+browser (it sends no CORS headers). So the GitHub Action in
+`.github/workflows/publish.yml`:
+
+1. runs `scripts/update-data.js`, which saves each date's scores as
+   `data/scores/<date>.json` (plus `data/latest.json` for "today"),
+2. keeps those files on the `scores-data` branch so only the last 2 days and
+   the next 2 weeks are re-fetched each run,
+3. publishes `main` at the site root and `develop` under `/test/`.
+
+It runs on every push to `main` or `develop`, every 10 minutes from noon to
+3 AM Eastern (GitHub can delay scheduled runs by a few minutes), and on demand
+from the Actions tab. Live scores on the hosted site are therefore up to about
+10 minutes behind.
+
+One-time setup: in the repo's **Settings → Pages**, set **Source** to
+**GitHub Actions**.
+
+## Run it locally
 
 Needs Node 18 or newer, and nothing else (no `npm install`).
 
@@ -17,37 +42,18 @@ npm start          # http://localhost:3000   (PORT=4000 npm start to change)
 npm test           # unit tests for the data layer
 ```
 
-Open `http://localhost:3000/?date=2026-11-14` to jump straight to a date.
-
-## Test and production sites (Vercel)
-
-The repo is set up for Vercel: `public/` is served as static files and
-`api/scores.js` runs as a serverless function (the same code `server.js`
-uses locally, via `src/scoresHandler.js`).
-
-- **Production**: every push to `main` deploys to the production URL.
-- **Test**: every pull request (and any other branch) gets its own preview
-  URL, posted on the PR, so changes can be checked before merging.
-
-One-time setup: sign in at vercel.com with GitHub, choose **Add New → Project**,
-import `hockey-visual`, leave the framework as **Other**, and deploy. No
-environment variables are needed.
-
-## Why there's a server
-
-`api-web.nhle.com` sends no CORS headers, so a browser page can't call it
-directly. `server.js` serves the page and exposes `/api/scores?date=YYYY-MM-DD`,
-which fetches from the NHL API and returns a cleaned-up shape.
+Locally, `server.js` answers the same `data/...` URLs live from the NHL API,
+so you don't need to run the data script. Open
+`http://localhost:3000/?date=2026-11-14` to jump straight to a date.
 
 ## Layout
 
 | Path | What it is |
 | --- | --- |
-| `src/nhlApi.js` | NHL API client with a small cache. Already has `getBoxscore`, `getPlayByPlay`, `getRightRail`, `getPlayer` for the scorecard work. |
+| `src/nhlApi.js` | NHL API client with a small cache and 429 back-off. Already has `getBoxscore`, `getPlayByPlay`, `getRightRail`, `getPlayer` for the scorecard work. |
 | `src/normalize.js` | Pure functions that turn raw API games into `{ status, away, home, linescore, goals }`. Reusable by later scorecard / season / career code. |
-| `server.js` | Local dev: static file server + `/api/scores` proxy. Zero dependencies. |
-| `api/scores.js`, `vercel.json` | The same `/api/scores` endpoint as a Vercel function, for the hosted sites. |
-| `src/scoresHandler.js` | Request handling shared by both. |
+| `scripts/update-data.js` | Saves score files for the hosted site. |
+| `server.js` | Local dev server. Zero dependencies. |
 | `public/` | The page: `index.html`, `app.js`, `styles.css`. |
 | `test/` | `node --test` tests against a saved real-game fixture (regulation, OT, shootout). |
 

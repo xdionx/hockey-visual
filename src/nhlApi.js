@@ -10,7 +10,14 @@ async function getJson(path, ttlMs = 15_000) {
   const hit = cache.get(path);
   if (hit && hit.expires > Date.now()) return hit.data;
 
-  const res = await fetch(`${BASE}/${path}`, { headers: { accept: 'application/json' } });
+  let res;
+  for (let attempt = 0; ; attempt++) {
+    res = await fetch(`${BASE}/${path}`, { headers: { accept: 'application/json' } });
+    // The API rate-limits bursts (429). Back off and retry a few times.
+    if (res.status !== 429 || attempt === 4) break;
+    const wait = Number(res.headers.get('retry-after')) * 1000 || 2000 * 2 ** attempt;
+    await new Promise((r) => setTimeout(r, wait));
+  }
   if (!res.ok) {
     const err = new Error(`NHL API ${res.status} for /${path}`);
     err.status = res.status;

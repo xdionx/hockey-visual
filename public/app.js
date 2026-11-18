@@ -85,20 +85,34 @@ function render(data) {
     : '<p class="msg">No games scheduled on this date.</p>';
 }
 
+async function getJson(path) {
+  const res = await fetch(path, { cache: 'no-store' });
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(res.statusText);
+  return res.json();
+}
+
+// Scores are static files: data/scores/<date>.json, refreshed by a GitHub Action
+// (or served live by server.js when running locally).
 async function load(date, { quiet = false } = {}) {
   clearTimeout(refreshTimer);
   if (!quiet) gamesEl.innerHTML = '<p class="msg">Loading…</p>';
   try {
-    const res = await fetch(`/api/scores${date ? `?date=${date}` : ''}`);
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || res.statusText);
+    if (!date) date = (await getJson('data/latest.json'))?.date ?? new Date().toISOString().slice(0, 10);
+    dateInput.value = date;
+    history.replaceState(null, '', `?date=${date}`);
+    const data = await getJson(`data/scores/${date}.json`);
+    if (!data) {
+      current = { date };
+      $('#dateLabel').textContent = prettyDate(date);
+      gamesEl.innerHTML = '<p class="msg">No scores saved for this date.</p>';
+      return;
+    }
     current = data;
-    dateInput.value = data.date;
-    history.replaceState(null, '', `?date=${data.date}`);
     render(data);
     // Keep live games fresh.
     if (data.games.some((g) => g.status.state === 'live' || g.status.state === 'pre')) {
-      refreshTimer = setTimeout(() => load(data.date, { quiet: true }), 30_000);
+      refreshTimer = setTimeout(() => load(data.date, { quiet: true }), 60_000);
     }
   } catch (err) {
     if (!quiet) gamesEl.innerHTML = `<p class="msg">Couldn't load scores: ${esc(err.message)}</p>`;
