@@ -38,10 +38,17 @@ table.ls { width: 100%; border-collapse: collapse; font-variant-numeric: tabular
 .team-cell .rec { color: var(--muted); font-size: 12px; margin-left: 4px; }
 .goals { margin-top: 12px; border-top: 1px solid var(--line); padding-top: 8px; }
 .goals h3 { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; margin: 10px 0 4px; }
-.goal { display: grid; grid-template-columns: 44px 1fr auto; gap: 8px; align-items: baseline; padding: 4px 0; }
+.goal { display: grid; grid-template-columns: 44px 1fr auto 28px; gap: 8px; align-items: baseline; padding: 4px 0; }
 .goal .tm { font-weight: 700; font-size: 13px; }
 .goal .who strong { font-weight: 600; }
 .goal .ast { color: var(--muted); font-size: 13px; }
 .goal .meta { color: var(--muted); font-size: 13px; white-space: nowrap; text-align: right; font-variant-numeric: tabular-nums; }
 .tag { display: inline-block; font-size: 11px; font-weight: 700; padding: 1px 5px; border-radius: 4px; background: var(--chip); margin-left: 6px; color: var(--text); }
+.goal .play { align-self: center; width: 26px; height: 26px; border-radius: 50%; background: var(--chip); display: grid; place-items: center; }
+.goal .play::before { content: ""; border-style: solid; border-width: 5px 0 5px 8px; border-color: transparent transparent transparent var(--accent); margin-left: 2px; }
+.goal .play:hover, .goal .play:focus-visible { background: var(--accent); }
+.goal .play:hover::before, .goal .play:focus-visible::before { border-left-color: var(--card); }
+.videos { display: flex; gap: 8px; margin-top: 10px; }
+.videos a { font-size: 13px; color: var(--accent); background: var(--chip); padding: 4px 10px; border-radius: 999px; text-decoration: none; }
+.videos a::before { content: "\25B6"; font-size: 10px; margin-right: 6px; }
 .no-goals { color: var(--muted); font-size: 13px; margin: 8px 0 0; }

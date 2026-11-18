@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { normalizeScoreboard, periodLabel } from '../src/normalize.js';
+import { normalizeGame, normalizeScoreboard, nhlVideoUrl, periodLabel } from '../src/normalize.js';
 
 const raw = JSON.parse(readFileSync(new URL('./fixtures/score-sample.json', import.meta.url)));
 const board = normalizeScoreboard(raw);
@@ -38,4 +38,29 @@ test('overtime final shows an OT column', () => {
   assert.equal(g.status.label, 'Final/OT');
   assert.equal(g.linescore.periods.at(-1).label, 'OT');
   assert.equal(g.goals.at(-1).periodName, 'Overtime');
+});
+
+test('goal highlight and game video links point at nhl.com video pages', () => {
+  const g = normalizeGame({
+    id: 1, awayTeam: { abbrev: 'MTL', name: { default: 'Canadiens' } }, homeTeam: { abbrev: 'NYR', name: { default: 'Rangers' } },
+    gameState: 'OFF', periodDescriptor: { number: 3, periodType: 'REG' },
+    threeMinRecap: '/video/mtl-at-nyr-recap-6408478745112',
+    condensedGame: '/video/mtl-at-nyr-condensed-game-6408479231112',
+    goals: [
+      { periodDescriptor: { number: 2, periodType: 'REG' }, timeInPeriod: '07:59', teamAbbrev: 'MTL', name: { default: 'P. Danault' },
+        highlightClipSharingUrl: 'https://nhl.com/video/mtl-nyr-danault-scores-goal-against-joonas-korpisalo-6408476888112', highlightClip: 6408476888112 },
+      { periodDescriptor: { number: 3, periodType: 'REG' }, timeInPeriod: '01:00', teamAbbrev: 'NYR', name: { default: 'A. Panarin' } },
+    ],
+  });
+  assert.equal(g.goals[0].highlight, 'https://www.nhl.com/video/mtl-nyr-danault-scores-goal-against-joonas-korpisalo-6408476888112');
+  assert.equal(g.goals[1].highlight, null);
+  assert.equal(g.video.recap, 'https://www.nhl.com/video/mtl-at-nyr-recap-6408478745112');
+  assert.equal(g.video.condensed, 'https://www.nhl.com/video/mtl-at-nyr-condensed-game-6408479231112');
+});
+
+test('video links outside nhl.com are dropped', () => {
+  assert.equal(nhlVideoUrl('javascript:alert(1)'), null);
+  assert.equal(nhlVideoUrl('https://evil.example/video/x'), null);
+  assert.equal(nhlVideoUrl('http://nhl.com/video/x'), 'https://www.nhl.com/video/x');
+  assert.equal(nhlVideoUrl(undefined), null);
 });
