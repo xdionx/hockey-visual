@@ -19,6 +19,20 @@ npm test           # unit tests for the data layer
 
 Open `http://localhost:3000/?date=2026-11-14` to jump straight to a date.
 
+## Test and production sites (Vercel)
+
+The repo is set up for Vercel: `public/` is served as static files and
+`api/scores.js` runs as a serverless function (the same code `server.js`
+uses locally, via `src/scoresHandler.js`).
+
+- **Production**: every push to `main` deploys to the production URL.
+- **Test**: every pull request (and any other branch) gets its own preview
+  URL, posted on the PR, so changes can be checked before merging.
+
+One-time setup: sign in at vercel.com with GitHub, choose **Add New → Project**,
+import `hockey-visual`, leave the framework as **Other**, and deploy. No
+environment variables are needed.
+
 ## Why there's a server
 
 `api-web.nhle.com` sends no CORS headers, so a browser page can't call it
@@ -31,7 +45,9 @@ which fetches from the NHL API and returns a cleaned-up shape.
 | --- | --- |
 | `src/nhlApi.js` | NHL API client with a small cache. Already has `getBoxscore`, `getPlayByPlay`, `getRightRail`, `getPlayer` for the scorecard work. |
 | `src/normalize.js` | Pure functions that turn raw API games into `{ status, away, home, linescore, goals }`. Reusable by later scorecard / season / career code. |
-| `server.js` | Static file server + `/api/scores` proxy. Zero dependencies. |
+| `server.js` | Local dev: static file server + `/api/scores` proxy. Zero dependencies. |
+| `api/scores.js`, `vercel.json` | The same `/api/scores` endpoint as a Vercel function, for the hosted sites. |
+| `src/scoresHandler.js` | Request handling shared by both. |
 | `public/` | The page: `index.html`, `app.js`, `styles.css`. |
 | `test/` | `node --test` tests against a saved real-game fixture (regulation, OT, shootout). |
 

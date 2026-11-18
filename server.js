@@ -4,8 +4,7 @@ import http from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { getScoreboard } from './src/nhlApi.js';
-import { normalizeScoreboard } from './src/normalize.js';
+import { scoresResponse } from './src/scoresHandler.js';
 
 const PORT = Number(process.env.PORT) || 3000;
 const PUBLIC = join(fileURLToPath(new URL('.', import.meta.url)), 'public');
@@ -20,9 +19,8 @@ const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://localhost');
   try {
     if (url.pathname === '/api/scores') {
-      const date = url.searchParams.get('date');
-      if (date && !/^\d{4}-\d{2}-\d{2}$/.test(date)) return sendJson(res, 400, { error: 'date must be YYYY-MM-DD' });
-      return sendJson(res, 200, normalizeScoreboard(await getScoreboard(date || undefined)));
+      const { status, body } = await scoresResponse(url.searchParams.get('date'));
+      return sendJson(res, status, body);
     }
 
     const rel = url.pathname === '/' ? 'index.html' : url.pathname.slice(1);
