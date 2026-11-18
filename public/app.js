@@ -60,16 +60,47 @@ function goalsHtml(game) {
       <span class="tm">${esc(g.team)}</span>
       <div class="who"><strong>${esc(g.scorer.name)}</strong>${count}${tags}${assists ? `<div class="ast">${assists}</div>` : ''}</div>
       <span class="meta">${meta}</span>
-      ${g.highlight ? `<a class="play" href="${esc(g.highlight)}" target="_blank" rel="noopener" title="Watch ${esc(g.scorer.name)}'s goal on NHL.com" aria-label="Watch ${esc(g.scorer.name)}'s goal on NHL.com"></a>` : '<span></span>'}
+      ${g.highlight ? videoLink(g.highlight, g.highlightId, `${g.team} · ${g.scorer.name} (${g.period === 'SO' ? 'SO' : `${g.time} ${g.periodName}`})`, '', 'play', `Watch ${g.scorer.name}'s goal`) : '<span></span>'}
     </div>`;
   }
   return `<div class="goals">${html}</div>${videoLinksHtml(game)}`;
 }
 
+// Videos play in a lightbox using NHL's public Brightcove embed player.
+// The href stays the NHL.com page, so a middle-click or a missing id still works.
+const BRIGHTCOVE_PLAYER = 'https://players.brightcove.net/6415718365001/EXtG1xJ7H_default/index.html';
+
+function videoLink(href, id, title, text, cls = '', label = title) {
+  const data = id ? ` data-video-id="${esc(id)}" data-video-title="${esc(title)}"` : ' target="_blank" rel="noopener"';
+  return `<a${cls ? ` class="${cls}"` : ''} href="${esc(href)}"${data} title="${esc(label)}" aria-label="${esc(label)}">${esc(text)}</a>`;
+}
+
+const lightbox = $('#lightbox');
+const lightboxFrame = $('#lightbox-frame');
+
+function openVideo(link) {
+  lightboxFrame.innerHTML = `<iframe src="${BRIGHTCOVE_PLAYER}?videoId=${encodeURIComponent(link.dataset.videoId)}&autoplay=true"
+    title="${esc(link.dataset.videoTitle)}" allow="autoplay; fullscreen; encrypted-media; picture-in-picture" allowfullscreen></iframe>`;
+  $('#lightbox-title').textContent = link.dataset.videoTitle;
+  $('#lightbox-nhl').href = link.href;
+  lightbox.showModal();
+}
+
+gamesEl.addEventListener('click', (e) => {
+  const link = e.target.closest('a[data-video-id]');
+  if (!link || e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+  e.preventDefault();
+  openVideo(link);
+});
+$('#lightbox-close').addEventListener('click', () => lightbox.close());
+lightbox.addEventListener('click', (e) => e.target === lightbox && lightbox.close()); // backdrop
+lightbox.addEventListener('close', () => { lightboxFrame.innerHTML = ''; }); // stops playback
+
 function videoLinksHtml(game) {
   const links = [];
-  if (game.video?.recap) links.push(`<a href="${esc(game.video.recap)}" target="_blank" rel="noopener">Recap</a>`);
-  if (game.video?.condensed) links.push(`<a href="${esc(game.video.condensed)}" target="_blank" rel="noopener">Condensed game</a>`);
+  const matchup = `${game.away.abbrev} @ ${game.home.abbrev}`;
+  if (game.video?.recap) links.push(videoLink(game.video.recap, game.video.recapId, `${matchup} · Recap`, 'Recap'));
+  if (game.video?.condensed) links.push(videoLink(game.video.condensed, game.video.condensedId, `${matchup} · Condensed game`, 'Condensed game'));
   return links.length ? `<div class="videos">${links.join('')}</div>` : '';
 }
 
