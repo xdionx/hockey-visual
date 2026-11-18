@@ -48,6 +48,20 @@ export function getRightRail(gameId) {
   return getJson(`gamecenter/${gameId}/right-rail`);
 }
 
+/** Game center landing: scoring and penalty summaries, three stars. */
+export function getLanding(gameId) {
+  return getJson(`gamecenter/${gameId}/landing`);
+}
+
+/** Everything a box score page needs, fetched one after another to stay under the rate limit. */
+export async function getGameDetailRaw(gameId) {
+  const box = await getBoxscore(gameId);
+  const landing = await getLanding(gameId);
+  const rightRail = await getRightRail(gameId);
+  const pbp = await getPlayByPlay(gameId);
+  return { box, landing, rightRail, pbp };
+}
+
 /** A player's profile and career stats. */
 export function getPlayer(playerId) {
   return getJson(`player/${playerId}/landing`, 60 * 60_000);
