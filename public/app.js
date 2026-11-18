@@ -60,9 +60,17 @@ function goalsHtml(game) {
       <span class="tm">${esc(g.team)}</span>
       <div class="who"><strong>${esc(g.scorer.name)}</strong>${count}${tags}${assists ? `<div class="ast">${assists}</div>` : ''}</div>
       <span class="meta">${meta}</span>
+      ${g.highlight ? `<a class="play" href="${esc(g.highlight)}" target="_blank" rel="noopener" title="Watch ${esc(g.scorer.name)}'s goal on NHL.com" aria-label="Watch ${esc(g.scorer.name)}'s goal on NHL.com"></a>` : '<span></span>'}
     </div>`;
   }
-  return `<div class="goals">${html}</div>`;
+  return `<div class="goals">${html}</div>${videoLinksHtml(game)}`;
+}
+
+function videoLinksHtml(game) {
+  const links = [];
+  if (game.video?.recap) links.push(`<a href="${esc(game.video.recap)}" target="_blank" rel="noopener">Recap</a>`);
+  if (game.video?.condensed) links.push(`<a href="${esc(game.video.condensed)}" target="_blank" rel="noopener">Condensed game</a>`);
+  return links.length ? `<div class="videos">${links.join('')}</div>` : '';
 }
 
 function gameHtml(game) {

@@ -89,6 +89,23 @@ export function buildLinescore(g) {
   };
 }
 
+/**
+ * Official nhl.com video page for a clip, or null. Only https links on nhl.com are kept,
+ * because the page puts them in href attributes. Relative paths ("/video/...") are resolved.
+ */
+export function nhlVideoUrl(link) {
+  if (!link || typeof link !== 'string') return null;
+  try {
+    const u = new URL(link, 'https://www.nhl.com');
+    if (!/^(www\.)?nhl\.com$/.test(u.hostname)) return null;
+    u.protocol = 'https:';
+    u.hostname = 'www.nhl.com';
+    return u.href;
+  } catch {
+    return null;
+  }
+}
+
 function normalizeGoal(goal) {
   const strength = (goal.strength ?? 'ev').toUpperCase();
   const tags = [];
@@ -106,6 +123,7 @@ function normalizeGoal(goal) {
     assists: (goal.assists ?? []).map((a) => ({ id: a.playerId, name: t(a.name), assistsToDate: a.assistsToDate ?? null })),
     tags,
     score: { away: goal.awayScore, home: goal.homeScore },
+    highlight: nhlVideoUrl(goal.highlightClipSharingUrl),
   };
 }
 
@@ -134,6 +152,7 @@ export function normalizeGame(g) {
     home: normalizeTeam(g.homeTeam),
     linescore: buildLinescore(g),
     goals: (g.goals ?? []).map(normalizeGoal),
+    video: { recap: nhlVideoUrl(g.threeMinRecap), condensed: nhlVideoUrl(g.condensedGame) },
   };
 }
 
