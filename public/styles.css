@@ -54,12 +54,12 @@ table.ls { width: 100%; border-collapse: collapse; font-variant-numeric: tabular
 .no-goals { color: var(--muted); font-size: 13px; margin: 8px 0 0; }
 
 .goal .play { font-size: 0; }
-.lightbox { padding: 0; border: 0; border-radius: 12px; background: #000; color: #fff; width: min(960px, calc(100vw - 32px)); max-height: calc(100vh - 32px); overflow: hidden; }
+.lightbox { padding: 0; border: 0; border-radius: 12px; background: #000; color: #fff; width: min(calc(100vw - 32px), calc((100vh - 80px) * 16 / 9)); max-width: none; max-height: calc(100vh - 32px); overflow: hidden; }
 .lightbox::backdrop { background: rgba(0, 0, 0, .75); }
 .lb-head { display: flex; align-items: center; gap: 12px; padding: 8px 8px 8px 14px; }
 .lb-head h2 { flex: 1; margin: 0; font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .lb-head a { color: #9cc3ff; font-size: 13px; text-decoration: none; }
 .lb-head button { width: 32px; height: 32px; border: 0; border-radius: 50%; background: rgba(255,255,255,.12); color: #fff; font-size: 20px; line-height: 1; cursor: pointer; }
 .lb-head button:hover { background: rgba(255,255,255,.24); }
-.lb-frame { aspect-ratio: 16 / 9; max-height: calc(100vh - 80px); }
+.lb-frame { aspect-ratio: 16 / 9; }
 .lb-frame iframe { width: 100%; height: 100%; border: 0; display: block; }
