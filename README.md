@@ -6,7 +6,7 @@ Per-player NHL game scorecards that will roll up into season and career scores.
 
 The first piece is a scores page. Pick a date and see every game's linescore (goals by
 period, OT/SO when played, total, shots) and the goal scorers with assists.
-Live games refresh every 30 seconds.
+Live games refresh on their own (the hosted site updates about every 10 minutes).
 
 ## Hosting (GitHub Pages)
 
