@@ -1,0 +1,103 @@
+# Publishes the scores page to GitHub Pages.
+#   Production: main    -> https://<user>.github.io/hockey-visual/
+#   Test:       develop -> https://<user>.github.io/hockey-visual/test/
+# Scores are saved as JSON on the `scores-data` branch and refreshed on a schedule,
+# because GitHub Pages is static and the NHL API can't be called from a browser (no CORS).
+name: Publish site
+
+on:
+  push:
+    branches: [main, develop]
+  schedule:
+    # Every 10 minutes from 16:00 to 07:59 UTC (about noon to 3 AM Eastern), when games are on.
+    - cron: '*/10 16-23,0-7 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+  actions: write
+
+concurrency:
+  group: publish-site
+  cancel-in-progress: false
+
+jobs:
+  # The github-pages environment only accepts deploys from main, so a push to
+  # develop re-runs this workflow on main, which then builds both sites.
+  redirect:
+    if: github.ref != 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - run: gh workflow run publish.yml --repo "$GITHUB_REPOSITORY" --ref main
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+  publish:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          path: prod
+
+      - name: Check out develop for the test site, if it exists
+        id: dev
+        run: |
+          if git ls-remote --exit-code --heads "https://github.com/$GITHUB_REPOSITORY" develop >/dev/null; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@v4
+        if: steps.dev.outputs.exists == 'true'
+        with:
+          ref: develop
+          path: test
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Check out saved scores
+        env:
+          REMOTE: https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}
+        run: |
+          if ! git clone --quiet --depth 1 --branch scores-data "$REMOTE" data; then
+            git init --quiet -b scores-data data
+            git -C data remote add origin "$REMOTE"
+          fi
+
+      - name: Refresh scores from the NHL API
+        run: node prod/scripts/update-data.js data
+
+      - name: Save scores
+        working-directory: data
+        run: |
+          git add -A
+          if ! git diff --cached --quiet; then
+            git -c user.name="github-actions[bot]" -c user.email="41898333+github-actions[bot]@users.noreply.github.com" \
+              commit --quiet -m "Update scores"
+            git push --quiet origin scores-data
+          fi
+
+      - name: Assemble site
+        run: |
+          mkdir -p site/data
+          cp -r prod/public/. site/
+          cp -r data/scores data/latest.json site/data/
+          if [ -d test/public ]; then
+            mkdir -p site/test/data
+            cp -r test/public/. site/test/
+            cp -r data/scores data/latest.json site/test/data/
+          fi
+          touch site/.nojekyll
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - id: deploy
+        uses: actions/deploy-pages@v4
