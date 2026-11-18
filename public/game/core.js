@@ -1,0 +1,217 @@
+// Shared helpers for the box score designs.
+
+export const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+
+// Primary and secondary colors per team (approximate, for accents only).
+const TEAM_COLORS = {
+  ANA: ['#F47A38', '#B9975B'], BOS: ['#FFB81C', '#111111'], BUF: ['#003087', '#FFB81C'], CGY: ['#C8102E', '#F1BE48'],
+  CAR: ['#CE1126', '#111111'], CHI: ['#CF0A2C', '#111111'], COL: ['#6F263D', '#236192'], CBJ: ['#002654', '#CE1126'],
+  DAL: ['#006847', '#8F8F8C'], DET: ['#CE1126', '#8a8a8a'], EDM: ['#041E42', '#FF4C00'], FLA: ['#C8102E', '#041E42'],
+  LAK: ['#111111', '#A2AAAD'], MIN: ['#154734', '#A6192E'], MTL: ['#AF1E2D', '#192168'], NSH: ['#FFB81C', '#041E42'],
+  NJD: ['#CE1126', '#111111'], NYI: ['#00539B', '#F47D30'], NYR: ['#0038A8', '#CE1126'], OTT: ['#DA1A32', '#B79257'],
+  PHI: ['#F74902', '#111111'], PIT: ['#FCB514', '#111111'], SJS: ['#006D75', '#EA7200'], SEA: ['#001628', '#68A2B9'],
+  STL: ['#002F87', '#FCB514'], TBL: ['#002868', '#8a9bb8'], TOR: ['#00205B', '#8a9bb8'], UTA: ['#6CACE4', '#010101'],
+  VAN: ['#00205B', '#00843D'], VGK: ['#B4975A', '#333F42'], WSH: ['#C8102E', '#041E42'], WPG: ['#041E42', '#004C97'],
+};
+
+const hex = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+const dist = (a, b) => Math.hypot(...hex(a).map((v, i) => v - hex(b)[i]));
+
+const luminance = (h) => hex(h).reduce((acc, v, i) => acc + [0.2126, 0.7152, 0.0722][i] * (v / 255), 0);
+const lighten = (h, amt) => `#${hex(h).map((v) => Math.round(v + (255 - v) * amt).toString(16).padStart(2, '0')).join('')}`;
+
+/**
+ * { away, home } accent colors that are distinguishable from each other.
+ * With { dark: true }, very dark colors (navy, black) are lifted so they show on a dark page.
+ */
+export function teamColors(game, { dark = false } = {}) {
+  const a = TEAM_COLORS[game.away.abbrev] ?? ['#4b5563', '#9ca3af'];
+  const h = TEAM_COLORS[game.home.abbrev] ?? ['#1f2937', '#6b7280'];
+  let away = a[0];
+  let home = dist(a[0], h[0]) < 90 ? h[1] : h[0];
+  if (dark) {
+    const lift = (c) => (luminance(c) < 0.12 ? lighten(c, 0.35) : c);
+    away = lift(away);
+    home = lift(home);
+    if (dist(away, home) < 90) home = lift(h[1]);
+  }
+  return { away, home, awayAlt: a[1], homeAlt: h[1], awayBase: a[0], homeBase: dist(a[0], h[0]) < 90 ? h[1] : h[0] };
+}
+
+export function logo(team, cls = 'logo', dark = false) {
+  const src = dark && team.darkLogo ? team.darkLogo : team.logo;
+  if (!src) return `<span class="${cls} logo-fallback">${esc(team.abbrev)}</span>`;
+  return `<img class="${cls}" src="${esc(src)}" alt="${esc(team.abbrev)}" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'${cls} logo-fallback',textContent:'${esc(team.abbrev)}'}))">`;
+}
+
+const initials = (name) => String(name ?? '').split(/\s+/).map((w) => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
+
+export function headshot(p, cls = 'mug') {
+  const fallback = `<span class="${cls} mug-fallback">${esc(initials(p.fullName ?? p.name))}</span>`;
+  if (!p.headshot) return fallback;
+  return `<img class="${cls}" src="${esc(p.headshot)}" alt="" loading="lazy" onerror="this.outerHTML=this.dataset.fb" data-fb="${esc(fallback)}">`;
+}
+
+export const signed = (n) => (n > 0 ? `+${n}` : String(n));
+export const pct = (v, d = 3) => (v == null ? '-' : v.toFixed(d).replace(/^0/, ''));
+
+export function statusText(game) {
+  if (game.status.state === 'pre') {
+    return new Date(game.startTimeUTC).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit', timeZoneName: 'short' });
+  }
+  return game.status.label;
+}
+
+export function prettyDate(iso, opts = { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }) {
+  return new Date(`${iso}T12:00:00Z`).toLocaleDateString(undefined, { ...opts, timeZone: 'UTC' });
+}
+
+export const skaters = (game, side) => [...game.players[side].forwards, ...game.players[side].defense];
+export const goaliesOf = (game, side) => [...game.players[side].goalies].sort((a, b) => b.starter - a.starter || b.toiSeconds - a.toiSeconds);
+export const allSkaters = (game) => [
+  ...skaters(game, 'away').map((p) => ({ ...p, side: 'away', team: game.away.abbrev })),
+  ...skaters(game, 'home').map((p) => ({ ...p, side: 'home', team: game.home.abbrev })),
+];
+export const allGoalies = (game) => [
+  ...goaliesOf(game, 'away').map((p) => ({ ...p, side: 'away', team: game.away.abbrev })),
+  ...goaliesOf(game, 'home').map((p) => ({ ...p, side: 'home', team: game.home.abbrev })),
+].filter((g) => g.played);
+
+export const sideOf = (game, abbrev) => (abbrev === game.away.abbrev ? 'away' : 'home');
+
+/** Goals and penalties in game order. */
+export function timeline(game) {
+  const order = (period) => (period === 'SO' ? 99 : period === 'OT' ? 4 : /OT$/.test(period) ? 3 + Number(period.slice(0, -2)) : Number(period));
+  const secs = (t) => t.split(':').reduce((m, s) => m * 60 + Number(s), 0);
+  const items = [
+    ...game.scoring.map((g) => ({ kind: 'goal', ...g })),
+    ...game.penalties.map((p) => ({ kind: 'penalty', ...p })),
+  ];
+  return items.sort((a, b) => order(a.period) - order(b.period) || secs(a.time) - secs(b.time) || (a.kind === 'goal' ? -1 : 1));
+}
+
+/** Elapsed game seconds for a period label + clock time. */
+export function elapsed(period, time) {
+  const n = period === 'OT' ? 4 : /OT$/.test(period) ? 3 + Number(period.slice(0, -2)) : Number(period);
+  const [m, s] = time.split(':').map(Number);
+  return (n - 1) * 1200 + m * 60 + s;
+}
+
+// Videos play in a lightbox using NHL's public Brightcove embed player (same as the scores page).
+const BRIGHTCOVE_PLAYER = 'https://players.brightcove.net/6415718365001/EXtG1xJ7H_default/index.html';
+
+export function videoButton(id, title, text, cls = 'vid', href = '') {
+  if (!id) return '';
+  return `<a class="${cls}" href="${esc(href || `https://www.nhl.com/video/${id}`)}" data-video-id="${esc(id)}" data-video-title="${esc(title)}" title="${esc(title)}" aria-label="${esc(title)}">${text}</a>`;
+}
+
+export function initVideo(root) {
+  const lb = document.querySelector('#lightbox');
+  const frame = document.querySelector('#lightbox-frame');
+  root.addEventListener('click', (e) => {
+    const link = e.target.closest('a[data-video-id]');
+    if (!link || e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+    e.preventDefault();
+    frame.innerHTML = `<iframe src="${BRIGHTCOVE_PLAYER}?videoId=${encodeURIComponent(link.dataset.videoId)}&autoplay=true" title="${esc(link.dataset.videoTitle)}" allow="autoplay; fullscreen; encrypted-media; picture-in-picture" allowfullscreen></iframe>`;
+    document.querySelector('#lightbox-title').textContent = link.dataset.videoTitle;
+    document.querySelector('#lightbox-nhl').href = link.href;
+    lb.showModal();
+  });
+  document.querySelector('#lightbox-close').addEventListener('click', () => lb.close());
+  lb.addEventListener('click', (e) => e.target === lb && lb.close());
+  lb.addEventListener('close', () => { frame.innerHTML = ''; });
+}
+
+/** Rink outline as SVG markup in rink feet: x -100..100, y -42.5..42.5. Use viewBox "-100 -42.5 200 85". */
+let rinkId = 0;
+export function rinkMarkup() {
+  const id = `rink-clip-${++rinkId}`;
+  const circles = [-69, 69].flatMap((x) => [-22, 22].map((y) => `<circle class="circle" cx="${x}" cy="${y}" r="15"/><circle class="dot" cx="${x}" cy="${y}" r="1"/>`)).join('');
+  const dots = [-20, 20].flatMap((x) => [-22, 22].map((y) => `<circle class="dot" cx="${x}" cy="${y}" r="1"/>`)).join('');
+  return `
+    <clipPath id="${id}"><rect x="-100" y="-42.5" width="200" height="85" rx="28" ry="28"/></clipPath>
+    <g class="rink" clip-path="url(#${id})">
+      <rect class="ice" x="-100" y="-42.5" width="200" height="85"/>
+      <line class="red" x1="0" y1="-42.5" x2="0" y2="42.5"/>
+      <line class="blue" x1="-25" y1="-42.5" x2="-25" y2="42.5"/>
+      <line class="blue" x1="25" y1="-42.5" x2="25" y2="42.5"/>
+      <line class="goal-line" x1="-89" y1="-42.5" x2="-89" y2="42.5"/>
+      <line class="goal-line" x1="89" y1="-42.5" x2="89" y2="42.5"/>
+      <circle class="circle" cx="0" cy="0" r="15"/>
+      ${circles}${dots}
+      <path class="crease" d="M -89 -4 L -85 -4 A 4 4 0 0 1 -85 4 L -89 4 Z"/>
+      <path class="crease" d="M 89 -4 L 85 -4 A 4 4 0 0 0 85 4 L 89 4 Z"/>
+      <rect class="net" x="-92" y="-3" width="3" height="6"/>
+      <rect class="net" x="89" y="-3" width="3" height="6"/>
+    </g>
+    <rect class="boards" x="-100" y="-42.5" width="200" height="85" rx="28" ry="28"/>`;
+}
+
+/** Small "shots by type" glyph for a shot on the rink. */
+export function shotMark(s, color, r = 2.2) {
+  const y = -s.y;
+  const tip = `${s.kind === 'goal' ? 'Goal' : s.kind === 'sog' ? 'Shot on goal' : s.kind === 'miss' ? 'Missed' : 'Blocked'} · ${s.period === 'OT' ? 'OT' : `P${s.period}`} ${s.time}${s.shotType ? ` · ${s.shotType}` : ''}`;
+  if (s.kind === 'goal') return `<circle class="shot goal" cx="${s.x}" cy="${y}" r="${r * 1.35}" fill="${color}" stroke="#fff" stroke-width="0.7"><title>${esc(tip)}</title></circle>`;
+  if (s.kind === 'sog') return `<circle class="shot sog" cx="${s.x}" cy="${y}" r="${r}" fill="none" stroke="${color}" stroke-width="0.9"><title>${esc(tip)}</title></circle>`;
+  if (s.kind === 'miss') return `<g class="shot miss" stroke="${color}" stroke-width="0.7" opacity=".75"><path d="M${s.x - r * 0.7} ${y - r * 0.7} l${r * 1.4} ${r * 1.4} M${s.x + r * 0.7} ${y - r * 0.7} l${-r * 1.4} ${r * 1.4}"/><title>${esc(tip)}</title></g>`;
+  return `<rect class="shot block" x="${s.x - r * 0.6}" y="${y - r * 0.6}" width="${r * 1.2}" height="${r * 1.2}" fill="${color}" opacity=".45"><title>${esc(tip)}</title></rect>`;
+}
+
+/** Make every table.sortable sortable by clicking its headers (numbers sort high to low first). */
+export function makeSortable(root) {
+  root.querySelectorAll('table.sortable').forEach((table) => {
+    table.querySelectorAll('thead th[data-sort]').forEach((th) => {
+      th.tabIndex = 0;
+      const sort = () => {
+        const col = [...th.parentNode.children].indexOf(th);
+        const body = table.tBodies[0];
+        const dir = th.dataset.dir === 'desc' ? 'asc' : 'desc';
+        table.querySelectorAll('th[data-dir]').forEach((x) => delete x.dataset.dir);
+        th.dataset.dir = dir;
+        const val = (tr) => {
+          const cell = tr.children[col];
+          const v = cell?.dataset.v ?? cell?.textContent ?? '';
+          const n = Number(v);
+          return Number.isNaN(n) || v === '' ? v : n;
+        };
+        const rows = [...body.rows].sort((a, b) => {
+          const x = val(a);
+          const y = val(b);
+          const c = typeof x === 'number' && typeof y === 'number' ? x - y : String(x).localeCompare(String(y));
+          return dir === 'desc' ? -c : c;
+        });
+        rows.forEach((r) => body.appendChild(r));
+      };
+      th.addEventListener('click', sort);
+      th.addEventListener('keydown', (e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), sort()));
+    });
+  });
+}
+
+/** Wire up [data-tabs] groups: buttons with data-tab="x" show the [data-panel="x"] siblings. */
+export function makeTabs(root) {
+  root.querySelectorAll('[data-tabs]').forEach((group) => {
+    const scope = group.closest('[data-tab-scope]') ?? root;
+    const name = group.dataset.tabs;
+    group.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-tab]');
+      if (!btn) return;
+      group.querySelectorAll('[data-tab]').forEach((b) => b.setAttribute('aria-selected', String(b === btn)));
+      scope.querySelectorAll(`[data-panel-group="${name}"]`).forEach((p) => { p.hidden = p.dataset.panel !== btn.dataset.tab; });
+    });
+  });
+}
+
+/** Color for a 3-10 rating: red → amber → green → blue. */
+export function ratingColor(r) {
+  if (r >= 8.5) return '#2563eb';
+  if (r >= 7.3) return '#16a34a';
+  if (r >= 6.6) return '#65a30d';
+  if (r >= 6.0) return '#ca8a04';
+  if (r >= 5.3) return '#ea580c';
+  return '#dc2626';
+}
+
+export const GS_PARTS = [
+  ['scoring', 'Scoring'], ['shooting', 'Shots'], ['onIce', 'On-ice +/-'], ['defense', 'Blocks'], ['discipline', 'Penalties'], ['faceoffs', 'Faceoffs'],
+];

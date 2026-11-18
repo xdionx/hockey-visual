@@ -6,9 +6,13 @@
 // after the NHL's current date, plus <outDir>/latest.json ({ date }) so the page
 // knows what "today" is. Dates already saved are skipped unless they are recent
 // (the last 2 days or later), so a scheduled run only re-fetches what can change.
+//
+// Also writes <outDir>/games/<gameId>.json (the box score) for every game that has
+// started. Finished games already saved are skipped.
 import { mkdir, readFile, writeFile, access } from 'node:fs/promises';
 import { join } from 'node:path';
-import { getScoreboard } from '../src/nhlApi.js';
+import { getScoreboard, getGameDetailRaw } from '../src/nhlApi.js';
+import { normalizeGameDetail } from '../src/gameDetail.js';
 import { normalizeScoreboard } from '../src/normalize.js';
 
 const args = process.argv.slice(2);
@@ -54,4 +58,27 @@ for (let date = from; date <= until; date = shift(date, 1)) {
 }
 if (await writeIfChanged(join(outDir, 'latest.json'), { date: today })) changed++;
 
-console.log(`NHL date ${today}: fetched ${fetched} days, ${changed} files changed`);
+// Box scores for every game that has started, up to today.
+await mkdir(join(outDir, 'games'), { recursive: true });
+let boxFetched = 0;
+let boxFailed = 0;
+for (let date = from; date <= today; date = shift(date, 1)) {
+  const day = JSON.parse(await readFile(join(outDir, 'scores', `${date}.json`), 'utf8').catch(() => 'null'));
+  for (const game of day?.games ?? []) {
+    if (game.status.state === 'pre' || game.status.state === 'postponed') continue;
+    const file = join(outDir, 'games', `${game.id}.json`);
+    const saved = JSON.parse(await readFile(file, 'utf8').catch(() => 'null'));
+    if (saved?.status?.state === 'final' && date < refreshFrom) continue;
+    await new Promise((r) => setTimeout(r, 300));
+    try {
+      const detail = normalizeGameDetail(await getGameDetailRaw(game.id));
+      boxFetched++;
+      if (await writeIfChanged(file, detail)) changed++;
+    } catch (err) {
+      boxFailed++;
+      console.warn(`Box score ${game.id} failed: ${err.message}`);
+    }
+  }
+}
+
+console.log(`NHL date ${today}: fetched ${fetched} days and ${boxFetched} box scores (${boxFailed} failed), ${changed} files changed`);

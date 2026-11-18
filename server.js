@@ -7,7 +7,8 @@ import http from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { getScoreboard } from './src/nhlApi.js';
+import { getScoreboard, getGameDetailRaw } from './src/nhlApi.js';
+import { normalizeGameDetail } from './src/gameDetail.js';
 import { normalizeScoreboard } from './src/normalize.js';
 
 const PORT = Number(process.env.PORT) || 3000;
@@ -28,6 +29,8 @@ const server = http.createServer(async (req, res) => {
     }
     const m = url.pathname.match(/^\/data\/scores\/(\d{4}-\d{2}-\d{2})\.json$/);
     if (m) return sendJson(res, 200, normalizeScoreboard(await getScoreboard(m[1])));
+    const g = url.pathname.match(/^\/data\/games\/(\d{10})\.json$/);
+    if (g) return sendJson(res, 200, normalizeGameDetail(await getGameDetailRaw(g[1])));
 
     const rel = url.pathname === '/' ? 'index.html' : url.pathname.slice(1);
     const file = normalize(join(PUBLIC, rel));

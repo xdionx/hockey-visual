@@ -8,6 +8,24 @@ The first piece is a scores page. Pick a date and see every game's linescore (go
 period, OT/SO when played, total, shots) and the goal scorers with assists.
 Live games refresh on their own (the hosted site updates about every 10 minutes).
 
+## Box scores
+
+Each live or finished game on the scores page has a **Box score** button that opens
+`game.html?id=<gameId>`. The box score comes in five designs to compare; switch with
+the bar at the top, keys 1-5, or `&design=<name>` in the URL (the choice is remembered):
+
+| # | Design | Idea |
+| --- | --- | --- |
+| 1 | `classic` | Dense one-page box score with sortable tables (ESPN / CBS Sports feel) |
+| 2 | `broadcast` | Dark on-air look: team-color hero, game flow, three stars podium (TSN / NHL broadcasts) |
+| 3 | `cards` | Rounded tabbed cards: summary timeline, players, team stats (Google results) |
+| 4 | `analytics` | Shot map, shot-attempt flow, heat-mapped skater table (HockeyStats / NHL EDGE) |
+| 5 | `scorecards` | A card per player with a 3-10 rating and the Game Score parts behind it (start of the player scorecard) |
+
+Data: `src/gameDetail.js` combines the `boxscore`, `landing`, `right-rail` and
+`play-by-play` endpoints into `data/games/<gameId>.json`, including every shot's
+rink location and a Game Score per player (on-ice impact uses +/- until shift data is added).
+
 ## Hosting (GitHub Pages)
 
 | Site | Branch | URL |
@@ -54,7 +72,8 @@ so you don't need to run the data script. Open
 | `src/normalize.js` | Pure functions that turn raw API games into `{ status, away, home, linescore, goals }`. Reusable by later scorecard / season / career code. |
 | `scripts/update-data.js` | Saves score files for the hosted site. |
 | `server.js` | Local dev server. Zero dependencies. |
-| `public/` | The page: `index.html`, `app.js`, `styles.css`. |
+| `src/gameDetail.js` | Pure function that builds one game's box score (players, shots, game scores). |
+| `public/` | Scores page (`index.html`, `app.js`, `styles.css`) and box score page (`game.html`, `game/`: one file per design). |
 | `test/` | `node --test` tests against a saved real-game fixture (regulation, OT, shootout). |
 
 ## NHL API notes

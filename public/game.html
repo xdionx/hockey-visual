@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Box score</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap">
+  <link rel="stylesheet" href="game/game.css">
+</head>
+<body>
+  <header class="bar">
+    <a class="back" id="back" href="./">&#8249; Scores</a>
+    <nav class="switcher" aria-label="Box score design" id="switcher"></nav>
+  </header>
+  <main id="box" aria-live="polite"><p class="msg">Loading…</p></main>
+  <dialog id="lightbox" class="lightbox" aria-labelledby="lightbox-title">
+    <div class="lb-head">
+      <h2 id="lightbox-title"></h2>
+      <a id="lightbox-nhl" href="#" target="_blank" rel="noopener">NHL.com</a>
+      <button id="lightbox-close" type="button" aria-label="Close video">&times;</button>
+    </div>
+    <div id="lightbox-frame" class="lb-frame"></div>
+  </dialog>
+  <script type="module" src="game/game.js"></script>
+</body>
+</html>

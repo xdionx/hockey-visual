@@ -106,6 +106,7 @@ function videoLinksHtml(game) {
 
 function gameHtml(game) {
   const ls = game.linescore;
+  const hasBox = game.status.state === 'live' || game.status.state === 'final';
   const head = ls.periods.map((p) => `<th>${esc(p.label)}</th>`).join('');
   return `<article class="game">
     <div class="status ${game.status.state}"><span class="label">${esc(statusText(game))}</span><span class="venue">${esc(game.venue)}</span></div>
@@ -114,6 +115,7 @@ function gameHtml(game) {
       <tbody>${teamRow(game, 'away')}${teamRow(game, 'home')}</tbody>
     </table>
     ${goalsHtml(game)}
+    ${hasBox ? `<a class="box-btn" href="game.html?id=${game.id}" aria-label="Box score: ${esc(game.away.abbrev)} at ${esc(game.home.abbrev)}">Box score &#8250;</a>` : ''}
   </article>`;
 }
 
