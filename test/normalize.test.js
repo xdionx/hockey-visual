@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { normalizeGame, normalizeScoreboard, nhlVideoUrl, periodLabel } from '../src/normalize.js';
+import { normalizeGame, normalizeScoreboard, nhlVideoUrl, periodLabel, videoId } from '../src/normalize.js';
 
 const raw = JSON.parse(readFileSync(new URL('./fixtures/score-sample.json', import.meta.url)));
 const board = normalizeScoreboard(raw);
@@ -53,7 +53,11 @@ test('goal highlight and game video links point at nhl.com video pages', () => {
     ],
   });
   assert.equal(g.goals[0].highlight, 'https://www.nhl.com/video/mtl-nyr-danault-scores-goal-against-joonas-korpisalo-6408476888112');
+  assert.equal(g.goals[0].highlightId, '6408476888112');
   assert.equal(g.goals[1].highlight, null);
+  assert.equal(g.goals[1].highlightId, null);
+  assert.equal(g.video.recapId, '6408478745112');
+  assert.equal(g.video.condensedId, '6408479231112');
   assert.equal(g.video.recap, 'https://www.nhl.com/video/mtl-at-nyr-recap-6408478745112');
   assert.equal(g.video.condensed, 'https://www.nhl.com/video/mtl-at-nyr-condensed-game-6408479231112');
 });
@@ -63,4 +67,10 @@ test('video links outside nhl.com are dropped', () => {
   assert.equal(nhlVideoUrl('https://evil.example/video/x'), null);
   assert.equal(nhlVideoUrl('http://nhl.com/video/x'), 'https://www.nhl.com/video/x');
   assert.equal(nhlVideoUrl(undefined), null);
+});
+
+test('video ids come from the id field or the URL tail, digits only', () => {
+  assert.equal(videoId(6408476888112, null), '6408476888112');
+  assert.equal(videoId(null, '/video/x-recap-6408478745112'), '6408478745112');
+  assert.equal(videoId('6408"><script>', '/video/nope'), null);
 });

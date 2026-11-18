@@ -106,6 +106,13 @@ export function nhlVideoUrl(link) {
   }
 }
 
+/** Brightcove video id: the numeric id field, else the trailing number of an nhl.com video URL. */
+export function videoId(id, link) {
+  if (id != null && /^\d{6,20}$/.test(String(id))) return String(id);
+  const m = typeof link === 'string' ? link.match(/-(\d{6,20})\/?$/) : null;
+  return m ? m[1] : null;
+}
+
 function normalizeGoal(goal) {
   const strength = (goal.strength ?? 'ev').toUpperCase();
   const tags = [];
@@ -124,6 +131,7 @@ function normalizeGoal(goal) {
     tags,
     score: { away: goal.awayScore, home: goal.homeScore },
     highlight: nhlVideoUrl(goal.highlightClipSharingUrl),
+    highlightId: videoId(goal.highlightClip, goal.highlightClipSharingUrl),
   };
 }
 
@@ -152,7 +160,12 @@ export function normalizeGame(g) {
     home: normalizeTeam(g.homeTeam),
     linescore: buildLinescore(g),
     goals: (g.goals ?? []).map(normalizeGoal),
-    video: { recap: nhlVideoUrl(g.threeMinRecap), condensed: nhlVideoUrl(g.condensedGame) },
+    video: {
+      recap: nhlVideoUrl(g.threeMinRecap),
+      recapId: videoId(null, g.threeMinRecap),
+      condensed: nhlVideoUrl(g.condensedGame),
+      condensedId: videoId(null, g.condensedGame),
+    },
   };
 }
 

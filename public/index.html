@@ -18,6 +18,14 @@
     <p id="dateLabel" class="date-label"></p>
   </header>
   <main id="games" aria-live="polite"></main>
+  <dialog id="lightbox" class="lightbox" aria-labelledby="lightbox-title">
+    <div class="lb-head">
+      <h2 id="lightbox-title"></h2>
+      <a id="lightbox-nhl" href="#" target="_blank" rel="noopener">NHL.com</a>
+      <button id="lightbox-close" type="button" aria-label="Close video">&times;</button>
+    </div>
+    <div id="lightbox-frame" class="lb-frame"></div>
+  </dialog>
   <script type="module" src="app.js"></script>
 </body>
 </html>
