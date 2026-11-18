@@ -1,0 +1,12 @@
+{
+  "name": "nhl-scorecards",
+  "version": "0.1.0",
+  "private": true,
+  "description": "NHL scores page (first piece of per-player game scorecards)",
+  "type": "module",
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test"
+  }
+}
