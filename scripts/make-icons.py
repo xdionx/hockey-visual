@@ -13,14 +13,14 @@ BG, RED, PINK = '#0a0e17', '#e11d48', '#fb7185'
 
 ART = f'''
 <g>
-  <!-- momentum meter: five bars on one baseline, each taller than the last -->
-  <rect x="92" y="312" width="52" height="80" rx="16" fill="{PINK}" opacity="0.6"/>
-  <rect x="162" y="252" width="52" height="140" rx="16" fill="{RED}" opacity="0.8"/>
-  <rect x="232" y="192" width="52" height="200" rx="16" fill="{RED}" opacity="0.9"/>
-  <rect x="302" y="132" width="52" height="260" rx="16" fill="{RED}" opacity="1"/>
-  <rect x="372" y="72" width="52" height="320" rx="16" fill="{RED}" opacity="1"/>
+  <!-- momentum meter: five bars lined up on the left, longest on top, each shorter than the last -->
+  <rect x="56" y="112" width="400" height="40" rx="20" fill="{RED}" opacity="1"/>
+  <rect x="56" y="170" width="330" height="40" rx="20" fill="{RED}" opacity="1"/>
+  <rect x="56" y="228" width="260" height="40" rx="20" fill="{RED}" opacity="0.9"/>
+  <rect x="56" y="286" width="190" height="40" rx="20" fill="{RED}" opacity="0.8"/>
+  <rect x="56" y="344" width="120" height="40" rx="20" fill="{PINK}" opacity="0.6"/>
   <!-- puck, 3in wide x 1in thick, rounded edge, in front of the meter -->
-  <g transform="translate(244 304) scale(.82) translate(-366 -232)">
+  <g transform="translate(290 318) scale(.84) translate(-366 -232)">
     <path d="M244 232 V304 A122 42 0 0 0 488 304 V232 Z" fill="#94a3b8"/>
     <ellipse cx="366" cy="232" rx="122" ry="42" fill="#cbd5e1"/>
     <ellipse cx="366" cy="229" rx="113" ry="37" fill="#f8fafc"/>
@@ -42,8 +42,8 @@ def svg(kind):
 
 # The small favicon drops detail: just the puck and two bold streaks so it reads at 16px.
 FAV = f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="{BG}"/>
-<rect x="9" y="38" width="8" height="12" rx="3" fill="{PINK}" opacity=".7"/><rect x="19" y="29" width="8" height="21" rx="3" fill="{RED}"/><rect x="29" y="20" width="8" height="30" rx="3" fill="{RED}"/><rect x="39" y="11" width="8" height="39" rx="3" fill="{RED}"/><rect x="49" y="6" width="7" height="44" rx="3" fill="{RED}"/>
-<path d="M12 41 V47 A16 6 0 0 0 44 47 V41 Z" fill="#94a3b8"/><ellipse cx="28" cy="41" rx="16" ry="6" fill="#cbd5e1"/><ellipse cx="28" cy="40.4" rx="14.6" ry="5.2" fill="#f8fafc"/></svg>
+<rect x="7" y="9" width="52" height="6" rx="3" fill="{RED}"/><rect x="7" y="18" width="46" height="6" rx="3" fill="{RED}"/><rect x="7" y="27" width="36" height="6" rx="3" fill="{RED}"/><rect x="7" y="36" width="26" height="6" rx="3" fill="{RED}"/><rect x="7" y="45" width="16" height="6" rx="3" fill="{PINK}" opacity=".7"/>
+<path d="M21 36 V43 A17 6 0 0 0 55 43 V36 Z" fill="#94a3b8"/><ellipse cx="38" cy="36" rx="17" ry="6" fill="#cbd5e1"/><ellipse cx="38" cy="35.4" rx="15.6" ry="5.2" fill="#f8fafc"/></svg>
 '''
 
 files = {'icon.svg': svg('any'), 'icon-full.svg': svg('full'), 'icon-maskable.svg': svg('maskable'), 'favicon.svg': FAV}
