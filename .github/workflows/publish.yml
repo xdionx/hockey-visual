@@ -106,6 +106,11 @@ jobs:
         env:
           LIVE_API_URL: ${{ vars.LIVE_API_URL }}
 
+      - name: Stamp scripts and styles with the commit, so browsers pick up each deploy
+        run: |
+          node prod/scripts/stamp-assets.js site "$(git -C prod rev-parse --short HEAD)" test
+          if [ -d site/test ]; then node prod/scripts/stamp-assets.js site/test "$(git -C test rev-parse --short HEAD)"; fi
+
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site

@@ -52,7 +52,7 @@ export function shotMap(game, c) {
     <div class="a-rinkwrap"><span class="a-att" style="color:${c.away}">&#9664; ${esc(game.away.abbrev)} attacking</span><span class="a-att r" style="color:${c.home}">${esc(game.home.abbrev)} attacking &#9654;</span>
       <svg class="a-rink" viewBox="-101 -43.5 202 87" role="img" aria-label="Shot locations">${rinkMarkup()}<clipPath id="a-zone-clip"><rect x="-100" y="-42.5" width="200" height="85" rx="28" ry="28"/></clipPath><g id="a-zones" clip-path="url(#a-zone-clip)"></g><g id="a-shots"></g><g id="a-zone-labels"></g></svg></div>
     <div class="a-legend" id="a-dot-legend"><span><svg viewBox="-3 -3 6 6"><circle r="2.6" fill="currentColor"/></svg>Goal</span><span><svg viewBox="-3 -3 6 6"><circle r="2" fill="none" stroke="currentColor" stroke-width=".9"/></svg>On goal</span><span><svg viewBox="-3 -3 6 6"><path d="M-1.6-1.6l3.2 3.2M1.6-1.6l-3.2 3.2" stroke="currentColor" stroke-width=".8"/></svg>Missed</span><span><svg viewBox="-3 -3 6 6"><rect x="-1.4" y="-1.4" width="2.8" height="2.8" fill="currentColor" opacity=".5"/></svg>Blocked</span><span><svg viewBox="-3 -3 6 6"><path d="M-2.5 2V-2H2.5" fill="none" stroke="#facc15" stroke-width=".6" stroke-dasharray="1 .8"/></svg>Home plate (1.5x)</span></div>
-    <p class="a-zone-key" id="a-zone-key" hidden>Big number = shot attempts in the zone. <b>S</b> on goal (including goals), <b>M</b> missed, <b>B</b> blocked. <b>Home plate</b> (yellow outline) is the most dangerous area to shoot from: posts to faceoff dots to the top of the circles. Attempts there count 1.5x toward momentum and on-ice shot share. Discs are goals, numbered with the scorer's sweater number: hover for the scorer, assists and goalie, click to watch the highlight.</p>
+    <p class="a-zone-key" id="a-zone-key" hidden>Big number = shot attempts in the zone, with goals in yellow. Below it: <b>SOG</b> on goal (including goals), <b>MISS</b> missed the net, <b>BLK</b> blocked. <b>Home plate</b> (yellow outline) is the most dangerous area to shoot from: posts to faceoff dots to the top of the circles. Attempts there count 1.5x toward momentum and on-ice shot share. Discs are goals, numbered with the scorer's sweater number: hover for the scorer, assists and goalie, click to watch the highlight.</p>
     <div id="a-zone-table" hidden></div>
   </section>`;
 }
@@ -162,18 +162,23 @@ function zoneLayer(game, shots, team, color) {
     const [cx, cy] = P(anchor);
     const plate = k === 'home-plate';
     out.rects += `<polygon class="a-zone${plate ? ' plate-zone' : ''}" points="${pts.map(P).map((p) => p.join(',')).join(' ')}" fill="${color}" fill-opacity="${op.toFixed(2)}" stroke="${plate ? '#facc15' : 'rgba(255,255,255,.25)'}" stroke-width="${plate ? 0.7 : 0.4}"><title>${esc(`${label}: ${n.att} attempts, ${n.goals} goals`)}</title></polygon>`;
-    // Labels sit above the goal dots so the counts stay readable.
+    // Label block: zone name, attempts (with goals), then the attempt types. Goal discs sit underneath.
     const goals = shots.filter((x) => x.kind === 'goal' && x.zone === k);
-    const ny = n.att && tall ? cy - (goals.length ? 3.6 : 2) : cy;
-    out.labels += `<text x="${cx}" y="${ny}" text-anchor="middle" dominant-baseline="middle" class="a-zone-n${n.att ? '' : ' zero'}">${n.att}${n.goals ? `<tspan class="a-zone-g"> · ${n.goals}G</tspan>` : ''}</text>`;
-    // Attempt types under the total: S on goal (incl. goals), M missed, B blocked.
-    if (n.att && tall) out.labels += `<text x="${cx}" y="${goals.length ? cy + 1.6 : cy + 3.6}" text-anchor="middle" dominant-baseline="middle" class="a-zone-k"><tspan>S</tspan>${n.sog} <tspan>M</tspan>${n.miss} <tspan>B</tspan>${n.block}</text>`;
+    const zero = n.att ? '' : ' zero';
+    if (tall) {
+      const top = cy - (goals.length ? 7.5 : 5);
+      out.labels += `<text x="${cx}" y="${top}" text-anchor="middle" class="a-zone-l${zero}">${esc(label.toUpperCase())}</text>`;
+      out.labels += `<text x="${cx}" y="${top + 6.4}" text-anchor="middle" class="a-zone-n${zero}">${n.att}${n.goals ? `<tspan class="a-zone-g" dx="1.2">${n.goals}G</tspan>` : ''}</text>`;
+      if (n.att) out.labels += `<text x="${cx}" y="${top + 10.2}" text-anchor="middle" class="a-zone-k">${n.sog}<tspan> SOG</tspan><tspan class="sep"> · </tspan>${n.miss}<tspan> MISS</tspan><tspan class="sep"> · </tspan>${n.block}<tspan> BLK</tspan></text>`;
+    } else {
+      out.labels += `<text x="${cx}" y="${cy + 2}" text-anchor="middle" class="a-zone-n sm${zero}">${n.att}${n.goals ? `<tspan class="a-zone-g" dx="0.8">${n.goals}G</tspan>` : ''}</text>`;
+    }
     // Goals sit in their zone as a row of scorer-number discs (two rows when there are many).
     const perRow = plate ? 5 : 4;
     goals.forEach((g, i) => {
       const row = Math.floor(i / perRow);
       const inRow = Math.min(perRow, goals.length - row * perRow);
-      out.goals += goalMark(game, g, color, 1.9, [cx + ((i % perRow) - (inRow - 1) / 2) * 4.3, (tall ? cy + 6 : cy + 4) + row * 4.3]);
+      out.goals += goalMark(game, g, color, 1.9, [cx + ((i % perRow) - (inRow - 1) / 2) * 4.3, (tall ? cy + 6.2 : cy + 5) + row * 4.3]);
     });
   }
   return out;

@@ -235,8 +235,8 @@ main { padding: 0 0 48px; }
 .a-seg { display: flex; background: #0a0e17; border: 1px solid var(--a-line); border-radius: 6px; padding: 2px; }
 .a-seg button { border: 0; background: none; color: var(--a-mute); padding: 3px 9px; border-radius: 4px; font-size: 12px; cursor: pointer; font-family: "JetBrains Mono", monospace; }
 .a-seg button[aria-pressed="true"] { background: #1e293b; color: var(--a-ink); }
-.a-rinkwrap { position: relative; }
-.a-att { position: absolute; top: -2px; left: 4px; font-size: 11px; font-weight: 600; z-index: 1; }
+.a-rinkwrap { position: relative; padding-top: 18px; }
+.a-att { position: absolute; top: 0; left: 4px; font-size: 11px; font-weight: 600; z-index: 1; }
 .a-att.r { left: auto; right: 4px; }
 .a-rink { width: 100%; display: block; margin-top: 14px; }
 .a-legend { display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; font-size: 12px; color: var(--a-mute); margin-top: 8px; }
@@ -422,9 +422,12 @@ main { padding: 0 0 48px; }
 .st-drv-s { color: #facc15; font-size: 12px; }
 .s-swing { font-size: 11px; color: #22c55e; font-weight: 700; margin: -4px 0 8px; }
 .a-zone-n, .a-zone-k { pointer-events: none; }
-.a-zone-n.zero { opacity: .45; }
-.a-zone-n { fill: #fff; font: 800 6px "Barlow Condensed", Inter, sans-serif; paint-order: stroke; stroke: rgba(0,0,0,.55); stroke-width: .8px; }
-.a-zone-g { fill: #facc15; }
+.a-zone-n, .a-zone-l { pointer-events: none; }
+.a-zone-n { fill: #fff; font: 800 6.4px "Barlow Condensed", Inter, sans-serif; letter-spacing: .1px; }
+.a-zone-n.sm { font-size: 5px; }
+.a-zone-l { fill: rgba(255,255,255,.7); font: 700 2.1px Inter, sans-serif; letter-spacing: .25px; }
+.a-zone-n.zero, .a-zone-l.zero { fill: rgba(255,255,255,.35); }
+.a-zone-g { fill: #facc15; font-size: 4px; }
 .a-zone-tables { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; margin-top: 12px; }
 .a-zt caption { text-align: left; font: 800 16px "Barlow Condensed", sans-serif; text-transform: uppercase; letter-spacing: .05em; padding-bottom: 6px; }
 .s-onice { display: grid; grid-template-columns: auto auto 1fr auto auto; gap: 8px; align-items: center; font-size: 11px; color: var(--s-mute); margin: -2px 0 10px; }
@@ -456,8 +459,9 @@ main { padding: 0 0 48px; }
 }
 
 /* Zone map: attempt types and numbered goals */
-.a-zone-k { fill: rgba(255,255,255,.85); font: 600 2.6px Inter, sans-serif; paint-order: stroke; stroke: rgba(0,0,0,.5); stroke-width: .5px; }
-.a-zone-k tspan { fill: #94a3b8; font-weight: 800; }
+.a-zone-k { fill: #fff; font: 700 2.2px Inter, sans-serif; font-variant-numeric: tabular-nums; }
+.a-zone-k tspan { fill: rgba(255,255,255,.6); font-weight: 600; font-size: 1.8px; letter-spacing: .1px; }
+.a-zone-k tspan.sep { fill: rgba(255,255,255,.35); }
 .a-zone-key { margin: 8px 0 0; font-size: 12px; color: var(--b-mute, #8b95a7); }
 .a-zone-key b { color: var(--b-ink, #fff); }
 .goal-mark { cursor: pointer; outline: none; }
