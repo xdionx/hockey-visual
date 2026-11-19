@@ -127,8 +127,8 @@ export default {
   render(game) {
     const c = teamColors(game, { dark: true });
     // Hero panels keep the true team colors; markers and bars use the lifted ones.
-    c.panelAway = c.awayBase;
-    c.panelHome = c.homeBase;
+    c.panelAway = panelColor(c.awayBase);
+    c.panelHome = panelColor(c.homeBase);
     return `<div class="b-wrap">
       ${hero(game, c)}
       <div class="b-cols">

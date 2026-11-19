@@ -1,7 +1,7 @@
 // Design "Game Story": the Broadcast look with the Analytics and Scorecards data,
 // ordered to tell the game's story: what happened, how momentum swung, where the
 // shots came from, who drove it, then the full box score.
-import { esc, teamColors, allSkaters, allGoalies, elapsed, logo, statusText, strengthBadge, headshot, on } from './core.js';
+import { esc, teamColors, allSkaters, allGoalies, elapsed, logo, statusText, strengthBadge, headshot, on, panelColor } from './core.js';
 import { hero, scoringCards, stars, statBars, shotLine } from './d2-broadcast.js';
 import { kpis, shotMap, heatTable, goalies, shotSummary, mountShotMap } from './d4-analytics.js';
 import { spotlight, scorecardControls, scorecardKey, mountScorecards } from './d5-scorecards.js';
@@ -13,8 +13,8 @@ const SECTIONS = [
 
 function colors(game) {
   const c = teamColors(game, { dark: true });
-  c.panelAway = c.awayBase;
-  c.panelHome = c.homeBase;
+  c.panelAway = panelColor(c.awayBase);
+  c.panelHome = panelColor(c.homeBase);
   return c;
 }
 
