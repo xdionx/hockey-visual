@@ -233,7 +233,7 @@ function momentumChart(game, c) {
     const lead = share && wide ? (share.home > share.away ? 'home' : share.away > share.home ? 'away' : null) : null;
     return `<text x="${X(a) + 10}" y="${P.t - 34}" class="st-mc-ph">${name.toUpperCase()}</text>
       ${ls && wide ? `<text x="${X(a) + 10}" y="${P.t - 14}" class="st-mc-ps"><tspan fill="${c.away}">${esc(game.away.abbrev)} ${ls.away ?? 0}</tspan><tspan fill="#64748b"> – </tspan><tspan fill="${c.home}">${ls.home ?? 0} ${esc(game.home.abbrev)}</tspan></text>` : ''}
-      ${lead ? `<text x="${X(b) - 10}" y="${P.t - 14}" text-anchor="end" class="st-mc-pm" fill="${c[lead]}">${esc(game[lead].abbrev)} ${share[lead]}% momentum</text>` : ''}`;
+      ${lead ? `<text x="${X(b) - 10}" y="${P.t - 14}" text-anchor="end" class="st-mc-pm" fill="${c[lead]}">${esc(game[lead].abbrev)} ${share[lead]}% of momentum created</text>` : ''}`;
   }).join('');
   return `<div class="b-card st-mc"><div class="st-mc-key"><span style="color:${c.home}">&#9650; ${esc(game.home.commonName)}</span><span style="color:${c.away}">&#9660; ${esc(game.away.commonName)}</span></div>
     <svg viewBox="0 0 ${W} ${H}" class="st-mc-svg" role="img" aria-label="Momentum over the game" data-end="${end}" data-pl="${P.l}" data-pr="${P.r}" data-w="${W}">
@@ -285,16 +285,20 @@ function killers(game, c) {
 
 /** Goals per period as a small strip under the momentum chart: who won each period. */
 function periodWins(game, c) {
+  const mmss = (sec) => `${Math.floor(sec / 60)}:${String(Math.round(sec % 60)).padStart(2, '0')}`;
   return `<div class="st-periods">${game.linescore.periods.filter((p) => p.label !== 'SO').map((p, i) => {
-    const mshare = game.momentum?.periods?.[i];
+    const m = game.momentum?.periods?.[i];
     const win = p.away === p.home ? null : p.away > p.home ? 'away' : 'home';
-    const sa = p.shotsAway ?? 0;
-    const sh = p.shotsHome ?? 0;
-    const tot = sa + sh || 1;
-    return `<div class="st-pd"><span class="st-pd-l">${p.label === 'OT' ? 'OT' : `Period ${esc(p.label)}`}</span>
-      <b style="${win ? `color:${c[win]}` : ''}">${p.away ?? 0}-${p.home ?? 0}</b>
-      <div class="b-bar"><i style="width:${(100 * sa) / tot}%;background:${c.away}"></i><i style="width:${(100 * sh) / tot}%;background:${c.home}"></i></div>
-      <span class="st-pd-s">Shots ${sa}-${sh}${mshare ? ` · Momentum ${mshare.away}%-${mshare.home}%` : ''}</span></div>`;
+    const ctl = m?.control;
+    const ctlTot = ctl ? ctl.away + ctl.home + ctl.even || 1 : 1;
+    const top = m ? (m.away >= m.home ? 'away' : 'home') : null;
+    return `<div class="st-pd"><div class="st-pd-h"><span class="st-pd-l">${p.label === 'OT' ? 'Overtime' : `Period ${esc(p.label)}`}</span>
+      <b>${esc(game.away.abbrev)} <span style="color:${c.away}">${p.away ?? 0}</span>-<span style="color:${c.home}">${p.home ?? 0}</span> ${esc(game.home.abbrev)}</b></div>
+      ${m ? `<div class="st-pd-row"><span class="st-pd-k">Momentum created</span><span class="st-pd-v" style="color:${c[top]}">${esc(game[top].abbrev)} ${m[top]}%</span></div>
+      <div class="b-bar st-pd-bar" title="Share of all momentum pushes made in the period"><i style="width:${m.away}%;background:${c.away}"></i><i style="width:${m.home}%;background:${c.home}"></i></div>
+      <div class="st-pd-row"><span class="st-pd-k">Time in control</span><span class="st-pd-v">${esc(game.away.abbrev)} ${mmss(ctl.away)} · even ${mmss(ctl.even)} · ${esc(game.home.abbrev)} ${mmss(ctl.home)}</span></div>
+      <div class="b-bar st-pd-bar thin" title="How long the momentum line was on each team's side"><i style="width:${(100 * ctl.away) / ctlTot}%;background:${c.away}"></i><i style="width:${(100 * ctl.even) / ctlTot}%;background:#334155"></i><i style="width:${(100 * ctl.home) / ctlTot}%;background:${c.home}"></i></div>` : ''}
+      <span class="st-pd-s">Shots on goal ${p.shotsAway ?? 0}-${p.shotsHome ?? 0}${win ? ` · ${esc(game[win].abbrev)} won the period` : ''}</span></div>`;
   }).join('')}</div>`;
 }
 

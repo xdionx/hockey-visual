@@ -219,12 +219,15 @@ export function computeMomentum(pbp, awayId, gameEnd = null) {
     return { t: r.start, until: r.end, team, cause: cause ? { kind: cause.kind, t: cause.t, playerId: cause.credits[0]?.id ?? cause.debit ?? null } : null };
   });
 
-  // Share of momentum (area above/below zero) per period.
-  const periods = [];
+  // Per period: share of momentum generated (sum of every push each team made) and how long each
+  // team was in control (the line on its side, past a small dead zone).
+  const nPeriods = Math.max(1, Math.ceil(Math.max(end, 1) / 1200));
+  const periods = Array.from({ length: nPeriods }, () => ({ away: 0, home: 0, ctrlAway: 0, ctrlHome: 0, ctrlEven: 0 }));
+  const idx = (t) => Math.min(periods.length - 1, Math.floor(Math.min(t, end - 1) / 1200));
+  for (const e of list) if (e.w > 0) periods[idx(e.t)][e.team] += e.w;
   for (const [t, v] of series) {
-    const n = Math.floor(Math.min(t, end - 1) / 1200);
-    periods[n] ??= { away: 0, home: 0 };
-    if (v > 0) periods[n].home += v; else periods[n].away -= v;
+    const p = periods[idx(t)];
+    if (v > 0.5) p.ctrlHome += STEP; else if (v < -0.5) p.ctrlAway += STEP; else p.ctrlEven += STEP;
   }
 
   return {
@@ -234,8 +237,9 @@ export function computeMomentum(pbp, awayId, gameEnd = null) {
     powerPlays: powerPlays(plays, awayId),
     totals: { away: round(totals.away, 1), home: round(totals.home, 1) },
     periods: periods.map((p) => {
-      const sum = (p?.away ?? 0) + (p?.home ?? 0) || 1;
-      return { away: Math.round((100 * (p?.away ?? 0)) / sum), home: Math.round((100 * (p?.home ?? 0)) / sum) };
+      const sum = p.away + p.home || 1;
+      const away = Math.round((100 * p.away) / sum);
+      return { away, home: 100 - away, control: { away: p.ctrlAway, home: p.ctrlHome, even: p.ctrlEven } };
     }),
     players: Object.fromEntries([...players].map(([id, p]) => [id, { impact: round(p.impact, 1), swingPlays: p.swingPlays }])),
   };
