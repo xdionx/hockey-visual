@@ -57,7 +57,7 @@ export function storyline(game) {
   if (state === 'live') {
     const headline = lead ? `${game[lead].commonName} lead ${Math.max(t.away, t.home)}-${Math.min(t.away, t.home)}` : `Tied ${t.away}-${t.home}`;
     const live = storyBeats(game);
-    if (live.length) return { headline, dek: [{ label: game.status.label, text: live[0].text }, ...live.slice(1)] };
+    if (live.length) return { headline, dek: live.map((b, i) => (i ? b : { ...b, label: `${b.label} · ${game.status.label}` })) };
     dek.push(`${game.status.label}.`);
     if (att) dek.push(`${away.abbrev} has ${Math.round((100 * shots.away.attempts) / att)}% of shot attempts so far (${shots.away.attempts}-${shots.home.attempts}).`);
     if (best) dek.push(`${best.fullName} (${best.team}) has been the best player on the ice so far: ${statLine(best)}.`);
