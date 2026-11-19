@@ -151,7 +151,13 @@ function difference(game, final) {
 /** What actually decided it: shot quality, goaltending and defense, which momentum alone can miss. */
 function decided(game, final) {
   const gl = allGoalies(game).filter((g) => g.played && g.xga != null);
-  if (!gl.length) return '';
+  const fo = game.teamStats?.find((x) => x.key === 'faceoffWinningPctg');
+  let faceoff = '';
+  if (fo && fo.awayNum != null && fo.homeNum != null && Math.abs(fo.awayNum - fo.homeNum) >= 10) {
+    const w = fo.awayNum > fo.homeNum ? 'away' : 'home';
+    faceoff = `The ${game[w].commonName} ${final ? 'dominated' : 'are dominating'} the faceoff circle, winning ${Math.round(fo[`${w}Num`])}% of the draws, which ${final ? 'meant' : 'means'} more time with the puck.`;
+  }
+  if (!gl.length) return faceoff;
   const side = (g) => (g.team === game.away.abbrev ? 'away' : 'home');
   const name = (s) => `the ${game[s].commonName}`;
   const cap = (t) => t.charAt(0).toUpperCase() + t.slice(1);
@@ -185,6 +191,7 @@ function decided(game, final) {
       out.push(`${cap(name(s))} ${tense('gave up', 'have given up')} ${r(against)} expected goals, ${tense('a leaky night', 'a lot of quality chances')} defensively.`);
     }
   }
+  if (faceoff) out.push(faceoff);
   // Tie it to the result.
   const lead = t.away === t.home ? null : t.away > t.home ? 'away' : 'home';
   const ctl = (game.momentum?.periods ?? []).reduce((a, p) => ({ away: a.away + (p.control?.away ?? 0), home: a.home + (p.control?.home ?? 0) }), { away: 0, home: 0 });
