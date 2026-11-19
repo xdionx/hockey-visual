@@ -97,6 +97,14 @@ jobs:
             if [ -d data/games ]; then cp -r data/games site/test/data/; fi
           fi
           touch site/.nojekyll
+          # Point both sites at the live data Worker once it exists (repo variable LIVE_API_URL).
+          if [ -n "$LIVE_API_URL" ]; then
+            for f in site/config.js site/test/config.js; do
+              if [ -f "$f" ]; then printf "export const LIVE_API = '%s';\n" "$LIVE_API_URL" > "$f"; fi
+            done
+          fi
+        env:
+          LIVE_API_URL: ${{ vars.LIVE_API_URL }}
 
       - uses: actions/upload-pages-artifact@v3
         with:

@@ -1,0 +1,31 @@
+# Deploys the live data Worker (worker/) to Cloudflare.
+# Needs repository secrets CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID.
+# After the first deploy, set the repository variable LIVE_API_URL to the Worker's URL
+# so the publish workflow points the site at it.
+name: Deploy live Worker
+
+on:
+  push:
+    branches: [main]
+    paths: ['worker/**', 'src/**', '.github/workflows/worker.yml']
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check Cloudflare secrets
+        id: check
+        env:
+          TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          if [ -n "$TOKEN" ]; then echo "ok=true" >> "$GITHUB_OUTPUT"; else echo "::notice::CLOUDFLARE_API_TOKEN not set; skipping Worker deploy."; fi
+      - uses: actions/checkout@v4
+        if: steps.check.outputs.ok == 'true'
+      - uses: cloudflare/wrangler-action@v3
+        if: steps.check.outputs.ok == 'true'
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: worker
+          command: deploy

@@ -52,6 +52,28 @@ from the Actions tab. Live scores on the hosted site are therefore up to about
 One-time setup: in the repo's **Settings → Pages**, set **Source** to
 **GitHub Actions**.
 
+## Live updates (Cloudflare Worker)
+
+GitHub's scheduler can't run more often than every 5 minutes, so live games come
+from a small Cloudflare Worker (`worker/index.js`). It answers the same paths as
+`data/` (`latest.json`, `scores/<date>.json`, `games/<id>.json`), fetches the NHL API
+on demand and caches each answer at the edge:
+
+| Game | Cached for |
+| --- | --- |
+| Live | 5 seconds (pages re-poll every 5 seconds) |
+| Not started | 60 seconds |
+| Finished, today or yesterday | 1 hour |
+| Finished, 2+ days old | 30 days |
+
+Pages use it when `public/config.js` has `LIVE_API` set (the publish workflow writes it
+from the `LIVE_API_URL` repository variable) and fall back to the saved `data/` files
+if it fails. Polling pauses while the tab is hidden.
+
+Setup: add repository secrets `CLOUDFLARE_API_TOKEN` (the "Edit Cloudflare Workers"
+template) and `CLOUDFLARE_ACCOUNT_ID`, run **Deploy live Worker** from the Actions tab,
+then set the `LIVE_API_URL` variable to the Worker URL it prints.
+
 ## Run it locally
 
 Needs Node 18 or newer, and nothing else (no `npm install`).

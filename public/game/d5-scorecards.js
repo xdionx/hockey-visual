@@ -111,8 +111,14 @@ export function scorecardKey() {
 }
 
 /** Fills #s-grid with player cards and wires the team/position/sort controls. */
+// Kept outside the render so live refreshes don't reset the filters.
+const cardFilter = { team: 'all', pos: 'all', sort: 'rating' };
+
 export function mountScorecards(root, game, c) {
-  const state = { team: 'all', pos: 'all', sort: 'rating' };
+  const state = cardFilter;
+  root.querySelectorAll('#s-controls [data-k]').forEach((seg) => {
+    seg.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x.dataset.v === state[seg.dataset.k])));
+  });
   const el = root.querySelector('#s-grid');
   const draw = () => { el.innerHTML = grid(game, c, state); };
   root.querySelector('#s-controls').addEventListener('click', (e) => {
