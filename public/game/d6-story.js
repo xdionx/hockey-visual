@@ -250,6 +250,29 @@ function momentumChart(game, c) {
   </div>`;
 }
 
+/** A slim, label-free momentum strip that rides in the sticky bar under the score. */
+function momentumStrip(game, c) {
+  const m = game.momentum;
+  if (!m?.series?.length) return '';
+  const W = 1000; const H = 40; const mid = H / 2;
+  const end = Math.max(3600, m.series.at(-1)[0]);
+  const X = (t) => (W * t) / end;
+  // Scale to the bigger pushes (not the single peak) so the strip reads at a small height.
+  const mags = m.series.map(([, v]) => Math.abs(v)).sort((a, b) => a - b);
+  const scale = Math.max(0.5, mags[Math.floor(mags.length * 0.97)] ?? m.max);
+  const Y = (v) => mid - ((mid - 1) * Math.max(-1, Math.min(1, v / scale)));
+  const line = m.series.map(([t, v], i) => `${i ? 'L' : 'M'}${X(t).toFixed(1)} ${Y(v).toFixed(1)}`).join('');
+  const area = `${line}L${X(m.series.at(-1)[0]).toFixed(1)} ${mid}L0 ${mid}Z`;
+  const divs = [1200, 2400, 3600].filter((t) => t < end).map((t) => `<line x1="${X(t)}" x2="${X(t)}" y1="0" y2="${H}" class="st-ms-div"/>`).join('');
+  return `<div class="st-ms" title="Momentum: ${esc(game.home.abbrev)} above the line, ${esc(game.away.abbrev)} below">
+    <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">
+      <defs><clipPath id="st-ms-top"><rect x="0" y="0" width="${W}" height="${mid}"/></clipPath><clipPath id="st-ms-bot"><rect x="0" y="${mid}" width="${W}" height="${mid}"/></clipPath></defs>
+      ${divs}
+      <path d="${area}" fill="${c.home}" clip-path="url(#st-ms-top)"/><path d="${area}" fill="${c.away}" clip-path="url(#st-ms-bot)"/>
+      <line x1="0" x2="${W}" y1="${mid}" y2="${mid}" class="st-ms-zero"/>
+    </svg></div>`;
+}
+
 function swingList(game, c) {
   const m = game.momentum;
   if (!m?.swings?.length) return '';
@@ -329,6 +352,7 @@ export default {
       ${hero(game, c, { strip: false, shots: true })}
       <div class="st-bar">
         ${miniScore(game, c)}
+        ${started ? momentumStrip(game, c) : ''}
         <nav class="st-nav" aria-label="Sections">${SECTIONS.map(([id, label], i) => `<a href="#st-${id}" data-sec="${id}"><span>${String(i + 1).padStart(2, '0')}</span>${esc(label)}</a>`).join('')}</nav>
       </div>
 

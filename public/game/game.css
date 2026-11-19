@@ -656,3 +656,10 @@ main { padding: 0 0 48px; }
 .st-td.home { border-left: 0; border-right: 3px solid var(--team); padding: 0 10px 0 0; }
 .st-td.home .st-td-h { display: flex; justify-content: flex-end; }
 .st-td-h { display: flex; align-items: center; min-height: 24px; }
+/* Slim momentum strip under the score in the sticky bar */
+.st-ms { max-width: 1168px; margin: 0 auto; padding: 4px 16px 2px; }
+.st-ms svg { display: block; width: 100%; height: 30px; }
+.st-ms path { opacity: .85; }
+.st-ms-zero { stroke: rgba(255,255,255,.25); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.st-ms-div { stroke: rgba(255,255,255,.18); stroke-width: 1; stroke-dasharray: 2 3; vector-effect: non-scaling-stroke; }
+@media (max-width: 640px) { .st-ms { padding: 3px 8px 1px; } .st-ms svg { height: 24px; } }
