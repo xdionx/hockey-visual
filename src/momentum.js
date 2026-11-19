@@ -10,13 +10,16 @@
 //   penalty drawn 1.0, plus 0.2 every 10 seconds of power play (extended possession)
 //   penalty killed off 1.5 to the shorthanded team
 //
+// Taking a penalty hurts the player who took it: they lose the 1.0 the other team gained, every
+// power-play push the penalty led to, and a further 1.5 if the power play scored.
+//
 // Each push is credited to the player who made it (goal: scorer 60%, assists 25% / 15%).
 // A push made while that player's team was behind on momentum counts 1.5x and is a "swing play".
 
 export const MOMENTUM_WEIGHTS = {
   goal: 3, sog: 1, miss: 0.35, blockedShooter: 0.2, blocker: 0.1,
   faceoff: { O: 0.6, N: 0.35, D: 0.25 }, takeaway: 0.5, giveaway: 0.5, hit: 0.2,
-  penaltyDrawn: 1, powerPlayTick: 0.2, penaltyKilled: 1.5,
+  penaltyDrawn: 1, powerPlayTick: 0.2, penaltyKilled: 1.5, powerPlayGoalAgainst: 1.5,
 };
 const HALF_LIFE = 75; // seconds
 const DECAY = Math.LN2 / HALF_LIFE;
@@ -114,9 +117,18 @@ export function pushes(plays, awayId, rosterTeam) {
       default:
     }
   }
+  const penalties = out.filter((e) => e.kind === 'penalty' && e.debit);
   for (const pp of powerPlays(plays, awayId)) {
     const end = pp.end ?? pp.start;
-    for (let t = pp.start + 10; t < end; t += 10) out.push({ t, team: pp.team, w: W.powerPlayTick, kind: 'power-play', credits: [], debit: null });
+    // The penalties that started this power play (same moment, taken by the shorthanded team).
+    // When two players went off together, they share the cost.
+    const offenders = [...new Set(penalties.filter((e) => e.team === pp.team && Math.abs(e.t - pp.start) <= 2).map((e) => e.debit))];
+    const split = (t, w, debitW, kind) => {
+      if (!offenders.length) return out.push({ t, team: pp.team, w, kind, credits: [], debit: null });
+      for (const id of offenders) out.push({ t, team: pp.team, w: w / offenders.length, debitW: debitW / offenders.length, kind, credits: [], debit: id });
+    };
+    for (let t = pp.start + 10; t < end; t += 10) split(t, W.powerPlayTick, W.powerPlayTick, 'power-play');
+    if (pp.result === 'goal' && offenders.length) split(end, 0, W.powerPlayGoalAgainst, 'pp-goal-against');
     if (pp.result === 'killed') out.push({ t: end, team: pp.team === 'away' ? 'home' : 'away', w: W.penaltyKilled, kind: 'penalty-kill', credits: [], debit: null });
   }
   return out.sort((a, b) => a.t - b.t);
@@ -159,7 +171,7 @@ export function computeMomentum(pbp, awayId, gameEnd = null) {
       const behind = level[e.team] < level[e.team === 'away' ? 'home' : 'away'];
       const mult = behind ? SWING_BONUS : 1;
       for (const c of e.credits) credit(c.id, e.w * c.share * mult, behind && e.w >= 0.5);
-      if (e.debit) credit(e.debit, -e.w, false);
+      if (e.debit) credit(e.debit, -(e.debitW ?? e.w), false);
       level[e.team] += e.w;
       totals[e.team] += e.w;
     }

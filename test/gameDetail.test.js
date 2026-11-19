@@ -83,3 +83,14 @@ test('momentum swings and player momentum', () => {
   const all = [...game.players.away.forwards, ...game.players.away.defense];
   assert.ok(all.find((p) => p.lastName === 'Scheifele').momentum > 5);
 });
+
+test('taking a penalty costs the offender the power play it gave up', async () => {
+  const { pushes } = await import('../src/momentum.js');
+  const pbp = JSON.parse(readFileSync(new URL('./fixtures/game-2026020312/pbp.json', import.meta.url)));
+  const plays = [...pbp.plays].sort((a, b) => a.sortOrder - b.sortOrder);
+  const roster = new Map(pbp.rosterSpots.map((r) => [r.playerId, r.teamId]));
+  const yager = pbp.plays.find((p) => p.typeDescKey === 'penalty').details.committedByPlayerId;
+  const cost = pushes(plays, 52, roster).filter((e) => e.debit === yager).reduce((n, e) => n + (e.debitW ?? e.w), 0);
+  // 1.0 for the penalty, power play pressure, and 1.5 because the power play scored.
+  assert.ok(cost > 2.5, `cost ${cost}`);
+});
