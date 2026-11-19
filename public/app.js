@@ -1,5 +1,6 @@
 import { getData, LIVE_REFRESH_MS } from './data.js';
 import { teamColors, strengthBadge } from './game/core.js';
+import { hornToggles, watchGoals } from './horn.js';
 
 const $ = (s) => document.querySelector(s);
 const dateInput = $('#date');
@@ -174,7 +175,7 @@ function compactHtml(game) {
     <div class="cg-head">
       <div class="status ${game.status.state}"><span class="label">${esc(statusText(game))}${strengthBadge(game, tc)}</span></div>
       <div class="cg-score">${compactTeam(game, 'away', tc)}<span class="dash">–</span>${compactTeam(game, 'home', tc)}</div>
-      <div class="cg-act">${started && game.goals.length ? `<button type="button" class="more" aria-expanded="${open}" aria-label="Show all goals">${open ? '▴' : '▾'}</button>` : ''}${hasBox ? `<a class="cg-box" href="game.html?id=${game.id}" aria-label="Box score: ${esc(game.away.abbrev)} at ${esc(game.home.abbrev)}">Box ›</a>` : ''}</div>
+      <div class="cg-act">${hornToggles(game)}${started && game.goals.length ? `<button type="button" class="more" aria-expanded="${open}" aria-label="Show all goals">${open ? '▴' : '▾'}</button>` : ''}${hasBox ? `<a class="cg-box" href="game.html?id=${game.id}" aria-label="Box score: ${esc(game.away.abbrev)} at ${esc(game.home.abbrev)}">Box ›</a>` : ''}</div>
     </div>
     ${started ? `<div class="cg-scorers">${lines || '<span class="none">No goals yet</span>'}</div>` : ''}
     ${open ? `<div class="cg-more">${goalsHtml(game)}</div>` : ''}
@@ -233,6 +234,7 @@ async function load(date, { quiet = false } = {}) {
       return;
     }
     current = data;
+    watchGoals(data.games);
     const text = JSON.stringify(data);
     if (text !== lastText) render(data); // only redraw when something changed
     lastText = text;

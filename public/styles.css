@@ -140,3 +140,11 @@ main.compact { grid-template-columns: repeat(auto-fill, minmax(min(100%, 440px),
 .cg-more { margin-top: 6px; }
 @media (max-width: 520px) { .cg-head { grid-template-columns: 1fr auto; } .cg .status { flex-direction: row; grid-column: 1 / -1; justify-content: space-between; } }
 .cg-box { white-space: nowrap; }
+
+/* Goal horn toggles + red flash */
+.horn-toggles { display: inline-flex; gap: 6px; flex-wrap: wrap; margin-right: 6px; }
+.horn-btn { font: 600 12px Inter, sans-serif; padding: 4px 9px; border-radius: 999px; border: 1px solid rgba(255,255,255,.25); background: transparent; color: inherit; cursor: pointer; opacity: .75; }
+.horn-btn.on { background: #c8102e; border-color: #c8102e; color: #fff; opacity: 1; }
+#goal-flash { position: fixed; inset: 0; z-index: 9999; pointer-events: none; background: #e11; animation: goalflash .8s ease-in-out infinite; }
+@keyframes goalflash { 0%, 100% { opacity: 0; } 50% { opacity: .38; } }
+@media (prefers-reduced-motion: reduce) { #goal-flash { animation: none; opacity: .25; } }
