@@ -166,3 +166,19 @@ test('the story narrative tells the arc, momentum control, the difference makers
   assert.match(text['Who controlled play'], /momentum/);
   assert.match(text['The difference'], /Scheifele/);
 });
+
+test('team colors stay real brand colors: valid hex, no grey fallbacks for Utah or Colorado', async () => {
+  const { teamColors } = await import('../public/game/core.js');
+  const ab = ['ANA', 'CHI', 'COL', 'DET', 'MTL', 'NJD', 'OTT', 'TOR', 'UTA', 'VGK', 'WPG'];
+  for (const t of ['UTA', 'COL']) {
+    for (const o of ab.filter((x) => x !== t)) {
+      for (const g of [{ away: { abbrev: t }, home: { abbrev: o } }, { away: { abbrev: o }, home: { abbrev: t } }]) {
+        const c = teamColors(g, { dark: true });
+        for (const v of [c.away, c.home]) assert.match(v, /^#[0-9a-fA-F]{6}$/);
+        const mine = g.away.abbrev === t ? c.away : c.home;
+        const [r, gg, b] = [1, 3, 5].map((i) => parseInt(mine.slice(i, i + 2), 16));
+        assert.ok(Math.max(r, gg, b) - Math.min(r, gg, b) >= 40, `${t} vs ${o} looks grey: ${mine}`);
+      }
+    }
+  }
+});
