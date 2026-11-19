@@ -1,6 +1,6 @@
 // Design 5 "Scorecards": one card per player with a game rating and what drove it.
 // A modern take on HockeyStats-style player game cards; the start of the per-player scorecard.
-import { esc, logo, teamColors, statusText, prettyDate, allSkaters, allGoalies, pct, signed, rinkMarkup, shotMark, headshot, ratingColor, GS_PARTS, on, morphInner, goalieXg } from './core.js';
+import { esc, logo, teamColors, statusText, prettyDate, allSkaters, allGoalies, pct, signed, rinkMarkup, shotMark, headshot, ratingColor, GS_PARTS, on, morphInner, goalieXg, fold } from './core.js';
 
 export const PART_COLORS = { scoring: '#6366f1', momentum: '#22c55e', shooting: '#0ea5e9', onIce: '#14b8a6', defense: '#a3a3a3', discipline: '#f59e0b', faceoffs: '#ec4899' };
 
@@ -128,12 +128,12 @@ export function scorecardControls(game) {
 }
 
 export function scorecardKey() {
-  return `<section class="s-key">
+  return fold('How ratings and scores are calculated', `<section class="s-key">
         <div><b>Rating</b> runs from 3.0 to 10.0. A quiet game is about 6.0; ${['#dc2626', '#ea580c', '#ca8a04', '#65a30d', '#16a34a', '#2563eb'].map((x) => `<i style="background:${x}"></i>`).join('')}</div>
         <div><b>Game score</b> adds up what a player did: ${GS_PARTS.map(([k, l]) => `<span><i style="background:${PART_COLORS[k]}"></i>${esc(l)}</span>`).join('')}. Goalies: +0.1 per save, -0.75 per goal against.</div>
         <div><b>Momentum (MOM)</b> credits each player for the plays that pushed momentum their team's way: shots on goal, goals and assists, faceoff wins, takeaways, hits, blocks and drawn penalties, minus giveaways and penalties taken. A penalty taken costs the player the momentum the other team gained from it, including the whole power play and 1.5 more if it scored. A penalty drawn earns the player that momentum: 1.0, the power play pressure, and 0.75 more if it scored. Penalties also move game score: +0.25 drawn, -0.25 taken. A <b>swing play</b> came while the team was behind on momentum and counts 1.5x. <b>Goalies</b> get expected save % (xSV%) from where, and how, each shot came: close, central and tipped shots are likelier goals. <b>GSAx</b> is goals saved above expected (positive means the goalie stopped more than an average goalie would have) and feeds the goalie's game score. These expected-goals numbers are our own estimate from shot distance, angle and type, not an official NHL stat. The <b>momentum bar</b> under game score splits MOM into what the player gained (green) and lost (red), with the biggest reasons for each.</div>
         <div class="s-muted">Weights follow the public Game Score model. <b>On-ice</b> uses shot attempts for and against while the player was on the ice (on goal 1, missed 0.5, blocked 0.35, and 1.5x from the home plate area in front of the net) plus goals for and against; <b>Shooting</b> adds a bonus for every attempt from home plate; if the NHL's shift data isn't available yet, it falls back to plus/minus.</div>
-      </section>`;
+      </section>`, { cls: 's-fold' });
 }
 
 /** Fills #s-grid with player cards and wires the team/position/sort controls. */

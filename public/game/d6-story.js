@@ -1,7 +1,7 @@
 // Design "Game Story": the Broadcast look with the Analytics and Scorecards data,
 // ordered to tell the game's story: what happened, how momentum swung, where the
 // shots came from, who drove it, then the full box score.
-import { esc, teamColors, allSkaters, allGoalies, elapsed, logo, statusText, strengthBadge, headshot, on, panelColor } from './core.js';
+import { esc, teamColors, allSkaters, allGoalies, elapsed, logo, statusText, strengthBadge, headshot, on, panelColor, fold } from './core.js';
 import { hero, scoringCards, stars, statBars, shotLine } from './d2-broadcast.js';
 import { kpis, shotMap, heatTable, goalies, shotSummary, mountShotMap } from './d4-analytics.js';
 import { spotlight, scorecardControls, scorecardKey, mountScorecards } from './d5-scorecards.js';
@@ -251,7 +251,7 @@ function momentumChart(game, c) {
       <line class="st-mc-cross" x1="0" x2="0" y1="${P.t}" y2="${H - P.b}" visibility="hidden"/><circle class="st-mc-dot" r="4" visibility="hidden"/>
       ${goals}${swings}${labels}
     </svg><div class="st-tip" hidden></div>
-    <p class="st-note">Momentum weighs every play: goals 3, shots on goal 1, missed shots 0.35, blocked attempts 0.2, faceoff wins 0.25 to 0.6 (more in the offensive zone), takeaways and opponents' giveaways 0.5, hits 0.2, drawing a penalty 1 plus steady pressure through the power play, and 1.5 for killing a penalty. The player who took the penalty is charged for all of it, plus 1.5 more if the power play scores; the player who drew it is credited with it, plus 0.75 if it scores. Each push fades with a 75-second half-life. Shaded bands are power plays; numbered circles are momentum swings.</p>
+    ${fold('How momentum is calculated', `Momentum weighs every play: goals 3, shots on goal 1, missed shots 0.35, blocked attempts 0.2, faceoff wins 0.25 to 0.6 (more in the offensive zone), takeaways and opponents' giveaways 0.5, hits 0.2, drawing a penalty 1 plus steady pressure through the power play, and 1.5 for killing a penalty. The player who took the penalty is charged for all of it, plus 1.5 more if the power play scores; the player who drew it is credited with it, plus 0.75 if it scores. Each push fades with a 75-second half-life. Shaded bands are power plays; numbered circles are momentum swings.`, { cls: 'st-note' })}
   </div>`;
 }
 
@@ -286,7 +286,7 @@ function drivers(game, c) {
     <span class="st-drv-n">${esc(p.fullName)} <small>${esc(p.team)}</small></span>
     <div class="st-drv-bar"><i style="width:${(100 * Math.max(0, p.momentum)) / max}%"></i></div>
     <b>+${p.momentum.toFixed(1)}</b><span class="st-drv-s">${p.swingPlays ? `&#8635; ${p.swingPlays}` : ''}</span>
-  </div>`).join('')}${killers(game, c)}<p class="st-note">&#8635; = swing plays: pushes made while their team was behind on momentum.</p></div>`;
+  </div>`).join('')}${killers(game, c)}${fold('What &#8635; means', '&#8635; = swing plays: pushes made while their team was behind on momentum.', { cls: 'st-note' })}</div>`;
 }
 
 /** Players who cost their team momentum, mostly through penalties and giveaways. */

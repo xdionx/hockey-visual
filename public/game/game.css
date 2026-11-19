@@ -738,3 +738,15 @@ main { padding: 0 0 48px; }
 .st-tp-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
 .st-tp-chips i { font: 600 11px Inter, sans-serif; font-style: normal; letter-spacing: 0; text-transform: none; color: #cbd5e1; background: #1e293b; border-radius: 999px; padding: 1px 8px; }
 .st-tp-more p { margin: 6px 0 0; font-size: 13px; color: #cbd5e1; }
+
+/* Folded explanations: a quiet one-line toggle that opens to the full description */
+.fold { margin: 10px 0 0; }
+.fold > summary { cursor: pointer; list-style: none; display: inline-flex; align-items: center; gap: 6px; font: 700 12px "Barlow Condensed", sans-serif; letter-spacing: .1em; text-transform: uppercase; color: #94a3b8; }
+.fold > summary::-webkit-details-marker { display: none; }
+.fold > summary::before { content: "\25B8"; transition: transform .15s; }
+.fold[open] > summary::before { transform: rotate(90deg); }
+.fold > summary:hover { color: #e2e8f0; }
+.fold-body { margin-top: 6px; }
+.fold-body > p { margin: 0; }
+.fold[hidden] { display: none; }
+.s-fold .s-key { margin-top: 8px; }
