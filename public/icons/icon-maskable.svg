@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512"><rect width="512" height="512" fill="#0a0e17"/><g transform="translate(256 256) scale(.66) translate(-256 -262)">
+<g>
+  <!-- momentum streaks: three skewed bars, longest on top, fading as they trail the puck -->
+  <path d="M62 150 H238 L212 208 H36 Z" fill="#e11d48"/>
+  <path d="M100 228 H252 L228 282 H76 Z" fill="#e11d48" opacity=".85"/>
+  <path d="M150 302 H262 L242 346 H130 Z" fill="#fb7185" opacity=".7"/>
+  <!-- puck: side wall, then top face -->
+  <path d="M244 214 V312 A118 54 0 0 0 480 312 V214 Z" fill="#94a3b8"/>
+  <ellipse cx="362" cy="214" rx="118" ry="54" fill="#f8fafc"/>
+  <ellipse cx="362" cy="214" rx="82" ry="34" fill="none" stroke="#cbd5e1" stroke-width="6"/>
+</g></g></svg>
