@@ -278,9 +278,9 @@ export const GS_PARTS = [
  */
 const rect = (x1, x2, y1, y2) => [[x1, y1], [x2, y1], [x2, y2], [x1, y2]];
 export const ZONES = [
-  ['home-plate', 'Home plate', [[89, -4], [69, -22], [54, -22], [54, 22], [69, 22], [89, 4]], [67, 0], true],
-  ['side-left', 'Left side', [[54, 22], [69, 22], [89, 4], [89, 42.5], [54, 42.5]], [76, 28], true],
-  ['side-right', 'Right side', [[54, -22], [69, -22], [89, -4], [89, -42.5], [54, -42.5]], [76, -28], true],
+  ['home-plate', 'Home plate', [[89, -4], [69, -22], [54, -22], [54, 22], [69, 22], [89, 4]], [68.5, 0], true],
+  ['side-left', 'Left side', [[54, 22], [69, 22], [89, 4], [89, 42.5], [54, 42.5]], [68, 32], true],
+  ['side-right', 'Right side', [[54, -22], [69, -22], [89, -4], [89, -42.5], [54, -42.5]], [68, -32], true],
   ['point-left', 'Left point', rect(25, 54, 0, 42.5), [39.5, 21], true],
   ['point-right', 'Right point', rect(25, 54, -42.5, 0), [39.5, -21], true],
   ['behind-net', 'Behind the net', rect(89, 100, -42.5, 42.5), [94.5, 0], false],

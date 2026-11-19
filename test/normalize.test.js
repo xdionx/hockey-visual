@@ -85,3 +85,12 @@ test('strength of play', async () => {
   assert.deepEqual([en.label, en.kind, en.emptyNet], ['6v5', 'empty-net', 'away']);
   assert.equal(strengthOf({ period: '2', intermission: true }), null);
 });
+
+test('stamp-assets adds a version to local imports, scripts and stylesheets only', async () => {
+  const { stampJs, stampHtml } = await import('../scripts/stamp-assets.js');
+  assert.equal(stampJs("import { a } from './core.js';\nimport b from '../x/y.js';\nconst m = import('./lazy.js');", 'abc'),
+    "import { a } from './core.js?v=abc';\nimport b from '../x/y.js?v=abc';\nconst m = import('./lazy.js?v=abc');");
+  assert.equal(stampJs("import x from 'https://cdn.example/x.js';", 'abc'), "import x from 'https://cdn.example/x.js';");
+  assert.equal(stampHtml('<link rel="stylesheet" href="game/game.css"><script type="module" src="game/game.js"></script><link href="https://fonts.googleapis.com/css2?family=X">', 'abc'),
+    '<link rel="stylesheet" href="game/game.css?v=abc"><script type="module" src="game/game.js?v=abc"></script><link href="https://fonts.googleapis.com/css2?family=X">');
+});
