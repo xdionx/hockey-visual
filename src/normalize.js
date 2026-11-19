@@ -19,15 +19,25 @@ export function periodLabel(pd) {
   return String(pd.number);
 }
 
+/**
+ * Label as shown on the Scores page. Regular season: 1, 2, 3, OT, SO. Playoffs keep playing
+ * overtime periods until someone scores, so they read 1st OT, 2nd OT, 3rd OT and so on.
+ */
+export function displayPeriod(label, gameType) {
+  if (gameType !== 3 || !/OT$/.test(label)) return label;
+  const n = label === 'OT' ? 1 : Number(label.slice(0, -2));
+  return `${ordinal(n)} OT`;
+}
+
 function ordinal(n) {
   return ({ 1: '1st', 2: '2nd', 3: '3rd' })[n] ?? `${n}th`;
 }
 
 /** Long label used for goal-list headings: "1st Period", "Overtime", "2nd Overtime", "Shootout". */
-export function periodName(pd) {
+export function periodName(pd, gameType) {
   const s = periodLabel(pd);
   if (s === 'SO') return 'Shootout';
-  if (s === 'OT') return 'Overtime';
+  if (s === 'OT') return gameType === 3 ? '1st Overtime' : 'Overtime';
   if (s.endsWith('OT')) return `${ordinal(Number(s.slice(0, -2)))} Overtime`;
   return `${ordinal(Number(s))} Period`;
 }
@@ -42,12 +52,15 @@ export function gameStatus(g) {
     const last = g.gameOutcome?.lastPeriodType;
     let suffix = '';
     if (last === 'SO') suffix = '/SO';
-    else if (last === 'OT') suffix = (g.gameOutcome.otPeriods ?? 1) > 1 ? `/${g.gameOutcome.otPeriods}OT` : '/OT';
+    else if (last === 'OT') {
+      const n = g.gameOutcome.otPeriods ?? 1;
+      suffix = g.gameType === 3 ? `/${displayPeriod(n > 1 ? `${n}OT` : 'OT', 3)}` : n > 1 ? `/${n}OT` : '/OT';
+    }
     return { state: 'final', label: `Final${suffix}` };
   }
   if (LIVE_STATES.has(g.gameState)) {
     const p = periodLabel(g.periodDescriptor);
-    const pText = /^\d$/.test(p) ? ordinal(Number(p)) : p;
+    const pText = /^\d$/.test(p) ? ordinal(Number(p)) : displayPeriod(p, g.gameType);
     if (g.clock?.inIntermission) return { state: 'live', label: `${pText} Intermission` };
     if (p === 'SO') return { state: 'live', label: 'Shootout' };
     return { state: 'live', label: `${pText} ${(g.clock?.timeRemaining ?? '').replace(/^0(?=\d:)/, '')}`.trim() };
@@ -84,7 +97,7 @@ export function buildLinescore(g) {
 
   const cols = [...periods.values()].sort((a, b) => a.number - b.number);
   return {
-    periods: cols.map(({ label, away, home }) => ({ label, away, home })),
+    periods: cols.map(({ label, away, home }) => ({ label: displayPeriod(label, g.gameType), away, home })),
     totals: { away: g.awayTeam.score ?? 0, home: g.homeTeam.score ?? 0 },
     shots: { away: g.awayTeam.sog ?? null, home: g.homeTeam.sog ?? null },
   };
@@ -114,7 +127,7 @@ export function videoId(id, link) {
   return m ? m[1] : null;
 }
 
-function normalizeGoal(goal) {
+function normalizeGoal(goal, gameType) {
   const strength = (goal.strength ?? 'ev').toUpperCase();
   const tags = [];
   if (strength === 'PP') tags.push('PPG');
@@ -123,8 +136,8 @@ function normalizeGoal(goal) {
   if (goal.goalModifier === 'penalty-shot') tags.push('PS');
   if (goal.goalModifier === 'own-goal') tags.push('OG');
   return {
-    period: periodLabel(goal.periodDescriptor),
-    periodName: periodName(goal.periodDescriptor),
+    period: displayPeriod(periodLabel(goal.periodDescriptor), gameType),
+    periodName: periodName(goal.periodDescriptor, gameType),
     time: (goal.timeInPeriod ?? '').replace(/^0(?=\d:)/, ''),
     team: goal.teamAbbrev,
     scorer: { id: goal.playerId, name: t(goal.name), firstName: t(goal.firstName), lastName: t(goal.lastName), goalsToDate: goal.goalsToDate ?? null, mugshot: goal.mugshot ?? null },
@@ -164,7 +177,7 @@ export function normalizeGame(g) {
     away: normalizeTeam(g.awayTeam),
     home: normalizeTeam(g.homeTeam),
     linescore: buildLinescore(g),
-    goals: (g.goals ?? []).map(normalizeGoal),
+    goals: (g.goals ?? []).map((goal) => normalizeGoal(goal, g.gameType)),
     video: {
       recap: nhlVideoUrl(g.threeMinRecap),
       recapId: videoId(null, g.threeMinRecap),
