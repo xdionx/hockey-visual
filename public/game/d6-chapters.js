@@ -183,6 +183,35 @@ function momentumFlips(game, events) {
   return out.sort((x, y) => y.weight - x.weight).slice(0, 7);
 }
 
+/** Fights: both teams get the major at once. Say who was behind on momentum and whether it moved afterwards. */
+function momentumFights(game, usedTimes) {
+  const series = game.momentum?.series;
+  if (!series?.length) return [];
+  const at = (t) => { let best = series[0]; for (const pt of series) { if (pt[0] <= t) best = pt; else break; } return best[1]; };
+  const groups = [];
+  for (const p of (game.penalties ?? []).filter((x) => /fight/i.test(x.infraction))) {
+    const t = elapsed(p.period, p.time);
+    const g = groups.find((x) => Math.abs(x.t - t) <= 2);
+    if (g) g.list.push(p); else groups.push({ t, list: [p] });
+  }
+  return groups.filter((g) => !usedTimes.some((u) => Math.abs(u - g.t) <= 2)).map((g) => {
+    const f1 = g.list[0];
+    const f2 = g.list.find((x) => x.team !== f1.team) ?? g.list[1];
+    const who = f2 ? `${f1.player} (${f1.team}) and ${f2.player} (${f2.team}) dropped the gloves.` : `${f1.player} (${f1.team}) fought.`;
+    const v = at(g.t);
+    const behind = v > 0.5 ? 'away' : v < -0.5 ? 'home' : null;
+    let text = `${who} Momentum was even at the time, so nobody had a lift to gain.`;
+    let side = f1.team === game.away.abbrev ? 'away' : 'home';
+    if (behind) {
+      const dir = behind === 'home' ? 1 : -1;
+      const gain = (at(g.t + 120) - at(g.t)) * dir;
+      side = behind;
+      text = `${who} The ${game[behind].commonName} were behind on momentum. ${gain >= 1.5 ? `It moved their way over the next 2 minutes (+${gain.toFixed(1)}).` : 'It did not move much over the next 2 minutes.'}`;
+    }
+    return { t: g.t, side, tag: 'Fight', person: null, text };
+  });
+}
+
 /** Key moments in time order: goals that changed the game, goalie changes, swings and the decider. */
 function turningPoints(game, c, events, changes) {
   const pts = [];
@@ -213,6 +242,7 @@ function turningPoints(game, c, events, changes) {
   const flips = momentumFlips(game, events);
   for (let i = pts.length - 1; i >= 0; i--) if (flips.some((f) => f.person && f.t === pts[i].t && f.side === pts[i].side)) pts.splice(i, 1);
   for (const f of flips) pts.push(f);
+  for (const f of momentumFights(game, flips.filter((x) => x.tag === 'A fight sparked it').map((x) => x.t))) pts.push(f);
   if (game.status.label.includes('SO')) {
     const so = game.scoring.find((g) => g.period === 'SO');
     if (so) pts.push({ t: 99999, side: sideOf(game, so.team), tag: 'Shootout', person: so.scorer, text: `${so.scorer.fullName} scores the shootout winner.` });
