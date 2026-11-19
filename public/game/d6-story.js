@@ -5,6 +5,7 @@ import { esc, teamColors, allSkaters, allGoalies, elapsed, logo, statusText, str
 import { hero, scoringCards, stars, statBars } from './d2-broadcast.js';
 import { kpis, shotMap, heatTable, goalies, shotSummary, mountShotMap } from './d4-analytics.js';
 import { spotlight, scorecardControls, scorecardKey, mountScorecards } from './d5-scorecards.js';
+import { storyChapters } from './d6-chapters.js';
 
 const SECTIONS = [
   ['story', 'Story'], ['momentum', 'Momentum'], ['shots', 'Shots'], ['players', 'Players'], ['box', 'Box score'],
@@ -251,6 +252,7 @@ export default {
       <section class="st-sec" id="st-story">
         ${header(1, 'story', 'The story')}
         <div class="st-lede"><h1>${esc(story.headline)}</h1>${story.dek.map((d) => `<p>${esc(d)}</p>`).join('')}</div>
+        ${storyChapters(game, c)}
         ${started ? `<div class="b-cols st-cols"><div>${scoringCards(game, c)}</div><div>${stars(game)}${statBars(game, c)}</div></div>` : ''}
       </section>
 
