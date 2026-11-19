@@ -129,6 +129,7 @@ function clock(t) {
 function causeText(game, cause) {
   if (!cause) return 'a run of pressure';
   if (cause.kind === 'penalty-kill') return 'killing off a penalty';
+  if (cause.kind === 'fight-spark') return 'a fight that woke the team up';
   if (cause.kind === 'power-play') return 'power play pressure';
   if (cause.kind === 'giveaway') return `${cause.player ?? 'an opponent'}'s giveaway`;
   if (cause.kind === 'penalty') return `${cause.player ?? 'a player'} drawing a penalty`;

@@ -37,7 +37,7 @@ export function ratingBadge(r, big = false) {
 const MOM_KIND = {
   goal: 'Goals', sog: 'Shots', miss: 'Missed shots', 'block-attempt': 'Blocked attempts', block: 'Blocks', faceoff: 'Faceoff wins',
   'faceoff-loss': 'Faceoff losses', takeaway: 'Takeaways', giveaway: 'Giveaways', hit: 'Hits', 'penalty-drawn': 'Penalties drawn',
-  'penalty-taken': 'Penalties taken', 'penalty-kill': 'Penalty kill',
+  'penalty-taken': 'Penalties taken', fight: 'Fighting', 'penalty-kill': 'Penalty kill',
 };
 
 /** Momentum the player created (green, right) and gave away (red, left), with the biggest reasons. */

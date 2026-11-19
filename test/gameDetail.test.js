@@ -182,3 +182,24 @@ test('team colors stay real brand colors: valid hex, no grey fallbacks for Utah 
     }
   }
 });
+
+test('a fight is not charged to the fighters and sparks the team that was behind', async () => {
+  const { computeMomentum } = await import('../src/momentum.js');
+  const play = (n, type, period, time, d) => ({ sortOrder: n, typeDescKey: type, periodDescriptor: { number: period, periodType: 'REG' }, timeInPeriod: time, details: d });
+  const pbp = {
+    rosterSpots: [{ playerId: 1, teamId: 52 }, { playerId: 2, teamId: 53 }, { playerId: 3, teamId: 52 }],
+    plays: [
+      // Team 53 (home) piles on shots, then two players fight.
+      ...Array.from({ length: 6 }, (_, i) => play(i + 1, 'shot-on-goal', 1, `0${i}:30`, { eventOwnerTeamId: 53, shootingPlayerId: 2, xCoord: 60, yCoord: 0 })),
+      play(20, 'penalty', 1, '08:00', { eventOwnerTeamId: 52, committedByPlayerId: 1, descKey: 'fighting', typeCode: 'MAJ', duration: 5 }),
+      play(21, 'penalty', 1, '08:00', { eventOwnerTeamId: 53, committedByPlayerId: 2, descKey: 'fighting', typeCode: 'MAJ', duration: 5 }),
+    ],
+  };
+  const m = computeMomentum(pbp, 52, 600);
+  assert.ok(m.players[1].impact > 0, 'fighter is not charged');
+  assert.equal(m.players[1].neg, 0);
+  assert.ok((m.players[1].kinds.fight ?? 0) > 0);
+  const before = m.series.find(([t]) => t >= 470)[1];
+  const after = m.series.find(([t]) => t >= 490)[1];
+  assert.ok(after < before, 'the trailing (away) team got the lift, pulling the line toward away');
+});
