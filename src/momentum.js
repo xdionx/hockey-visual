@@ -9,7 +9,7 @@
 //   faceoff win 0.6 offensive zone / 0.35 neutral / 0.25 defensive (you start with the puck)
 //   takeaway 0.5, giveaway 0.5 to the other team, hit 0.2
 //   penalty drawn 1.0, plus 0.2 every 10 seconds of power play (extended possession)
-//   penalty killed off 1.5 to the shorthanded team
+//   penalty killed off 1.5 to the shorthanded team; a shorthanded goal counts 1.5x (4.5)
 //
 // Taking a penalty hurts the player who took it: they lose the 1.0 the other team gained, every
 // power-play push the penalty led to, and a further 1.5 if the power play scored. Drawing one
@@ -37,7 +37,7 @@ const plateMult = (d) => (inHomePlate(d.xCoord, d.yCoord) ? HOME_PLATE_BONUS : 1
 export const MOMENTUM_WEIGHTS = {
   goal: 3, sog: 1, miss: 0.35, blockedShooter: 0.2, blocker: 0.1,
   faceoff: { O: 0.6, N: 0.35, D: 0.25 }, takeaway: 0.5, giveaway: 0.5, hit: 0.2,
-  penaltyDrawn: 1, powerPlayTick: 0.2, penaltyKilled: 1.5, powerPlayGoalAgainst: 1.5, powerPlayGoalDrawn: 0.75,
+  shorthandedGoalMult: 1.5, penaltyDrawn: 1, powerPlayTick: 0.2, penaltyKilled: 1.5, powerPlayGoalAgainst: 1.5, powerPlayGoalDrawn: 0.75,
 };
 const HALF_LIFE = 75; // seconds
 const DECAY = Math.LN2 / HALF_LIFE;
@@ -108,7 +108,10 @@ export function pushes(plays, awayId, rosterTeam) {
         const credits = [{ id: d.scoringPlayerId, share: d.assist1PlayerId ? 0.6 : 1 }];
         if (d.assist1PlayerId) credits.push({ id: d.assist1PlayerId, share: d.assist2PlayerId ? 0.25 : 0.4 });
         if (d.assist2PlayerId) credits.push({ id: d.assist2PlayerId, share: 0.15 });
-        add(owner, W.goal, 'goal', credits);
+        // A shorthanded goal swings a game harder than a power-play goal: 1.5x.
+        const st = strength(p.situationCode);
+        const sh = st && st.awayGoalie && st.homeGoalie && (owner === 'away' ? st.away < st.home : st.home < st.away);
+        add(owner, W.goal * (sh ? W.shorthandedGoalMult : 1), 'goal', credits);
         break;
       }
       case 'shot-on-goal': add(owner, W.sog * plateMult(d), 'sog', [{ id: d.shootingPlayerId, share: 1 }]); break;
