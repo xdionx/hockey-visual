@@ -7,7 +7,7 @@ export function shotLine(game, side) {
   if (game.status.state === 'pre') return '';
   const sog = game.linescore.shots?.[side];
   const att = (game.shots ?? []).filter((x) => x.team === side).length;
-  return `<span class="b-shots"><span><b>${sog ?? '-'}</b> SOG</span><i></i><span><b>${att}</b> ATT</span></span>`;
+  return `<span class="b-shots"><span><b>${sog ?? '-'}</b> SOG</span><i></i><span><b>${att}</b> SAT</span></span>`;
 }
 
 export function hero(game, c, { strip = true, shots = false } = {}) {

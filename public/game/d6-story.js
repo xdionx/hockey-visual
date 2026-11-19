@@ -59,7 +59,7 @@ export function storyline(game) {
     const live = storyBeats(game);
     if (live.length) return { headline, dek: live.map((b, i) => (i ? b : { ...b, label: `${b.label} · ${game.status.label}` })) };
     dek.push(`${game.status.label}.`);
-    if (att) dek.push(`${away.abbrev} has ${Math.round((100 * shots.away.attempts) / att)}% of shot attempts so far (${shots.away.attempts}-${shots.home.attempts}).`);
+    if (att) dek.push(`${away.abbrev} has ${Math.round((100 * shots.away.attempts) / att)}% of the shot attempts so far (${shots.away.attempts}-${shots.home.attempts} SAT).`);
     if (best) dek.push(`${best.fullName} (${best.team}) has been the best player on the ice so far: ${statLine(best)}.`);
     return { headline, dek };
   }
@@ -95,7 +95,7 @@ export function storyline(game) {
   if (att) {
     const top = shots.away.attempts >= shots.home.attempts ? 'away' : 'home';
     const pctAtt = Math.round((100 * shots[top].attempts) / att);
-    dek.push(`${game[top].abbrev} drove play with ${pctAtt}% of shot attempts (${shots[top].attempts}-${shots[other(top)].attempts}) and ${shots[top].sog}-${shots[other(top)].sog} on goal.`);
+    dek.push(`${game[top].abbrev} drove play with ${pctAtt}% of shot attempts (${shots[top].attempts}-${shots[other(top)].attempts} SAT) and ${shots[top].sog}-${shots[other(top)].sog} on goal.`);
   }
   if (best) dek.push(`Player of the game: ${best.fullName} (${best.team}), ${statLine(best)}, rated ${best.rating.toFixed(1)}.`);
   return { headline, dek };
@@ -337,7 +337,7 @@ function lineScore(game, c) {
   const row = (side) => `<tr style="--team:${c[side]}"><td class="l"><span class="st-ls-t">${logo(game[side], 'st-ls-logo', true)}${esc(game[side].abbrev)}</span></td>
     ${ls.periods.map((p) => `<td>${p[side] ?? '-'}</td>`).join('')}<td class="tot">${ls.totals[side]}</td><td>${ls.shots?.[side] ?? '-'}</td><td>${s[side].attempts}</td></tr>`;
   return `<div class="b-card st-ls"><h2>Line score</h2><div class="a-scroll"><table class="a-table st-ls-t-table">
-    <thead><tr><th class="l">Team</th>${ls.periods.map((p) => `<th>${esc(p.label)}</th>`).join('')}<th class="tot">T</th><th>SOG</th><th>ATT</th></tr></thead>
+    <thead><tr><th class="l">Team</th>${ls.periods.map((p) => `<th>${esc(p.label)}</th>`).join('')}<th class="tot">T</th><th>SOG</th><th title="Shot attempts">SAT</th></tr></thead>
     <tbody>${row('away')}${row('home')}</tbody></table></div></div>`;
 }
 

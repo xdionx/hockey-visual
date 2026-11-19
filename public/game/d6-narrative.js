@@ -88,7 +88,7 @@ function control(game, final) {
   const cap = (t) => t.charAt(0).toUpperCase() + t.slice(1);
   const out = [];
   const shotLead = shots.away.attempts === shots.home.attempts ? null : shots.away.attempts > shots.home.attempts ? 'away' : 'home';
-  if (att && shotLead) out.push(`${cap(name(shotLead))} ${final ? 'had' : 'have had'} ${Math.round((100 * shots[shotLead].attempts) / att)}% of the shot attempts${final ? '' : ' so far'} (${shots[shotLead].attempts}-${shots[other(shotLead)].attempts}).`);
+  if (att && shotLead) out.push(`${cap(name(shotLead))} ${final ? 'had' : 'have had'} ${Math.round((100 * shots[shotLead].attempts) / att)}% of the shot attempts${final ? '' : ' so far'} (${shots[shotLead].attempts}-${shots[other(shotLead)].attempts} SAT).`);
   if (!m?.periods?.length) return out.join(' ');
   const ctl = m.periods.reduce((a, p) => ({ away: a.away + (p.control?.away ?? 0), home: a.home + (p.control?.home ?? 0), even: a.even + (p.control?.even ?? 0) }), { away: 0, home: 0, even: 0 });
   const tot = ctl.away + ctl.home + ctl.even;
