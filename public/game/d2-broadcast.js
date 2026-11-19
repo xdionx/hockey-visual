@@ -2,13 +2,28 @@
 // Inspired by TSN and NHL broadcast score bugs: team-color panels, condensed type, big numbers.
 import { esc, logo, teamColors, statusText, prettyDate, skaters, goaliesOf, pct, signed, videoButton, visualizerButton, elapsed, headshot, strengthBadge } from './core.js';
 
-export function hero(game, c) {
+/** Shots on goal and shot attempts for one team, for next to the score. */
+export function shotLine(game, side) {
+  if (game.status.state === 'pre') return '';
+  const sog = game.linescore.shots?.[side];
+  const att = (game.shots ?? []).filter((x) => x.team === side).length;
+  return `<span class="b-shots"><b>${sog ?? '-'}</b> SOG<i></i><b>${att}</b> ATT</span>`;
+}
+
+export function hero(game, c, { strip = true, shots = false } = {}) {
   const ls = game.linescore;
   const panel = (s) => `<div class="b-panel ${s}" style="--team:${s === 'away' ? c.panelAway : c.panelHome}">
     ${logo(game[s], 'b-logo', true)}
     <div class="b-name"><span>${esc(game[s].placeName)}</span><strong>${esc(game[s].commonName)}</strong></div>
-    <div class="b-score">${game.status.state === 'pre' ? '–' : ls.totals[s]}</div>
+    <div class="b-scorebox"><div class="b-score">${game.status.state === 'pre' ? '–' : ls.totals[s]}</div>${shots ? shotLine(game, s) : ''}</div>
   </div>`;
+  if (!strip) {
+    return `<section class="b-hero">
+    ${panel('away')}
+    <div class="b-mid"><span class="b-state ${game.status.state}">${esc(statusText(game))}</span>${strengthBadge(game, c)}<span class="b-date">${esc(prettyDate(game.gameDate))}</span><span class="b-venue">${esc(game.venue)}</span></div>
+    ${panel('home')}
+  </section>`;
+  }
   return `<section class="b-hero">
     ${panel('away')}
     <div class="b-mid"><span class="b-state ${game.status.state}">${esc(statusText(game))}</span>${strengthBadge(game, c)}<span class="b-date">${esc(prettyDate(game.gameDate))}</span><span class="b-venue">${esc(game.venue)}</span></div>

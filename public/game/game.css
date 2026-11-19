@@ -622,3 +622,37 @@ main { padding: 0 0 48px; }
 .s-mom-why .pos b { color: #16a34a; }
 .s-mom-why .pos { text-align: right; }
 .s-mom-why small { display: block; font-size: 10px; opacity: .85; }
+
+/* Shots next to the score (hero and sticky bar) */
+.b-scorebox { margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.b-panel.home .b-scorebox { margin: 0 auto 0 0; align-items: flex-start; }
+.b-scorebox .b-score { margin: 0; }
+.b-shots { display: inline-flex; align-items: center; gap: 4px; font: 600 13px "Barlow Condensed", sans-serif; letter-spacing: .08em; color: rgba(255,255,255,.75); white-space: nowrap; position: relative; z-index: 1; }
+.b-shots b { font-size: 17px; font-weight: 800; color: #fff; letter-spacing: 0; }
+.b-shots i { width: 1px; height: 12px; background: rgba(255,255,255,.35); margin: 0 4px; }
+.st-mini-t .b-shots { font-size: 11px; color: var(--b-mute); }
+.st-mini-t .b-shots b { font-size: 14px; border: 0; padding: 0; }
+@media (max-width: 640px) { .b-shots { font-size: 11px; } .b-shots b { font-size: 14px; } .st-mini-t .b-shots { display: none; } }
+/* Line score in the box score section */
+.st-ls { max-width: 1168px; margin: 0 auto 16px; }
+.st-ls table td, .st-ls table th { text-align: center; }
+.st-ls table .l { text-align: left; }
+.st-ls-t { display: inline-flex; align-items: center; gap: 8px; font: 800 16px "Barlow Condensed", sans-serif; border-left: 4px solid var(--team); padding-left: 8px; }
+.st-ls-logo { width: 24px; height: 24px; object-fit: contain; }
+.st-ls .tot { font-weight: 800; color: #fff; font-size: 16px; }
+@media (max-width: 860px) {
+  .b-panel { display: grid; grid-template-columns: auto 1fr; grid-template-areas: "logo name" "shots score"; align-items: center; row-gap: 4px; }
+  .b-panel.home { grid-template-columns: 1fr auto; grid-template-areas: "name logo" "score shots"; }
+  .b-panel .b-logo { grid-area: logo; }
+  .b-panel .b-name { grid-area: name; min-width: 0; }
+  .b-scorebox { display: contents; }
+  .b-scorebox .b-score { grid-area: score; margin: 0; justify-self: end; }
+  .b-panel.home .b-scorebox .b-score { margin: 0; justify-self: start; }
+  .b-shots { grid-area: shots; align-self: end; padding-bottom: 6px; }
+  .b-name strong { font-size: 18px; }
+}
+@media (max-width: 640px) { .st-mini-t .b-shots { display: none; } .st-mini-t strong::after { content: attr(data-sog); display: block; font-size: 10px; font-weight: 600; color: var(--b-mute); letter-spacing: .06em; margin-top: 1px; } .st-mini-t strong { display: flex; flex-direction: column; align-items: center; } }
+.st-ls table { width: auto; min-width: 420px; }
+.st-td.home { border-left: 0; border-right: 3px solid var(--team); padding: 0 10px 0 0; }
+.st-td.home .st-td-h { display: flex; justify-content: flex-end; }
+.st-td-h { display: flex; align-items: center; min-height: 24px; }
