@@ -231,5 +231,21 @@ export function ratingColor(r) {
 }
 
 export const GS_PARTS = [
-  ['scoring', 'Scoring'], ['shooting', 'Shots'], ['onIce', 'On-ice +/-'], ['defense', 'Blocks'], ['discipline', 'Penalties'], ['faceoffs', 'Faceoffs'],
+  ['scoring', 'Scoring'], ['momentum', 'Momentum'], ['shooting', 'Shots'], ['onIce', 'On-ice +/-'], ['defense', 'Blocks'], ['discipline', 'Penalties'], ['faceoffs', 'Faceoffs'],
 ];
+
+/** Offensive-zone areas (see shotZone in src/gameDetail.js), as rectangles for the home team's attacking end. */
+export const ZONES = [
+  ['low-slot', 'Low slot', 69, 89, -9, 9],
+  ['high-slot', 'High slot', 49, 69, -9, 9],
+  ['circle-left', 'Left circle', 49, 89, 9, 28],
+  ['circle-right', 'Right circle', 49, 89, -28, -9],
+  ['boards-left', 'Left boards', 49, 89, 28, 42.5],
+  ['boards-right', 'Right boards', 49, 89, -42.5, -28],
+  ['point-center', 'Center point', 25, 49, -9, 9],
+  ['point-left', 'Left point', 25, 49, 9, 42.5],
+  ['point-right', 'Right point', 25, 49, -42.5, -9],
+  ['behind-net', 'Behind the net', 89, 100, -42.5, 42.5],
+  ['outside', 'Outside the zone', null],
+];
+export const zoneName = (key) => ZONES.find((z) => z[0] === key)?.[1] ?? key;

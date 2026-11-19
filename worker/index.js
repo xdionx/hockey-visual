@@ -81,10 +81,13 @@ async function build(path) {
   m = path.match(/^\/games\/(\d{10})\.json$/);
   if (m) {
     const id = m[1];
-    const [box, landing, rightRail, pbp] = await Promise.all([
+    const [box, landing, rightRail, pbp, shifts] = await Promise.all([
       nhl(`gamecenter/${id}/boxscore`), nhl(`gamecenter/${id}/landing`), nhl(`gamecenter/${id}/right-rail`), nhl(`gamecenter/${id}/play-by-play`),
+      // Shifts (for on-ice shot attempts) live on the stats API; the box score works without them.
+      fetch(`https://api.nhle.com/stats/rest/en/shiftcharts?cayenneExp=gameId=${id}`, { headers: { accept: 'application/json', 'user-agent': 'hockey-visual-live/1.0' } })
+        .then((r) => (r.ok ? r.json() : null)).catch(() => null),
     ]);
-    const game = normalizeGameDetail({ box, landing, rightRail, pbp });
+    const game = normalizeGameDetail({ box, landing, rightRail, pbp, shifts });
     const today = new Date(Date.now() - 10 * HOUR * 1000).toISOString().slice(0, 10); // close enough to the NHL day for ageing
     return { body: game, ttl: ttlFor(game.status.state, game.gameDate, today) };
   }

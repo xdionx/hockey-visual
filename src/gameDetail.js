@@ -3,6 +3,7 @@
 //
 // Output feeds the box score page designs and, later, per-player scorecards.
 import { gameStatus, periodLabel, periodName, nhlVideoUrl, videoId } from './normalize.js';
+import { computeMomentum, onIceAttempts } from './momentum.js';
 
 const t = (v) => (v && typeof v === 'object' ? v.default : v) ?? '';
 const clockTime = (s) => (s ?? '').replace(/^0(?=\d:)/, '');
@@ -13,11 +14,12 @@ const toSeconds = (mmss) => {
 };
 const humanize = (key) => String(key ?? '').replace(/-/g, ' ').replace(/\b\w/, (c) => c.toUpperCase());
 
-// Game Score weights (Dom Luszczyszyn's public model). On-ice Corsi needs shift
-// data, which isn't in these endpoints, so on-ice goals use plus/minus instead.
+// Game Score weights (Dom Luszczyszyn's public model). On-ice shot attempts come from
+// shift charts, weighted by result; when shifts are missing, on-ice goals use plus/minus.
 export const GAME_SCORE_WEIGHTS = {
   goals: 0.75, primaryAssists: 0.7, secondaryAssists: 0.55, shots: 0.075, blocks: 0.05,
-  penaltiesDrawn: 0.15, penaltiesTaken: -0.15, faceoffWins: 0.01, faceoffLosses: -0.01, plusMinus: 0.15,
+  penaltiesDrawn: 0.15, penaltiesTaken: -0.15, faceoffWins: 0.01, faceoffLosses: -0.01, plusMinus: 0.15, onIceAttempts: 0.05,
+  momentum: 0.05, // per point of momentum impact (see momentum.js); our addition to the public model
 };
 
 /** Skater game score, split into groups the scorecard can chart. */
@@ -29,7 +31,9 @@ export function skaterGameScore(s) {
     defense: s.blocks * w.blocks,
     discipline: s.penaltiesDrawn * w.penaltiesDrawn + s.penaltiesTaken * w.penaltiesTaken,
     faceoffs: s.fow * w.faceoffWins + s.fol * w.faceoffLosses,
-    onIce: s.plusMinus * w.plusMinus,
+    // With shift data: weighted on-ice attempts and goals for minus against. Without: plus/minus.
+    onIce: s.onIce ? (s.onIce.cf - s.onIce.ca) * w.onIceAttempts + (s.onIce.gf - s.onIce.ga) * w.plusMinus : s.plusMinus * w.plusMinus,
+    momentum: (s.momentum ?? 0) * w.momentum,
   };
   const total = Object.values(parts).reduce((a, b) => a + b, 0);
   return { total: round(total), parts: Object.fromEntries(Object.entries(parts).map(([k, v]) => [k, round(v)])) };
@@ -129,6 +133,23 @@ function eventCounts(pbp) {
   return counts;
 }
 
+/**
+ * Offensive-zone area a shot came from, measured from the net the shooter attacks.
+ * dx = feet out from the goal line, lateral = feet left (+) or right (-) of center from the shooter's view.
+ */
+export function shotZone(team, x, y) {
+  const dx = team === 'home' ? 89 - x : x + 89;
+  const lateral = team === 'home' ? y : -y;
+  const side = lateral >= 0 ? 'left' : 'right';
+  const ay = Math.abs(y);
+  if (dx < 0) return 'behind-net';
+  if (dx > 64) return 'outside';
+  if (dx > 40) return ay <= 9 ? 'point-center' : `point-${side}`;
+  if (ay <= 9) return dx <= 20 ? 'low-slot' : 'high-slot';
+  if (ay <= 28) return `circle-${side}`;
+  return `boards-${side}`;
+}
+
 const SHOT_TYPES = { goal: 'goal', 'shot-on-goal': 'sog', 'missed-shot': 'miss', 'blocked-shot': 'block' };
 
 /**
@@ -162,6 +183,7 @@ function shotList(pbp, awayId, roster) {
       elapsed: (e.periodDescriptor.number - 1) * 1200 + toSeconds(e.timeInPeriod),
       shooterId,
       shotType: d.shotType ?? null,
+      zone: shotZone(shooterTeam, x, y),
     });
   }
   return out;
@@ -173,7 +195,7 @@ function rosterMap(pbp) {
   }]));
 }
 
-function skater(raw, counts, roster) {
+function skater(raw, counts, roster, momentum, onIce) {
   const c = counts.get(raw.playerId) ?? { a1: 0, a2: 0, fow: 0, fol: 0, penaltiesDrawn: 0, penaltiesTaken: 0, missed: 0, blockedAgainst: 0 };
   const r = roster.get(raw.playerId);
   const s = {
@@ -207,6 +229,10 @@ function skater(raw, counts, roster) {
     penaltiesDrawn: c.penaltiesDrawn,
     penaltiesTaken: c.penaltiesTaken,
   };
+  const mom = momentum?.players?.[raw.playerId] ?? { impact: 0, swingPlays: 0 };
+  s.momentum = mom.impact;
+  s.onIce = onIce?.get(raw.playerId) ?? null;
+  s.swingPlays = mom.swingPlays;
   const gs = skaterGameScore(s);
   s.gameScore = gs.total;
   s.gameScoreParts = gs.parts;
@@ -243,11 +269,11 @@ function goalie(raw, roster) {
   return g;
 }
 
-function teamPlayers(stats, counts, roster) {
+function teamPlayers(stats, counts, roster, momentum, onIce) {
   if (!stats) return { forwards: [], defense: [], goalies: [] };
   return {
-    forwards: (stats.forwards ?? []).map((p) => skater(p, counts, roster)),
-    defense: (stats.defense ?? []).map((p) => skater(p, counts, roster)),
+    forwards: (stats.forwards ?? []).map((p) => skater(p, counts, roster, momentum, onIce)),
+    defense: (stats.defense ?? []).map((p) => skater(p, counts, roster, momentum, onIce)),
     goalies: (stats.goalies ?? []).map((p) => goalie(p, roster)),
   };
 }
@@ -354,9 +380,13 @@ function team(boxTeam, info) {
 }
 
 /** One game's box score from the raw endpoint responses. Any of landing/rightRail/pbp may be missing. */
-export function normalizeGameDetail({ box, landing = null, rightRail = null, pbp = null }) {
+export function normalizeGameDetail({ box, landing = null, rightRail = null, pbp = null, shifts = null }) {
   const counts = eventCounts(pbp);
   const roster = rosterMap(pbp);
+  const momentum = pbp ? computeMomentum(pbp, box.awayTeam.id) : null;
+  const goalieIds = new Set(['awayTeam', 'homeTeam'].flatMap((k) => (box.playerByGameStats?.[k]?.goalies ?? []).map((g) => g.playerId)));
+  const onIce = onIceAttempts(pbp, shifts, goalieIds);
+  const nameOf = (id) => (roster.get(id) ? `${roster.get(id).firstName} ${roster.get(id).lastName}` : null);
   const info = rightRail?.gameInfo ?? {};
   const video = rightRail?.gameVideo ?? {};
   const series = rightRail?.seasonSeriesWins;
@@ -379,10 +409,19 @@ export function normalizeGameDetail({ box, landing = null, rightRail = null, pbp
     penalties: penalties(landing),
     threeStars: threeStars(landing),
     players: {
-      away: teamPlayers(box.playerByGameStats?.awayTeam, counts, roster),
-      home: teamPlayers(box.playerByGameStats?.homeTeam, counts, roster),
+      away: teamPlayers(box.playerByGameStats?.awayTeam, counts, roster, momentum, onIce),
+      home: teamPlayers(box.playerByGameStats?.homeTeam, counts, roster, momentum, onIce),
     },
+    hasShifts: Boolean(onIce),
     shots: shotList(pbp, box.awayTeam.id, roster),
+    momentum: momentum && {
+      series: momentum.series,
+      max: momentum.max,
+      totals: momentum.totals,
+      periods: momentum.periods,
+      powerPlays: momentum.powerPlays,
+      swings: momentum.swings.map((sw) => ({ ...sw, cause: sw.cause && { ...sw.cause, player: nameOf(sw.cause.playerId) } })),
+    },
     officials: {
       referees: (info.referees ?? []).map((r) => t(r.fullName ?? r)),
       linesmen: (info.linesmen ?? []).map((r) => t(r.fullName ?? r)),

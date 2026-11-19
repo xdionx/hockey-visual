@@ -1,6 +1,6 @@
 // Design 4 "Analytics": shot map, shot-attempt flow and heat-mapped player stats.
 // Inspired by HockeyStats and NHL EDGE style analytics pages.
-import { esc, logo, teamColors, statusText, prettyDate, allSkaters, allGoalies, pct, signed, rinkMarkup, shotMark, elapsed } from './core.js';
+import { ZONES, esc, logo, teamColors, statusText, prettyDate, allSkaters, allGoalies, pct, signed, rinkMarkup, shotMark, elapsed } from './core.js';
 
 function header(game, c) {
   const ls = game.linescore;
@@ -43,12 +43,14 @@ export function kpis(game, c) {
 export function shotMap(game, c) {
   return `<section class="a-card a-map"><div class="a-card-head"><h2>Shot map</h2>
       <div class="a-filters" id="a-filters">
+        <div class="a-seg" data-filter="view"><button data-v="dots" aria-pressed="true">Shot map</button><button data-v="zones" aria-pressed="false">Zone map</button></div>
         <div class="a-seg" data-filter="team"><button data-v="all" aria-pressed="true">Both</button><button data-v="away" aria-pressed="false">${esc(game.away.abbrev)}</button><button data-v="home" aria-pressed="false">${esc(game.home.abbrev)}</button></div>
         <div class="a-seg" data-filter="period"><button data-v="all" aria-pressed="true">All</button>${[...new Set(game.shots.map((s) => s.period))].map((p) => `<button data-v="${esc(p)}" aria-pressed="false">${p === 'OT' ? 'OT' : `P${esc(p)}`}</button>`).join('')}</div>
       </div></div>
     <div class="a-rinkwrap"><span class="a-att" style="color:${c.away}">&#9664; ${esc(game.away.abbrev)} attacking</span><span class="a-att r" style="color:${c.home}">${esc(game.home.abbrev)} attacking &#9654;</span>
-      <svg class="a-rink" viewBox="-101 -43.5 202 87" role="img" aria-label="Shot locations">${rinkMarkup()}<g id="a-shots"></g></svg></div>
-    <div class="a-legend"><span><svg viewBox="-3 -3 6 6"><circle r="2.6" fill="currentColor"/></svg>Goal</span><span><svg viewBox="-3 -3 6 6"><circle r="2" fill="none" stroke="currentColor" stroke-width=".9"/></svg>On goal</span><span><svg viewBox="-3 -3 6 6"><path d="M-1.6-1.6l3.2 3.2M1.6-1.6l-3.2 3.2" stroke="currentColor" stroke-width=".8"/></svg>Missed</span><span><svg viewBox="-3 -3 6 6"><rect x="-1.4" y="-1.4" width="2.8" height="2.8" fill="currentColor" opacity=".5"/></svg>Blocked</span></div>
+      <svg class="a-rink" viewBox="-101 -43.5 202 87" role="img" aria-label="Shot locations">${rinkMarkup()}<clipPath id="a-zone-clip"><rect x="-100" y="-42.5" width="200" height="85" rx="28" ry="28"/></clipPath><g id="a-zones" clip-path="url(#a-zone-clip)"></g><g id="a-shots"></g><g id="a-zone-labels" pointer-events="none"></g></svg></div>
+    <div class="a-legend" id="a-dot-legend"><span><svg viewBox="-3 -3 6 6"><circle r="2.6" fill="currentColor"/></svg>Goal</span><span><svg viewBox="-3 -3 6 6"><circle r="2" fill="none" stroke="currentColor" stroke-width=".9"/></svg>On goal</span><span><svg viewBox="-3 -3 6 6"><path d="M-1.6-1.6l3.2 3.2M1.6-1.6l-3.2 3.2" stroke="currentColor" stroke-width=".8"/></svg>Missed</span><span><svg viewBox="-3 -3 6 6"><rect x="-1.4" y="-1.4" width="2.8" height="2.8" fill="currentColor" opacity=".5"/></svg>Blocked</span></div>
+    <div id="a-zone-table" hidden></div>
   </section>`;
 }
 
@@ -134,30 +136,80 @@ export function goalies(game, c) {
 
 /** Draws the shot map dots and wires its team/period filters. */
 // Kept outside the render so live refreshes don't reset the filters.
-const shotFilter = { team: 'all', period: 'all' };
+const shotFilter = { view: 'dots', team: 'all', period: 'all' };
+
+/** Zone rectangles shaded by attempts, with "attempts · goals" labels, for one team's attacking end. */
+function zoneLayer(shots, team, color) {
+  const flip = team === 'away' ? -1 : 1;
+  const counts = {};
+  for (const s of shots) {
+    const z = (counts[s.zone] ??= { att: 0, goals: 0 });
+    z.att++;
+    if (s.kind === 'goal') z.goals++;
+  }
+  const max = Math.max(1, ...ZONES.filter((z) => z[2] != null).map(([k]) => counts[k]?.att ?? 0));
+  const out = { rects: '', labels: '' };
+  for (const [k, label, x1, x2, y1, y2] of ZONES.filter((z) => z[2] != null)) {
+    const n = counts[k] ?? { att: 0, goals: 0 };
+    const xs = [x1 * flip, x2 * flip].sort((a, b) => a - b);
+    const ys = [-y2 * flip, -y1 * flip].sort((a, b) => a - b); // svg y is flipped
+    const op = n.att ? 0.12 + 0.7 * (n.att / max) : 0.03;
+    const cx = (xs[0] + xs[1]) / 2;
+    const cy = (ys[0] + ys[1]) / 2;
+    out.rects += `<rect class="a-zone" x="${xs[0]}" y="${ys[0]}" width="${xs[1] - xs[0]}" height="${ys[1] - ys[0]}" fill="${color}" fill-opacity="${op.toFixed(2)}" stroke="rgba(255,255,255,.25)" stroke-width=".4"><title>${esc(`${label}: ${n.att} attempts, ${n.goals} goals`)}</title></rect>`;
+    // Labels sit above the goal dots so the counts stay readable.
+    if (n.att) out.labels += `<text x="${cx}" y="${cy}" text-anchor="middle" dominant-baseline="middle" class="a-zone-n">${n.att}${n.goals ? `<tspan class="a-zone-g"> · ${n.goals}G</tspan>` : ''}</text>`;
+  }
+  return out;
+}
+
+function zoneTable(game, shots, c, teams) {
+  return `<div class="a-zone-tables">${teams.map((team) => {
+    const mine = shots.filter((s) => s.team === team);
+    const rows = ZONES.map(([k, label]) => {
+      const z = mine.filter((s) => s.zone === k);
+      const sog = z.filter((s) => s.kind === 'sog' || s.kind === 'goal').length;
+      const g = z.filter((s) => s.kind === 'goal').length;
+      return { label, att: z.length, sog, g };
+    }).filter((r) => r.att).sort((a, b) => b.att - a.att);
+    return `<table class="a-table a-zt"><caption style="color:${c[team]}">${esc(game[team].abbrev)} shot attempts by zone</caption>
+      <thead><tr><th class="l">Zone</th><th>Att</th><th>On goal</th><th>Goals</th><th>Sh%</th></tr></thead>
+      <tbody>${rows.map((r) => `<tr><td class="l">${esc(r.label)}</td><td>${r.att}</td><td>${r.sog}</td><td>${r.g || ''}</td><td>${r.sog ? `${Math.round((100 * r.g) / r.sog)}%` : '-'}</td></tr>`).join('')}</tbody></table>`;
+  }).join('')}</div>`;
+}
 
 export function mountShotMap(root, game, c) {
-    const state = shotFilter;
-    root.querySelectorAll('#a-filters [data-filter]').forEach((seg) => {
-      const want = seg.querySelector(`button[data-v="${state[seg.dataset.filter]}"]`) ? state[seg.dataset.filter] : 'all';
-      state[seg.dataset.filter] = want;
-      seg.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x.dataset.v === want)));
-    });
-    const draw = () => {
-      const shots = game.shots.filter((s) => (state.team === 'all' || s.team === state.team) && (state.period === 'all' || s.period === state.period));
-      // Draw goals last so they sit on top.
-      const order = { block: 0, miss: 1, sog: 2, goal: 3 };
-      root.querySelector('#a-shots').innerHTML = shots.sort((a, b) => order[a.kind] - order[b.kind]).map((s) => shotMark(s, c[s.team])).join('');
-    };
-    root.querySelector('#a-filters')?.addEventListener('click', (e) => {
-      const b = e.target.closest('button[data-v]');
-      if (!b) return;
-      const seg = b.closest('[data-filter]');
-      seg.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
-      state[seg.dataset.filter] = b.dataset.v;
-      draw();
-    });
+  const state = shotFilter;
+  root.querySelectorAll('#a-filters [data-filter]').forEach((seg) => {
+    const want = seg.querySelector(`button[data-v="${state[seg.dataset.filter]}"]`) ? state[seg.dataset.filter] : seg.querySelector('button').dataset.v;
+    state[seg.dataset.filter] = want;
+    seg.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x.dataset.v === want)));
+  });
+  const draw = () => {
+    const shots = game.shots.filter((s) => (state.team === 'all' || s.team === state.team) && (state.period === 'all' || s.period === state.period));
+    const zones = state.view === 'zones';
+    const teams = state.team === 'all' ? ['away', 'home'] : [state.team];
+    const layers = zones ? teams.map((t) => zoneLayer(shots.filter((s) => s.team === t), t, c[t])) : [];
+    root.querySelector('#a-zones').innerHTML = layers.map((l) => l.rects).join('');
+    root.querySelector('#a-zone-labels').innerHTML = layers.map((l) => l.labels).join('');
+    // Draw goals last so they sit on top. In zone view only goals stay, to show where scoring came from.
+    const order = { block: 0, miss: 1, sog: 2, goal: 3 };
+    const dots = zones ? shots.filter((s) => s.kind === 'goal') : shots;
+    root.querySelector('#a-shots').innerHTML = dots.sort((a, b) => order[a.kind] - order[b.kind]).map((s) => shotMark(s, zones ? 'rgba(255,255,255,.75)' : c[s.team], zones ? 1.1 : 2.2)).join('');
+    root.querySelector('#a-dot-legend').hidden = zones;
+    const table = root.querySelector('#a-zone-table');
+    table.hidden = !zones;
+    table.innerHTML = zones ? zoneTable(game, shots, c, teams) : '';
+  };
+  root.querySelector('#a-filters')?.addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-v]');
+    if (!b) return;
+    const seg = b.closest('[data-filter]');
+    seg.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+    state[seg.dataset.filter] = b.dataset.v;
     draw();
+  });
+  draw();
 }
 
 export default {

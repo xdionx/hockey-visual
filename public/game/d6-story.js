@@ -1,9 +1,9 @@
 // Design "Game Story": the Broadcast look with the Analytics and Scorecards data,
 // ordered to tell the game's story: what happened, how momentum swung, where the
 // shots came from, who drove it, then the full box score.
-import { esc, teamColors, allSkaters, allGoalies } from './core.js';
+import { esc, teamColors, allSkaters, allGoalies, elapsed } from './core.js';
 import { hero, scoringCards, stars, statBars } from './d2-broadcast.js';
-import { kpis, shotMap, flowChart, heatTable, goalies, shotSummary, mountShotMap } from './d4-analytics.js';
+import { kpis, shotMap, heatTable, goalies, shotSummary, mountShotMap } from './d4-analytics.js';
 import { spotlight, scorecardControls, scorecardKey, mountScorecards } from './d5-scorecards.js';
 
 const SECTIONS = [
@@ -99,9 +99,93 @@ function header(n, id, title, sub = '') {
   return `<header class="st-h"><span class="st-n">${String(n).padStart(2, '0')}</span><h2>${esc(title)}</h2>${sub ? `<p>${esc(sub)}</p>` : ''}</header>`;
 }
 
+const KIND_LABEL = {
+  goal: 'goal', sog: 'shot on goal', miss: 'missed shot', 'block-attempt': 'shot attempt', block: 'blocked shot',
+  faceoff: 'faceoff win', takeaway: 'takeaway', giveaway: 'giveaway', hit: 'hit', penalty: 'drew a penalty',
+  'power-play': 'power play pressure', 'penalty-kill': 'penalty kill',
+};
+
+/** "P2 14:05" from seconds since puck drop. */
+function clock(t) {
+  const n = Math.floor(t / 1200);
+  const s = t - n * 1200;
+  const label = n >= 3 ? (n === 3 ? 'OT' : `${n - 2}OT`) : `P${n + 1}`;
+  return `${label} ${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}`;
+}
+
+function causeText(game, cause) {
+  if (!cause) return 'a run of pressure';
+  if (cause.kind === 'penalty-kill') return 'killing off a penalty';
+  if (cause.kind === 'power-play') return 'power play pressure';
+  if (cause.kind === 'giveaway') return `${cause.player ?? 'an opponent'}'s giveaway`;
+  if (cause.kind === 'penalty') return `${cause.player ?? 'a player'} drawing a penalty`;
+  return `${cause.player ? `${cause.player}'s ` : 'a '}${KIND_LABEL[cause.kind] ?? cause.kind}`;
+}
+
+/** Diverging momentum chart: home pushes up, away pushes down. */
+function momentumChart(game, c) {
+  const m = game.momentum;
+  if (!m?.series?.length) return '';
+  const W = 1000; const H = 300; const P = { l: 8, r: 8, t: 26, b: 26 };
+  const end = Math.max(3600, m.series.at(-1)[0]);
+  const X = (t) => P.l + ((W - P.l - P.r) * t) / end;
+  const mid = (H - P.b + P.t) / 2;
+  const half = (H - P.t - P.b) / 2;
+  const Y = (v) => mid - (half * v) / m.max;
+  const line = m.series.map(([t, v], i) => `${i ? 'L' : 'M'}${X(t).toFixed(1)} ${Y(v).toFixed(1)}`).join('');
+  const area = `${line}L${X(m.series.at(-1)[0]).toFixed(1)} ${mid}L${X(0)} ${mid}Z`;
+  const pp = m.powerPlays.map((p) => {
+    const x1 = X(p.start); const x2 = X(p.end ?? m.series.at(-1)[0]);
+    const top = p.team === 'home';
+    return `<rect x="${x1}" y="${top ? P.t : mid}" width="${Math.max(2, x2 - x1)}" height="${half}" fill="${c[p.team]}" opacity=".12"/><text x="${(x1 + x2) / 2}" y="${top ? P.t - 6 : H - P.b + 16}" text-anchor="middle" class="st-mc-pp" fill="${c[p.team]}">PP${p.result === 'goal' ? ' ✓' : ''}</text>`;
+  }).join('');
+  const goals = game.scoring.filter((g) => g.period !== 'SO').map((g) => {
+    const side = g.team === game.away.abbrev ? 'away' : 'home';
+    const t = elapsed(g.period, g.time);
+    return `<g><line x1="${X(t)}" x2="${X(t)}" y1="${P.t}" y2="${H - P.b}" stroke="${c[side]}" stroke-width="1.5" stroke-dasharray="3 3" opacity=".8"/><circle cx="${X(t)}" cy="${side === 'home' ? P.t + 8 : H - P.b - 8}" r="9" fill="${c[side]}" stroke="#fff" stroke-width="1.5"/><text x="${X(t)}" y="${(side === 'home' ? P.t + 8 : H - P.b - 8) + 4}" text-anchor="middle" class="st-mc-g">G</text><title>${esc(`${g.team} goal: ${g.scorer.fullName} (${g.period === 'OT' ? 'OT' : `P${g.period}`} ${g.time})`)}</title></g>`;
+  }).join('');
+  const swings = m.swings.map((sw, i) => `<g><circle cx="${X(sw.t)}" cy="${mid}" r="8" fill="#0b1220" stroke="${c[sw.team]}" stroke-width="2"/><text x="${X(sw.t)}" y="${mid + 4}" text-anchor="middle" class="st-mc-s">${i + 1}</text></g>`).join('');
+  const periods = [1200, 2400, 3600].filter((t) => t < end).map((t) => `<line x1="${X(t)}" x2="${X(t)}" y1="${P.t}" y2="${H - P.b}" class="st-mc-grid"/>`).join('');
+  const labels = ['1st', '2nd', '3rd', 'OT'].map((l, i) => (i * 1200 < end ? `<text x="${X(Math.min(i * 1200 + (i < 3 ? 600 : (end - 3600) / 2), end))}" y="${H - 6}" text-anchor="middle" class="st-mc-lbl">${l}</text>` : '')).join('');
+  return `<div class="b-card st-mc"><div class="st-mc-key"><span style="color:${c.home}">&#9650; ${esc(game.home.commonName)}</span><span style="color:${c.away}">&#9660; ${esc(game.away.commonName)}</span></div>
+    <svg viewBox="0 0 ${W} ${H}" class="st-mc-svg" role="img" aria-label="Momentum over the game">
+      <defs><clipPath id="st-top"><rect x="0" y="0" width="${W}" height="${mid}"/></clipPath><clipPath id="st-bot"><rect x="0" y="${mid}" width="${W}" height="${H}"/></clipPath>
+        <linearGradient id="st-gh" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${c.home}" stop-opacity=".9"/><stop offset="1" stop-color="${c.home}" stop-opacity=".25"/></linearGradient>
+        <linearGradient id="st-ga" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="${c.away}" stop-opacity=".9"/><stop offset="1" stop-color="${c.away}" stop-opacity=".25"/></linearGradient></defs>
+      ${pp}${periods}
+      <path d="${area}" fill="url(#st-gh)" clip-path="url(#st-top)"/><path d="${area}" fill="url(#st-ga)" clip-path="url(#st-bot)"/>
+      <line x1="${P.l}" x2="${W - P.r}" y1="${mid}" y2="${mid}" class="st-mc-zero"/>
+      ${goals}${swings}${labels}
+    </svg>
+    <p class="st-note">Momentum weighs every play: goals 3, shots on goal 1, missed shots 0.35, blocked attempts 0.2, faceoff wins 0.25 to 0.6 (more in the offensive zone), takeaways and opponents' giveaways 0.5, hits 0.2, drawing a penalty 1 plus steady pressure through the power play, and 1.5 for killing a penalty. Each push fades with a 75-second half-life. Shaded bands are power plays; numbered circles are momentum swings.</p>
+  </div>`;
+}
+
+function swingList(game, c) {
+  const m = game.momentum;
+  if (!m?.swings?.length) return '';
+  return `<div class="b-card"><h2>Momentum swings</h2><ol class="st-swings">${m.swings.map((sw, i) => `<li style="--team:${c[sw.team]}">
+    <span class="st-sw-n">${i + 1}</span>
+    <div><b>${esc(game[sw.team].commonName)}</b> take over at ${esc(clock(sw.t))}<span class="st-sw-c">sparked by ${esc(causeText(game, sw.cause))}</span></div>
+    <span class="st-sw-d">held ${Math.round((sw.until - sw.t) / 60)}:${String(Math.round((sw.until - sw.t) % 60)).padStart(2, '0')}</span>
+  </li>`).join('')}</ol></div>`;
+}
+
+function drivers(game, c) {
+  const list = allSkaters(game).filter((p) => p.momentum != null).sort((a, b) => b.momentum - a.momentum).slice(0, 6);
+  if (!list.length) return '';
+  const max = Math.max(...list.map((p) => p.momentum), 1);
+  return `<div class="b-card"><h2>Momentum drivers</h2>${list.map((p) => `<div class="st-drv" style="--team:${c[p.side]}">
+    <span class="st-drv-n">${esc(p.fullName)} <small>${esc(p.team)}</small></span>
+    <div class="st-drv-bar"><i style="width:${(100 * Math.max(0, p.momentum)) / max}%"></i></div>
+    <b>+${p.momentum.toFixed(1)}</b><span class="st-drv-s">${p.swingPlays ? `&#8635; ${p.swingPlays}` : ''}</span>
+  </div>`).join('')}<p class="st-note">&#8635; = swing plays: pushes made while their team was behind on momentum.</p></div>`;
+}
+
 /** Goals per period as a small strip under the momentum chart: who won each period. */
 function periodWins(game, c) {
-  return `<div class="st-periods">${game.linescore.periods.filter((p) => p.label !== 'SO').map((p) => {
+  return `<div class="st-periods">${game.linescore.periods.filter((p) => p.label !== 'SO').map((p, i) => {
+    const mshare = game.momentum?.periods?.[i];
     const win = p.away === p.home ? null : p.away > p.home ? 'away' : 'home';
     const sa = p.shotsAway ?? 0;
     const sh = p.shotsHome ?? 0;
@@ -109,7 +193,7 @@ function periodWins(game, c) {
     return `<div class="st-pd"><span class="st-pd-l">${p.label === 'OT' ? 'OT' : `Period ${esc(p.label)}`}</span>
       <b style="${win ? `color:${c[win]}` : ''}">${p.away ?? 0}-${p.home ?? 0}</b>
       <div class="b-bar"><i style="width:${(100 * sa) / tot}%;background:${c.away}"></i><i style="width:${(100 * sh) / tot}%;background:${c.home}"></i></div>
-      <span class="st-pd-s">Shots ${sa}-${sh}</span></div>`;
+      <span class="st-pd-s">Shots ${sa}-${sh}${mshare ? ` · Momentum ${mshare.away}%-${mshare.home}%` : ''}</span></div>`;
   }).join('')}</div>`;
 }
 
@@ -137,14 +221,15 @@ export default {
 
       ${started ? `
       <section class="st-sec" id="st-momentum">
-        ${header(2, 'momentum', 'Momentum', 'Running total of shot attempts. Dots are goals; a steeper line means more pressure.')}
-        ${kpis(game, c)}
-        ${flowChart(game, c)}
+        ${header(2, 'momentum', 'Momentum', 'Who was pushing the play, minute by minute. Above the line is the home team, below is the away team.')}
+        ${momentumChart(game, c)}
         ${periodWins(game, c)}
+        <div class="b-cols st-cols"><div>${swingList(game, c)}</div><div>${drivers(game, c)}</div></div>
+        ${kpis(game, c)}
       </section>
 
       <section class="st-sec" id="st-shots">
-        ${header(3, 'shots', 'Where the shots came from', 'Every shot attempt. Filter by team or period; hover a mark for details.')}
+        ${header(3, 'shots', 'Where the shots came from', 'Switch between every attempt and the zone map, which counts attempts and goals by area of the offensive zone.')}
         ${shotMap(game, c)}
       </section>
 
