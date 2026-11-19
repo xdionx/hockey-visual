@@ -5,6 +5,7 @@
 import { gameStatus, periodLabel, periodName, nhlVideoUrl, videoId } from './normalize.js';
 import { computeMomentum, onIceAttempts, inHomePlate } from './momentum.js';
 import { strengthOf, penaltyRunning, gameElapsed } from './strength.js';
+import { goalieExpected } from './xg.js';
 
 const t = (v) => (v && typeof v === 'object' ? v.default : v) ?? '';
 const clockTime = (s) => (s ?? '').replace(/^0(?=\d:)/, '');
@@ -42,9 +43,12 @@ export function skaterGameScore(s) {
   return { total: round(total), parts: Object.fromEntries(Object.entries(parts).map(([k, v]) => [k, round(v)])) };
 }
 
-/** Goalie game score: -0.75 per goal against, +0.1 per save. */
+/**
+ * Goalie game score: -0.75 per goal against, +0.1 per save, and +0.35 for every goal saved above
+ * what the shots were expected to produce (so a goalie who faced hard shots gets credit).
+ */
 export function goalieGameScore(g) {
-  return round(-0.75 * g.goalsAgainst + 0.1 * g.saves);
+  return round(-0.75 * g.goalsAgainst + 0.1 * g.saves + 0.35 * (g.gsax ?? 0));
 }
 
 /** A 3.0-10.0 rating from a game score, like the ratings in soccer apps. 0 game score = 6.0. */
@@ -188,6 +192,7 @@ function shotList(pbp, awayId, roster) {
       elapsed: (e.periodDescriptor.number - 1) * 1200 + toSeconds(e.timeInPeriod),
       shooterId,
       ...(kind === 'goal' ? { assistIds: [d.assist1PlayerId, d.assist2PlayerId].filter(Boolean), goalieId: d.goalieInNetId ?? null } : {}),
+      ...(kind === 'sog' ? { goalieId: d.goalieInNetId ?? null } : {}),
       shotType: d.shotType ?? null,
       zone: shotZone(shooterTeam, x, y),
       homePlate: inHomePlate(x, y),
@@ -249,7 +254,7 @@ function skater(raw, counts, roster, momentum, onIce) {
   return s;
 }
 
-function goalie(raw, roster) {
+function goalie(raw, roster, expected) {
   const r = roster.get(raw.playerId);
   const g = {
     id: raw.playerId,
@@ -273,17 +278,25 @@ function goalie(raw, roster) {
     toiSeconds: toSeconds(raw.toi),
   };
   g.played = g.toiSeconds > 0;
+  // Expected goals against from the shots this goalie faced, and how they did against it.
+  const e = expected?.get(raw.playerId);
+  if (e && e.shots) {
+    g.xga = round(e.xga, 2);
+    g.gsax = round(e.xga - g.goalsAgainst, 2);
+    g.expectedSavePct = round(1 - e.xga / e.shots, 3);
+    g.savePctAboveExpected = g.shotsAgainst ? round(g.saves / g.shotsAgainst - (1 - e.xga / e.shots), 3) : null;
+  }
   g.gameScore = goalieGameScore(g);
   g.rating = rating(g.gameScore);
   return g;
 }
 
-function teamPlayers(stats, counts, roster, momentum, onIce) {
+function teamPlayers(stats, counts, roster, momentum, onIce, expected) {
   if (!stats) return { forwards: [], defense: [], goalies: [] };
   return {
     forwards: (stats.forwards ?? []).map((p) => skater(p, counts, roster, momentum, onIce)),
     defense: (stats.defense ?? []).map((p) => skater(p, counts, roster, momentum, onIce)),
-    goalies: (stats.goalies ?? []).map((p) => goalie(p, roster)),
+    goalies: (stats.goalies ?? []).map((p) => goalie(p, roster, expected)),
   };
 }
 
@@ -408,6 +421,8 @@ export function normalizeGameDetail({ box, landing = null, rightRail = null, pbp
   const video = rightRail?.gameVideo ?? {};
   const series = rightRail?.seasonSeriesWins;
   const status = gameStatus(box);
+  const shots = shotList(pbp, box.awayTeam.id, roster);
+  const expected = goalieExpected(shots);
   const lastPlay = (pbp?.plays ?? []).at(-1);
   const strength = status.state === 'live'
     ? strengthOf({
@@ -441,11 +456,11 @@ export function normalizeGameDetail({ box, landing = null, rightRail = null, pbp
     penalties: penalties(landing),
     threeStars: threeStars(landing),
     players: {
-      away: teamPlayers(box.playerByGameStats?.awayTeam, counts, roster, momentum, onIce),
-      home: teamPlayers(box.playerByGameStats?.homeTeam, counts, roster, momentum, onIce),
+      away: teamPlayers(box.playerByGameStats?.awayTeam, counts, roster, momentum, onIce, expected),
+      home: teamPlayers(box.playerByGameStats?.homeTeam, counts, roster, momentum, onIce, expected),
     },
     hasShifts: Boolean(onIce),
-    shots: shotList(pbp, box.awayTeam.id, roster),
+    shots,
     momentum: momentum && {
       series: momentum.series,
       max: momentum.max,

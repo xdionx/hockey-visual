@@ -716,3 +716,11 @@ main { padding: 0 0 48px; }
   .a-zt th.l, .a-zt td.l { text-align: left; width: 28%; padding-left: 4px; }
   .a-zt th { font-size: 10px; letter-spacing: 0; }
 }
+
+/* Goalie expected save percentage and goals saved above expected */
+.g-xg { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 8px 0 10px; padding: 8px; border-radius: 6px; background: rgba(148,163,184,.1); text-align: center; }
+.g-xg span { font-size: 10px; letter-spacing: .02em; text-transform: none; color: var(--b-mute, #94a3b8); line-height: 1.2; }
+.g-xg b { display: block; font: 800 17px "Barlow Condensed", sans-serif; color: var(--b-ink, #f1f5f9); letter-spacing: 0; text-transform: none; }
+.g-xg .up b { color: #4ade80; }
+.g-xg .down b { color: #f87171; }
+.a-g .g-xg { margin-top: 8px; max-width: 420px; }
