@@ -1,6 +1,6 @@
 // Design 4 "Analytics": shot map, shot-attempt flow and heat-mapped player stats.
 // Inspired by HockeyStats and NHL EDGE style analytics pages.
-import { ZONES, esc, logo, teamColors, statusText, prettyDate, allSkaters, allGoalies, pct, signed, rinkMarkup, shotMark, elapsed, headshot, on, morphInner, goalieXg } from './core.js';
+import { ZONES, esc, logo, teamColors, statusText, prettyDate, allSkaters, allGoalies, pct, signed, rinkMarkup, shotMark, elapsed, headshot, on, morphInner, goalieXg, fold } from './core.js';
 
 function header(game, c) {
   const ls = game.linescore;
@@ -52,7 +52,7 @@ export function shotMap(game, c) {
     <div class="a-rinkwrap"><span class="a-att" style="color:${c.away}">&#9664; ${esc(game.away.abbrev)} attacking</span><span class="a-att r" style="color:${c.home}">${esc(game.home.abbrev)} attacking &#9654;</span>
       <svg class="a-rink" viewBox="-101 -43.5 202 87" role="img" aria-label="Shot locations">${rinkMarkup()}<clipPath id="a-zone-clip"><rect x="-100" y="-42.5" width="200" height="85" rx="28" ry="28"/></clipPath><g id="a-zones" data-js clip-path="url(#a-zone-clip)"></g><g id="a-shots" data-js></g><g id="a-zone-labels" data-js></g></svg></div>
     <div class="a-legend" id="a-dot-legend"><span><svg viewBox="-3 -3 6 6"><circle r="2.6" fill="currentColor"/></svg>Goal</span><span><svg viewBox="-3 -3 6 6"><circle r="2" fill="none" stroke="currentColor" stroke-width=".9"/></svg>On goal</span><span><svg viewBox="-3 -3 6 6"><path d="M-1.6-1.6l3.2 3.2M1.6-1.6l-3.2 3.2" stroke="currentColor" stroke-width=".8"/></svg>Missed</span><span><svg viewBox="-3 -3 6 6"><rect x="-1.4" y="-1.4" width="2.8" height="2.8" fill="currentColor" opacity=".5"/></svg>Blocked</span><span><svg viewBox="-3 -3 6 6"><path d="M-2.5 2V-2H2.5" fill="none" stroke="#facc15" stroke-width=".6" stroke-dasharray="1 .8"/></svg>Home plate (1.5x)</span></div>
-    <p class="a-zone-key" id="a-zone-key" hidden>Big number = shot attempts (SAT) in the zone, with goals in yellow. Below it: <b>SOG</b> on goal (including goals), <b>MISS</b> missed the net, <b>BLK</b> blocked. <b>Home plate</b> (yellow outline) is the most dangerous area to shoot from: posts to faceoff dots to the top of the circles. Attempts there count 1.5x toward momentum and on-ice shot share. Discs are goals, numbered with the scorer's sweater number: hover for the scorer, assists and goalie, click to watch the highlight.</p>
+    ${fold('How to read the zone map', `Big number = shot attempts (SAT) in the zone, with goals in yellow. Below it: <b>SOG</b> on goal (including goals), <b>MISS</b> missed the net, <b>BLK</b> blocked. <b>Home plate</b> (yellow outline) is the most dangerous area to shoot from: posts to faceoff dots to the top of the circles. Attempts there count 1.5x toward momentum and on-ice shot share. Discs are goals, numbered with the scorer's sweater number: hover for the scorer, assists and goalie, click to watch the highlight.`, { cls: 'a-zone-key', attrs: 'id="a-zone-key" hidden' })}
     <div id="a-zone-table" data-js hidden></div>
   </section>`;
 }
@@ -119,7 +119,7 @@ export function heatTable(game, c) {
       <thead><tr><th class="l" data-sort>Player</th><th data-sort>Tm</th><th data-sort>Pos</th>${HEAT_COLS.map(([, l]) => `<th data-sort>${l}</th>`).join('')}</tr></thead>
       <tbody>${list.map((p) => `<tr><td class="l" data-v="${esc(p.lastName)}">${esc(p.name)}</td><td><span class="a-tm" style="background:${c[p.side]}">${esc(p.team)}</span></td><td>${esc(p.position)}</td>${HEAT_COLS.map((col) => cell(col)(p)).join('')}</tr>`).join('')}</tbody>
     </table></div>
-    <p class="a-note">GS = Game Score (goals, primary and secondary assists, shots, blocks, penalties drawn and taken, faceoffs and on-ice +/-). iCF = individual shot attempts.</p>
+    ${fold('What GS and iCF mean', `GS = Game Score (goals, primary and secondary assists, shots, blocks, penalties drawn and taken, faceoffs and on-ice +/-). iCF = individual shot attempts.`, { cls: 'a-note' })}
   </section>`;
 }
 

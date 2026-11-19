@@ -368,8 +368,10 @@ function same(a, b) {
 }
 
 function syncAttrs(from, to) {
-  for (const { name } of [...from.attributes]) if (!to.hasAttribute(name)) from.removeAttribute(name);
-  for (const { name, value } of [...to.attributes]) if (from.getAttribute(name) !== value) from.setAttribute(name, value);
+  // A folded note the reader opened stays open through live refreshes.
+  const keep = from.tagName === 'DETAILS' ? 'open' : null;
+  for (const { name } of [...from.attributes]) if (name !== keep && !to.hasAttribute(name)) from.removeAttribute(name);
+  for (const { name, value } of [...to.attributes]) if (name !== keep && from.getAttribute(name) !== value) from.setAttribute(name, value);
 }
 
 function morphChildren(from, to) {
@@ -391,6 +393,11 @@ function morphNode(from, to) {
   // design's own draw step updates them.
   if (from.hasAttribute('data-js')) return;
   morphChildren(from, to);
+}
+
+/** A folded explanation: a short title that opens to the full description. */
+export function fold(title, html, { cls = '', attrs = '' } = {}) {
+  return `<details class="fold ${cls}"${attrs ? ` ${attrs}` : ''}><summary>${title}</summary><div class="fold-body">${html}</div></details>`;
 }
 
 /** Update el's contents to match html, changing only what differs (no reloads or flashes). */
