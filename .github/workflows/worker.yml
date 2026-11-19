@@ -30,3 +30,13 @@ jobs:
           workingDirectory: worker
           wranglerVersion: "4.165.0"
           command: deploy
+      - name: Smoke test the live Worker
+        if: steps.check.outputs.ok == 'true'
+        run: |
+          sleep 10
+          base=https://hockey-visual-live.xdionx.workers.dev
+          for p in latest.json scores/2026-11-16.json games/2026020331.json; do
+            code=$(curl -s -o out.json -w '%{http_code}' "$base/$p")
+            echo "$p -> HTTP $code: $(head -c 200 out.json)"
+            [ "$code" = 200 ] || exit 1
+          done
