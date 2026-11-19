@@ -15,6 +15,10 @@ import { normalizeScoreboard } from '../src/normalize.js';
 import { normalizeGameDetail } from '../src/gameDetail.js';
 import { shotAttempts } from '../src/sat.js';
 
+// Bump this whenever the shape or wording of what src/ produces changes (labels, new fields):
+// finished games are cached at the edge for 30 days, so old answers must be left behind.
+const CACHE_VERSION = 2;
+
 const NHL = 'https://api-web.nhle.com/v1';
 const SECOND = 1;
 const HOUR = 3600;
@@ -114,7 +118,7 @@ export default {
     if (request.method === 'OPTIONS') return new Response(null, { headers: CORS });
     if (request.method !== 'GET') return new Response('Method not allowed', { status: 405, headers: CORS });
     const url = new URL(request.url);
-    const cacheKey = new Request(`${url.origin}${url.pathname}`, { method: 'GET' });
+    const cacheKey = new Request(`${url.origin}${url.pathname}?cv=${CACHE_VERSION}`, { method: 'GET' });
     const cache = globalThis.caches?.default;
 
     const hit = cache && (await cache.match(cacheKey));
