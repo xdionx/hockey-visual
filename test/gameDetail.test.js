@@ -43,7 +43,7 @@ test('shots exclude the shootout and face the right nets', () => {
 
 test('game score math', () => {
   const gs = skaterGameScore({ goals: 1, a1: 1, a2: 0, sog: 4, blocks: 0, penaltiesDrawn: 0, penaltiesTaken: 1, fow: 0, fol: 0, plusMinus: 1 });
-  assert.equal(gs.total, 0.75 + 0.7 + 0.3 - 0.15 + 0.15);
+  assert.equal(gs.total, 0.75 + 0.7 + 0.3 - 0.25 + 0.15);
   assert.equal(rating(0), 6);
   assert.equal(rating(99), 10);
 });
@@ -104,4 +104,16 @@ test('home plate area', async () => {
   assert.equal(inHomePlate(45, 0), false); // point
   assert.equal(inHomePlate(95, 0), false); // behind the net
   assert.ok(game.shots.some((s) => s.homePlate));
+});
+
+test('drawing a penalty earns the power play it created', async () => {
+  const { pushes } = await import('../src/momentum.js');
+  const pbp = load('pbp');
+  const plays = [...pbp.plays].sort((a, b) => a.sortOrder - b.sortOrder);
+  const roster = new Map(pbp.rosterSpots.map((r) => [r.playerId, r.teamId]));
+  const pen = pbp.plays.find((p) => p.typeDescKey === 'penalty' && p.details.drawnByPlayerId);
+  const drawer = pen.details.drawnByPlayerId;
+  const earned = pushes(plays, 52, roster).filter((e) => e.credits.some((c) => c.id === drawer) && ['penalty', 'power-play', 'pp-goal-against'].includes(e.kind))
+    .reduce((n, e) => n + (e.creditW ?? e.w) * e.credits.find((c) => c.id === drawer).share, 0);
+  assert.ok(earned > 1.2, `earned ${earned}`);
 });
