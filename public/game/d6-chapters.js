@@ -347,7 +347,7 @@ function byTheNumbers(game, c, events) {
   return `<div class="st-nums">${tiles.join('')}${topDrivers(game, c)}</div>`;
 }
 
-const PEN_BADGE = { fight: 'Fight', major: 'Major', match: 'Match', 'game-misconduct': 'Game misc.', misconduct: 'Misconduct', bench: 'Bench' };
+const PEN_BADGE = { fight: 'Fighting major', major: 'Major', match: 'Match', 'game-misconduct': 'Game misc.', misconduct: 'Misconduct', bench: 'Bench' };
 
 /** Every penalty in the game, with what the other side did with it. */
 function penaltySummary(game, c) {
@@ -374,7 +374,7 @@ function penaltySummary(game, c) {
       <td>${badge}<span class="st-pen-m">${x.minutes ?? ''}${x.minutes ? ' min' : ''}</span></td>
       <td class="st-pen-r ${cls}">${esc(res)}</td></tr>`;
   });
-  const sum = (sd) => pens.filter((x) => side(x) === sd && !['fight', 'bench', 'misconduct', 'game-misconduct'].includes(x.kind));
+  const sum = (sd) => pens.filter((x) => side(x) === sd && !['bench', 'misconduct', 'game-misconduct'].includes(x.kind));
   const head = ['away', 'home'].map((sd) => `<span style="--team:${c[sd]}"><b>${esc(game[sd].abbrev)}</b> ${sum(sd).length} penalties · ${sum(sd).reduce((n, x) => n + (x.minutes ?? 2), 0)} min</span>`).join('');
   return `<div class="b-card st-pen"><h2>Penalties</h2><div class="st-pen-head">${head}</div>
     <table class="st-pen-table"><thead><tr><th>Time</th><th></th><th class="l">Player</th><th>Type</th><th class="l">What happened</th></tr></thead><tbody>${rows.join('')}</tbody></table></div>`;
