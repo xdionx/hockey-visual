@@ -4,7 +4,8 @@
   <rect x="40" y="218" width="190" height="26" rx="13" fill="#e11d48"/>
   <rect x="86" y="258" width="150" height="26" rx="13" fill="#e11d48" opacity=".85"/>
   <rect x="132" y="298" width="104" height="26" rx="13" fill="#fb7185" opacity=".7"/>
-  <!-- puck: slim side wall, then flat top face (no inner ring) -->
-  <path d="M244 250 V290 A122 40 0 0 0 488 290 V250 Z" fill="#94a3b8"/>
-  <ellipse cx="366" cy="250" rx="122" ry="40" fill="#f8fafc"/>
+  <!-- puck: 3in wide x 1in thick, rounded edge: side wall, rim, flat top -->
+  <path d="M244 232 V304 A122 42 0 0 0 488 304 V232 Z" fill="#94a3b8"/>
+  <ellipse cx="366" cy="232" rx="122" ry="42" fill="#cbd5e1"/>
+  <ellipse cx="366" cy="229" rx="113" ry="37" fill="#f8fafc"/>
 </g></g></svg>

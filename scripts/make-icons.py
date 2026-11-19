@@ -17,9 +17,10 @@ ART = f'''
   <rect x="40" y="218" width="190" height="26" rx="13" fill="{RED}"/>
   <rect x="86" y="258" width="150" height="26" rx="13" fill="{RED}" opacity=".85"/>
   <rect x="132" y="298" width="104" height="26" rx="13" fill="{PINK}" opacity=".7"/>
-  <!-- puck: slim side wall, then flat top face (no inner ring) -->
-  <path d="M244 250 V290 A122 40 0 0 0 488 290 V250 Z" fill="#94a3b8"/>
-  <ellipse cx="366" cy="250" rx="122" ry="40" fill="#f8fafc"/>
+  <!-- puck: 3in wide x 1in thick, rounded edge: side wall, rim, flat top -->
+  <path d="M244 232 V304 A122 42 0 0 0 488 304 V232 Z" fill="#94a3b8"/>
+  <ellipse cx="366" cy="232" rx="122" ry="42" fill="#cbd5e1"/>
+  <ellipse cx="366" cy="229" rx="113" ry="37" fill="#f8fafc"/>
 </g>'''
 
 def svg(kind):
@@ -38,7 +39,7 @@ def svg(kind):
 # The small favicon drops detail: just the puck and two bold streaks so it reads at 16px.
 FAV = f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="{BG}"/>
 <rect x="3" y="21" width="24" height="6" rx="3" fill="{RED}"/><rect x="9" y="30" width="19" height="6" rx="3" fill="{RED}" opacity=".85"/><rect x="15" y="39" width="13" height="6" rx="3" fill="{PINK}" opacity=".7"/>
-<path d="M26 30 V37 A18 7 0 0 0 62 37 V30 Z" fill="#94a3b8"/><ellipse cx="44" cy="30" rx="18" ry="7" fill="#f8fafc"/></svg>
+<path d="M25 28 V39 A19 7 0 0 0 63 39 V28 Z" fill="#94a3b8"/><ellipse cx="44" cy="28" rx="19" ry="7" fill="#cbd5e1"/><ellipse cx="44" cy="27.4" rx="17.5" ry="6" fill="#f8fafc"/></svg>
 '''
 
 files = {'icon.svg': svg('any'), 'icon-full.svg': svg('full'), 'icon-maskable.svg': svg('maskable'), 'favicon.svg': FAV}
