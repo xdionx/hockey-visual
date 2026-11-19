@@ -94,3 +94,21 @@ test('stamp-assets adds a version to local imports, scripts and stylesheets only
   assert.equal(stampHtml('<link rel="stylesheet" href="game/game.css"><script type="module" src="game/game.js"></script><link href="https://fonts.googleapis.com/css2?family=X">', 'abc'),
     '<link rel="stylesheet" href="game/game.css?v=abc"><script type="module" src="game/game.js?v=abc"></script><link href="https://fonts.googleapis.com/css2?family=X">');
 });
+
+test('a power play that has run out on the clock shows as even strength', async () => {
+  const { strengthOf, penaltyRunning, gameElapsed } = await import('../src/strength.js');
+  const pen = { typeDescKey: 'penalty', periodDescriptor: { number: 3 }, timeInPeriod: '07:00', details: { typeCode: 'MIN', duration: 2 } };
+  const mis = { typeDescKey: 'penalty', periodDescriptor: { number: 3 }, timeInPeriod: '07:00', details: { typeCode: 'MIS', duration: 10 } };
+  // 3rd period, 9:29 elapsed = 10:31 remaining: the 7:00 minor ended at 9:00.
+  const now = gameElapsed(3, '10:31', 2);
+  assert.equal(now, 2400 + 569);
+  assert.equal(penaltyRunning([pen, mis], now), false);
+  assert.equal(penaltyRunning([pen], gameElapsed(3, '12:00', 2)), true);
+  const stale = strengthOf({ period: '3', code: '1451', penaltyActive: false });
+  assert.equal(stale.label, '5v5');
+  assert.equal(stale.kind, 'even');
+  assert.equal(strengthOf({ period: '3', code: '1451', penaltyActive: true }).kind, 'pp');
+  // A pulled goalie is not a penalty: keep 6v5 even when no penalty runs.
+  assert.equal(strengthOf({ period: '3', code: '0651', penaltyActive: false }).kind, 'empty-net');
+  assert.equal(strengthOf({ period: '3', situation: { situationCode: '1451', timeRemaining: '00:00' } }).kind, 'even');
+});
