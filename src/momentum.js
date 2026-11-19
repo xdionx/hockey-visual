@@ -230,7 +230,21 @@ export function computeMomentum(pbp, awayId, gameEnd = null) {
     const team = r.sign > 0 ? 'home' : 'away';
     // What caused it: the biggest push for that team in the 45 seconds before.
     const cause = list.filter((e) => e.team === team && e.t <= r.start + 10 && e.t > r.start - 60).sort((x, y) => y.w - x.w)[0];
-    return { t: r.start, until: r.end, team, cause: cause ? { kind: cause.kind, t: cause.t, playerId: cause.credits[0]?.id ?? cause.debit ?? null } : null };
+    // What each side did during the run, so the story can say what kept the momentum going.
+    const blank = () => ({ att: 0, sog: 0, goals: 0, faceoffs: 0, hits: 0, turnovers: 0, penalties: 0, ppSec: 0 });
+    const mix = { away: blank(), home: blank() };
+    for (const e of list) {
+      if (e.t < r.start || e.t > r.end || !mix[e.team]) continue;
+      const m = mix[e.team];
+      if (e.kind === 'sog') { m.att++; m.sog++; } else if (e.kind === 'miss' || e.kind === 'block-attempt') m.att++;
+      else if (e.kind === 'goal') { m.att++; m.sog++; m.goals++; }
+      else if (e.kind === 'faceoff') m.faceoffs++;
+      else if (e.kind === 'hit') m.hits++;
+      else if (e.kind === 'takeaway' || e.kind === 'giveaway') m.turnovers++;
+      else if (e.kind === 'penalty') m.penalties++;
+      else if (e.kind === 'power-play') m.ppSec += 10;
+    }
+    return { t: r.start, until: r.end, team, mix, cause: cause ? { kind: cause.kind, t: cause.t, playerId: cause.credits[0]?.id ?? cause.debit ?? null } : null };
   });
 
   // Per period: share of momentum generated (sum of every push each team made) and how long each
