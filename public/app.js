@@ -225,6 +225,27 @@ syncView();
 
 let lastText = '';
 
+// Which date is "Today"? Games belong to their start date in Eastern time (what the NHL API
+// uses). The day only turns over at 10:00 local time, and any date with live games wins.
+const TURNOVER_HOUR = 10;
+function etDate(ms) {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(ms));
+}
+async function defaultDate() {
+  const now = Date.now();
+  const shifted = new Date(now - TURNOVER_HOUR * 3600_000);
+  const local = `${shifted.getFullYear()}-${String(shifted.getMonth() + 1).padStart(2, '0')}-${String(shifted.getDate()).padStart(2, '0')}`;
+  const et = etDate(now);
+  const base = local < et ? local : et; // never ahead of Eastern today
+  const hasLive = async (d) => {
+    try { return !!(await getData(`scores/${d}.json`))?.games?.some((g) => g.status.state === 'live'); } catch { return false; }
+  };
+  for (const d of [shiftDate(base, 1), base, shiftDate(base, -1)]) {
+    if (d <= et && await hasLive(d)) return d;
+  }
+  return base;
+}
+
 // Scores come from the live Worker when configured, else the static data/scores/<date>.json
 // files a GitHub Action saves (server.js serves those live when running locally).
 async function load(date, { quiet = false } = {}) {
@@ -236,7 +257,7 @@ async function load(date, { quiet = false } = {}) {
   }
   if (!quiet) { gamesEl.innerHTML = '<p class="msg">Loading…</p>'; lastText = ''; }
   try {
-    if (!date) date = (await getData('latest.json'))?.date ?? new Date().toISOString().slice(0, 10);
+    if (!date) date = await defaultDate();
     dateInput.value = date;
     history.replaceState(null, '', `?date=${date}`);
     const data = await getData(`scores/${date}.json`);
