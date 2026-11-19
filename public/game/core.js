@@ -293,7 +293,7 @@ export function ratingColor(r) {
 }
 
 export const GS_PARTS = [
-  ['scoring', 'Scoring'], ['momentum', 'Momentum'], ['shooting', 'Shots'], ['onIce', 'On-ice +/-'], ['defense', 'Blocks'], ['discipline', 'Penalties'], ['faceoffs', 'Faceoffs'],
+  ['scoring', 'Scoring'], ['momentum', 'Momentum'], ['shooting', 'Shots'], ['onIce', 'On-ice +/-'], ['defense', 'Defense'], ['discipline', 'Penalties'], ['faceoffs', 'Faceoffs'],
 ];
 
 /**

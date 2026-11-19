@@ -7,7 +7,7 @@
 //   goal 3.0, shot on goal 1.0, missed shot 0.35, blocked attempt 0.2 (and 0.1 to the blocking team)
 //   attempts from the home plate area (posts to faceoff dots to top of circles) count 1.5x
 //   faceoff win 0.6 offensive zone / 0.35 neutral / 0.25 defensive (you start with the puck)
-//   takeaway 0.5, giveaway 0.5 to the other team, hit 0.2
+//   takeaway 0.15, giveaway 0.15 to the other team (low: scorers count them differently from rink to rink), hit 0.2
 //   penalty drawn 1.0, plus 0.2 every 10 seconds of power play (extended possession)
 //   penalty killed off 1.5 to the shorthanded team; a shorthanded goal counts 1.5x (4.5)
 //
@@ -41,7 +41,7 @@ const plateMult = (d) => (inHomePlate(d.xCoord, d.yCoord) ? HOME_PLATE_BONUS : 1
 
 export const MOMENTUM_WEIGHTS = {
   goal: 3, sog: 1, miss: 0.35, blockedShooter: 0.2, blocker: 0.1,
-  faceoff: { O: 0.6, N: 0.35, D: 0.25 }, takeaway: 0.5, giveaway: 0.5, hit: 0.2,
+  faceoff: { O: 0.6, N: 0.35, D: 0.25 }, takeaway: 0.15, giveaway: 0.15, hit: 0.2,
   shorthandedGoalMult: 1.5, penaltyDrawn: 1, powerPlayTick: 0.2, penaltyKilled: 1.5, powerPlayGoalAgainst: 1.5, powerPlayGoalDrawn: 0.75,
   fighterCredit: 0.5, fightSpark: 1,
   majorMult: 2.5, gameMisconduct: 2, gameMisconductTeam: 0.5, misconductBase: 0.15, misconductPerPoint: 0.08, misconductMax: 1.2,
