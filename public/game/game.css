@@ -802,3 +802,26 @@ main { padding: 0 0 48px; }
 .st-pen-why { display: block; margin-top: 4px; font: 600 12px Inter, sans-serif; color: #fde68a; }
 .st-pen-why::before { content: "★ "; }
 .st-pen-keycount { border-left: 0 !important; color: #fde68a; }
+
+/* Story beats: short points, a period-by-period goal list, and a gap between sections */
+.st-beat-box + .st-beat-box { margin-top: 22px; }
+.st-points { margin: 4px 0 0; padding: 0 0 0 18px; max-width: 70ch; font: 16px/1.5 Inter, sans-serif; color: #cbd5e1; }
+.st-points li { margin: 0 0 6px; padding-left: 2px; }
+.st-points li::marker { color: #64748b; }
+.st-sub { margin-top: 12px; }
+.st-sub > b { display: block; font: 700 12px "Barlow Condensed", sans-serif; letter-spacing: .1em; text-transform: uppercase; color: #fbbf24; }
+.st-tl { margin-top: 14px; max-width: 760px; display: grid; gap: 14px; }
+.st-tl-h { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; padding-bottom: 4px; border-bottom: 1px solid rgba(148,163,184,.25); }
+.st-tl-h b { font: 800 17px "Barlow Condensed", sans-serif; letter-spacing: .06em; text-transform: uppercase; color: #f1f5f9; }
+.st-tl-h span { font: 700 13px "Barlow Condensed", sans-serif; letter-spacing: .04em; color: #94a3b8; }
+.st-tl-h em { margin-left: auto; font: normal 12px Inter, sans-serif; color: #64748b; }
+.st-tl-e { display: grid; grid-template-columns: 48px 1fr auto; gap: 10px; align-items: baseline; padding: 7px 0 7px 10px; border-left: 3px solid var(--tc, #94a3b8); margin-top: 6px; font: 15px/1.4 Inter, sans-serif; color: #e2e8f0; }
+.st-tl-e time { font: 700 14px "Barlow Condensed", sans-serif; color: #94a3b8; }
+.st-tl-e small { font: 700 12px "Barlow Condensed", sans-serif; letter-spacing: .04em; color: #94a3b8; white-space: nowrap; }
+.st-tl-e.lead, .st-tl-e.win { background: linear-gradient(90deg, rgba(251,191,36,.10), transparent 70%); }
+.st-tl-e.win .st-tl-t { font-weight: 700; }
+.st-tl-e.tie .st-tl-t::before { content: "TIED "; font: 800 11px "Barlow Condensed", sans-serif; letter-spacing: .1em; color: #94a3b8; }
+.st-tl-e.pen { border-left-style: dashed; color: #cbd5e1; }
+.st-tl-e.pen .st-tl-t::before { content: "PENALTY "; font: 800 11px "Barlow Condensed", sans-serif; letter-spacing: .1em; color: #fbbf24; }
+.st-tl-q { padding: 6px 0 2px 13px; color: #64748b; font: italic 14px Inter, sans-serif; }
+@media (max-width: 520px) { .st-tl-e { grid-template-columns: 42px 1fr; } .st-tl-e small { grid-column: 2; } .st-points { font-size: 15px; } }

@@ -75,3 +75,20 @@ export function decisiveStory(game, final) {
   const lead = found.size === 1 ? (final ? 'One penalty mattered:' : 'One penalty has mattered:') : (final ? 'The penalties that mattered:' : 'The penalties that have mattered:');
   return `${lead} ${bits.join('; ')}.`;
 }
+
+/** The same findings as separate short points, one per penalty. */
+export function decisiveItems(game, final) {
+  const found = decisivePenalties(game);
+  const out = [];
+  for (const [x, why] of [...found].slice(0, 4)) {
+    const parts = why.map((w) => {
+      if (w.kind === 'pp-goal') return `led directly to ${w.goal.scorer.name}'s power-play goal`;
+      if (w.kind === 'swing') return 'started a big momentum swing';
+      const secs = w.goal.t - (elapsed(x.period, x.time) + (x.minutes ?? 2) * 60);
+      return `ran out ${secs ? `${secs} second${secs === 1 ? '' : 's'}` : 'the moment'} before ${w.goal.scorer.name} (${w.goal.team}) scored`;
+    });
+    const at = `${x.time} of the ${String(x.periodName ?? x.period).toLowerCase().replace(' period', '')}`;
+    out.push(`${x.player} (${x.team})'s ${String(x.infraction).toLowerCase()} at ${at} ${parts.join(' and ')}.`);
+  }
+  return out.map((t, i) => (i === 0 ? `${final ? 'A penalty that mattered' : 'A penalty that has mattered'}: ${t}` : `Another: ${t}`));
+}

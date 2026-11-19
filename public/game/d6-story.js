@@ -8,6 +8,21 @@ import { spotlight, scorecardControls, scorecardKey, mountScorecards } from './d
 import { storyChapters, momentumTimeline } from './d6-chapters.js';
 import { storyBeats } from './d6-narrative.js';
 
+/** One Story beat: a label and short points; "How it unfolded" adds the period-by-period goal list. */
+function beatHtml(d, c) {
+  if (typeof d === 'string') return `<p>${esc(d)}</p>`;
+  const list = (items) => `<ul class="st-points">${items.map((t) => `<li>${esc(t)}</li>`).join('')}</ul>`;
+  const body = d.items.length === 1 ? `<p>${esc(d.items[0])}</p>` : list(d.items);
+  const pens = d.penalty?.length ? `<div class="st-sub"><b>Penalties that led to goals</b>${list(d.penalty)}</div>` : '';
+  const tl = d.periods?.length ? `<div class="st-tl">${d.periods.map((p) => `
+    <div class="st-tl-p">
+      <div class="st-tl-h"><b>${esc(p.title)}</b><span>${esc(p.score)}</span>${p.note ? `<em>${esc(p.note)}</em>` : ''}</div>
+      ${p.quiet ? `<div class="st-tl-q">${esc(p.quiet)}</div>` : ''}${p.items.length ? p.items.map((e) => `<div class="st-tl-e ${e.flag}" style="--tc:${c[e.side] ?? '#94a3b8'}"><time>${esc(e.time)}</time><span class="st-tl-t">${esc(e.text)}</span>${e.score ? `<small>${esc(e.score)}</small>` : ''}</div>`).join('') : ''}
+    </div>`).join('')}</div>` : '';
+  return `<div class="st-beat-box"><b class="st-beat">${esc(d.label)}</b>${body}${pens}${tl}</div>`;
+}
+
+
 const SECTIONS = [
   ['story', 'Story'], ['momentum', 'Momentum'], ['shots', 'Shots'], ['players', 'Players'], ['box', 'Box score'],
 ];
@@ -356,7 +371,7 @@ export default {
 
       <section class="st-sec" id="st-story">
         ${header(1, 'story', 'The story')}
-        <div class="st-lede"><h1>${esc(story.headline)}</h1>${story.dek.map((d) => (typeof d === 'string' ? `<p>${esc(d)}</p>` : `<p><b class="st-beat">${esc(d.label)}</b> ${esc(d.text)}</p>`)).join('')}</div>
+        <div class="st-lede"><h1>${esc(story.headline)}</h1>${story.dek.map((d) => beatHtml(d, c)).join('')}</div>
         ${storyChapters(game, c)}
         ${started ? `<div class="b-cols st-cols"><div>${scoringCards(game, c)}</div><div>${stars(game)}${statBars(game, c)}</div></div>` : ''}
       </section>
