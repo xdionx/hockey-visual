@@ -273,19 +273,16 @@ export const GS_PARTS = [
 /**
  * Offensive-zone areas (see shotZone in src/gameDetail.js) for the home team's attacking end:
  * [key, label, polygon points [x, y] in rink feet (y > 0 = left side), label anchor [x, y], tall].
- * Home plate (posts -> faceoff dots -> top of the circles) is its own sector; the circles get
- * what is left of the faceoff-circle area outside it.
+ * Home plate (posts -> faceoff dots -> top of the circles), one side zone on each flank of it down
+ * to the goal line, the blue line to the top of the circles split left/right, and behind the net.
  */
 const rect = (x1, x2, y1, y2) => [[x1, y1], [x2, y1], [x2, y2], [x1, y2]];
 export const ZONES = [
   ['home-plate', 'Home plate', [[89, -4], [69, -22], [54, -22], [54, 22], [69, 22], [89, 4]], [67, 0], true],
-  ['circle-left', 'Left circle', [[49, 9], [54, 9], [54, 22], [69, 22], [89, 4], [89, 28], [49, 28]], [80, 18.5], true],
-  ['circle-right', 'Right circle', [[49, -9], [54, -9], [54, -22], [69, -22], [89, -4], [89, -28], [49, -28]], [80, -18.5], true],
-  ['boards-left', 'Left boards', rect(49, 89, 28, 42.5), [69, 35.2], false],
-  ['boards-right', 'Right boards', rect(49, 89, -42.5, -28), [69, -35.2], false],
-  ['point-center', 'Center point', rect(25, 54, -9, 9), [38, 0], true],
-  ['point-left', 'Left point', rect(25, 49, 9, 42.5), [37, 25], true],
-  ['point-right', 'Right point', rect(25, 49, -42.5, -9), [37, -25], true],
+  ['side-left', 'Left side', [[54, 22], [69, 22], [89, 4], [89, 42.5], [54, 42.5]], [76, 28], true],
+  ['side-right', 'Right side', [[54, -22], [69, -22], [89, -4], [89, -42.5], [54, -42.5]], [76, -28], true],
+  ['point-left', 'Left point', rect(25, 54, 0, 42.5), [39.5, 21], true],
+  ['point-right', 'Right point', rect(25, 54, -42.5, 0), [39.5, -21], true],
   ['behind-net', 'Behind the net', rect(89, 100, -42.5, 42.5), [94.5, 0], false],
   ['outside', 'Outside the zone', null],
 ];
@@ -301,14 +298,11 @@ export function inHomePlate(x, y) {
 export function zoneOf(team, x, y) {
   const dx = team === 'home' ? 89 - x : x + 89;
   const side = (team === 'home' ? y : -y) >= 0 ? 'left' : 'right';
-  const ay = Math.abs(y);
   if (dx < 0) return 'behind-net';
   if (dx > 64) return 'outside';
   if (inHomePlate(89 - dx, y)) return 'home-plate';
-  if (dx > 35 && ay <= 9) return 'point-center';
-  if (dx > 40) return `point-${side}`;
-  if (ay <= 28) return `circle-${side}`;
-  return `boards-${side}`;
+  if (dx > 35) return `point-${side}`;
+  return `side-${side}`;
 }
 
 /** Bring shots saved by an older version up to the current zone rules. */
@@ -320,4 +314,4 @@ export function upgradeShots(game) {
   return game;
 }
 
-export const zoneName = (key) => ({ 'low-slot': 'Low slot', 'high-slot': 'High slot' })[key] ?? ZONES.find((z) => z[0] === key)?.[1] ?? key;
+export const zoneName = (key) => ZONES.find((z) => z[0] === key)?.[1] ?? key;

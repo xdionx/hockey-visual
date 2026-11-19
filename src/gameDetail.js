@@ -145,15 +145,13 @@ export function shotZone(team, x, y) {
   const dx = team === 'home' ? 89 - x : x + 89;
   const lateral = team === 'home' ? y : -y;
   const side = lateral >= 0 ? 'left' : 'right';
-  const ay = Math.abs(y);
   if (dx < 0) return 'behind-net';
   if (dx > 64) return 'outside';
-  // Home plate is its own sector: goal posts to the faceoff dots to the top of the circles.
+  // Home plate (posts to faceoff dots to top of the circles), one zone on each side of it,
+  // and the area from the top of the circles to the blue line split into left and right.
   if (inHomePlate(89 - dx, y)) return 'home-plate';
-  if (dx > 35 && ay <= 9) return 'point-center';
-  if (dx > 40) return `point-${side}`;
-  if (ay <= 28) return `circle-${side}`;
-  return `boards-${side}`;
+  if (dx > 35) return `point-${side}`;
+  return `side-${side}`;
 }
 
 const SHOT_TYPES = { goal: 'goal', 'shot-on-goal': 'sog', 'missed-shot': 'miss', 'blocked-shot': 'block' };

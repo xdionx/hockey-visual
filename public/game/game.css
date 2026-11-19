@@ -556,3 +556,12 @@ main { padding: 0 0 48px; }
 .st-tip-p { display: flex; gap: 8px; align-items: center; margin-top: 4px; }
 .st-tip-p small { margin-top: 0; }
 .st-tip-mug { width: 38px; height: 38px; border-radius: 50%; background: #1e293b; flex: none; object-fit: cover; font-size: 12px; }
+.st-pd { gap: 6px; }
+.st-pd-h { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.st-pd-h b { font-size: 22px; color: #94a3b8; }
+.st-pd-row { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; margin-top: 4px; }
+.st-pd-k { color: var(--b-mute); text-transform: uppercase; letter-spacing: .06em; font: 700 12px "Barlow Condensed", sans-serif; }
+.st-pd-v { font: 700 13px "Barlow Condensed", sans-serif; letter-spacing: .04em; color: #e2e8f0; text-align: right; }
+.st-pd-bar { height: 8px; }
+.st-pd-bar.thin { height: 5px; }
+@media (max-width: 640px) { .st-periods { grid-template-columns: 1fr !important; } }

@@ -85,8 +85,12 @@ function chapters(game, c, events, changes) {
     if (share) {
       const top = share.away >= share.home ? 'away' : 'home';
       const shots = `${p.shotsAway ?? 0}-${p.shotsHome ?? 0}`;
-      if (share[top] >= 65) sentences.push(`The ${game[top].commonName} controlled it, with ${share[top]}% of the momentum (shots ${shots}).`);
-      else if (share[top] >= 55) sentences.push(`The ${game[top].commonName} had the edge, ${share[top]}% of the momentum (shots ${shots}).`);
+      const ctl = share.control;
+      const held = ctl ? (ctl.away >= ctl.home ? 'away' : 'home') : top;
+      const mins = ctl ? Math.round(ctl[held] / 60) : null;
+      const hold = ctl && mins ? ` and had control for about ${mins} minute${mins === 1 ? '' : 's'}` : '';
+      if (share[top] >= 60) sentences.push(`The ${game[top].commonName} drove it, creating ${share[top]}% of the momentum${held === top ? hold : ''} (shots ${shots}).`);
+      else if (share[top] >= 54) sentences.push(`The ${game[top].commonName} had the edge, ${share[top]}% of the momentum created (shots ${shots}).`);
       else sentences.push(`Momentum was even, ${share.away}%-${share.home}% (shots ${shots}).`);
     }
     const won = p.away === p.home ? null : p.away > p.home ? 'away' : 'home';
