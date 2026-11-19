@@ -18,6 +18,11 @@
 //
 // Each push is credited to the player who made it (goal: scorer 60%, assists 25% / 15%).
 // A push made while that player's team was behind on momentum counts 1.5x and is a "swing play".
+//
+// Severe penalties: a major (5 min) or match penalty counts 2.5x a minor; a game misconduct costs the
+// player 2.0 and the team 0.5 more; a misconduct costs the player 0.15 plus 8% of the momentum they had
+// built up (capped at 1.2) and costs the team no skater. Fighting majors are a spark, not a penalty.
+import { penaltyKind } from './penalties.js';
 
 /**
  * "Home plate": the most dangerous scoring area. From the goal posts out to the faceoff dots,
@@ -39,6 +44,7 @@ export const MOMENTUM_WEIGHTS = {
   faceoff: { O: 0.6, N: 0.35, D: 0.25 }, takeaway: 0.5, giveaway: 0.5, hit: 0.2,
   shorthandedGoalMult: 1.5, penaltyDrawn: 1, powerPlayTick: 0.2, penaltyKilled: 1.5, powerPlayGoalAgainst: 1.5, powerPlayGoalDrawn: 0.75,
   fighterCredit: 0.5, fightSpark: 1,
+  majorMult: 2.5, gameMisconduct: 2, gameMisconductTeam: 0.5, misconductBase: 0.15, misconductPerPoint: 0.08, misconductMax: 1.2,
 };
 const HALF_LIFE = 75; // seconds
 const DECAY = Math.LN2 / HALF_LIFE;
@@ -143,7 +149,20 @@ export function pushes(plays, awayId, rosterTeam) {
           if (!fightSeen.has(key)) { fightSeen.add(key); add(null, W.fightSpark, 'fight-spark'); }
           break;
         }
-        add(other(owner), W.penaltyDrawn, 'penalty', d.drawnByPlayerId ? [{ id: d.drawnByPlayerId, share: 1 }] : [], d.committedByPlayerId ?? null);
+        const kind = penaltyKind(d);
+        const who = d.committedByPlayerId ?? null;
+        const drawn = d.drawnByPlayerId ? [{ id: d.drawnByPlayerId, share: 1 }] : [];
+        // A misconduct costs the player but not the team a skater. How much depends on how much the player
+        // had been driving the game so far (worked out while the line is walked).
+        if (kind === 'misconduct') { out.push({ t, team: other(owner), w: 0, kind: 'misconduct', credits: [], debit: who, period: p.periodDescriptor.number, time: p.timeInPeriod }); break; }
+        if (kind === 'game-misconduct') {
+          out.push({ t, team: other(owner), w: W.gameMisconductTeam, debitW: W.gameMisconduct, kind: 'game-misconduct', credits: [], debit: who, period: p.periodDescriptor.number, time: p.timeInPeriod });
+          break;
+        }
+        // Majors (and match penalties) are an extremely costly play: they weigh far more than a minor.
+        const mult = kind === 'major' || kind === 'match' ? W.majorMult : 1;
+        add(other(owner), W.penaltyDrawn * mult, 'penalty', drawn, who);
+        if (kind === 'match') out.push({ t, team: other(owner), w: W.gameMisconductTeam, debitW: W.gameMisconduct, kind: 'game-misconduct', credits: [], debit: who, period: p.periodDescriptor.number, time: p.timeInPeriod });
         break;
       }
       default:
@@ -209,6 +228,7 @@ export function computeMomentum(pbp, awayId, gameEnd = null) {
     while (i < list.length && list[i].t <= t) {
       const e = list[i++];
       decayTo(e.t);
+      if (e.kind === 'misconduct') e.debitW = Math.min(MOMENTUM_WEIGHTS.misconductMax, MOMENTUM_WEIGHTS.misconductBase + MOMENTUM_WEIGHTS.misconductPerPoint * (players.get(e.debit)?.pos ?? 0));
       if (e.kind === 'fight-spark') {
         // The team that was behind gets the lift; when it's even there is nobody to wake up.
         e.team = level.away < level.home - 0.5 ? 'away' : level.home < level.away - 0.5 ? 'home' : null;

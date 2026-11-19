@@ -750,3 +750,31 @@ main { padding: 0 0 48px; }
 .fold-body > p { margin: 0; }
 .fold[hidden] { display: none; }
 .s-fold .s-key { margin-top: 8px; }
+
+/* Penalty summary */
+.st-pen-head { display: flex; flex-wrap: wrap; gap: 14px; margin: 0 0 8px; font: 600 13px Inter, sans-serif; color: #cbd5e1; }
+.st-pen-head span { border-left: 3px solid var(--team); padding-left: 8px; }
+.st-pen-table { width: 100%; border-collapse: collapse; font: 13px Inter, sans-serif; color: #e2e8f0; }
+.st-pen-table th { font: 700 11px "Barlow Condensed", sans-serif; letter-spacing: .1em; text-transform: uppercase; color: #94a3b8; text-align: left; padding: 4px 8px 6px; }
+.st-pen-table td { padding: 6px 8px; border-top: 1px solid #1f2937; vertical-align: top; }
+.st-pen-t { white-space: nowrap; color: #94a3b8; font-variant-numeric: tabular-nums; }
+.st-pen-w b { display: block; font-weight: 600; }
+.st-pen-w small { color: #94a3b8; font-size: 12px; }
+.st-pen-m { color: #94a3b8; white-space: nowrap; }
+.st-pen-b { font: 800 10px "Barlow Condensed", sans-serif; font-style: normal; letter-spacing: .08em; text-transform: uppercase; padding: 1px 6px; border-radius: 999px; margin-right: 6px; background: #334155; color: #e2e8f0; }
+.st-pen-b.major, .st-pen-b.match, .st-pen-b.game-misconduct { background: #7f1d1d; color: #fecaca; }
+.st-pen-b.fight { background: #78350f; color: #fde68a; }
+.st-pen-b.misconduct { background: #3f3f46; }
+.st-pen-r { color: #94a3b8; }
+.st-pen-r.bad { color: #fca5a5; font-weight: 600; }
+.st-pen-r.good { color: #86efac; }
+.st-pen-none { color: #94a3b8; margin: 0; }
+@media (max-width: 640px) { .st-pen-table th:nth-child(4), .st-pen-table td:nth-child(4) { display: none; } .st-pen-table td { padding: 6px 4px; } }
+
+/* Fights, majors and misconducts on a scorecard */
+.s-discs { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 10px; }
+.s-disc { font-size: 11px; padding: 2px 8px; border-radius: 999px; background: #334155; color: #e2e8f0; }
+.s-disc b { font-weight: 800; letter-spacing: .04em; text-transform: uppercase; margin-right: 2px; }
+.s-disc.fight { background: #78350f; color: #fde68a; }
+.s-disc.major { background: #7f1d1d; color: #fecaca; }
+.s-disc.misc { background: #3f3f46; }

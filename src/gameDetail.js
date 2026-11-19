@@ -4,6 +4,7 @@
 // Output feeds the box score page designs and, later, per-player scorecards.
 import { gameStatus, periodLabel, periodName, nhlVideoUrl, videoId } from './normalize.js';
 import { computeMomentum, onIceAttempts, inHomePlate } from './momentum.js';
+import { penaltyKind, SEVERITY_SCORE } from './penalties.js';
 import { strengthOf, penaltyRunning, gameElapsed } from './strength.js';
 import { goalieExpected } from './xg.js';
 
@@ -33,7 +34,7 @@ export function skaterGameScore(s) {
     scoring: s.goals * w.goals + s.a1 * w.primaryAssists + s.a2 * w.secondaryAssists,
     shooting: s.sog * w.shots + (s.homePlate ?? 0) * w.homePlate,
     defense: s.blocks * w.blocks,
-    discipline: s.penaltiesDrawn * w.penaltiesDrawn + s.penaltiesTaken * w.penaltiesTaken,
+    discipline: s.penaltiesDrawn * w.penaltiesDrawn + s.penaltiesTaken * w.penaltiesTaken + (s.severity ?? 0),
     faceoffs: s.fow * w.faceoffWins + s.fol * w.faceoffLosses,
     // With shift data: weighted on-ice attempts and goals for minus against. Without: plus/minus.
     onIce: s.onIce ? (s.onIce.cf - s.onIce.ca) * w.onIceAttempts + (s.onIce.gf - s.onIce.ga) * w.plusMinus : s.plusMinus * w.plusMinus,
@@ -109,7 +110,7 @@ function linescore(box, rightRail) {
 function eventCounts(pbp) {
   const counts = new Map();
   const get = (id) => {
-    if (!counts.has(id)) counts.set(id, { a1: 0, a2: 0, fow: 0, fol: 0, penaltiesDrawn: 0, penaltiesTaken: 0, missed: 0, blockedAgainst: 0, homePlate: 0 });
+    if (!counts.has(id)) counts.set(id, { a1: 0, a2: 0, fow: 0, fol: 0, penaltiesDrawn: 0, penaltiesTaken: 0, severity: 0, discipline: [], missed: 0, blockedAgainst: 0, homePlate: 0 });
     return counts.get(id);
   };
   for (const e of pbp?.plays ?? []) {
@@ -127,8 +128,20 @@ function eventCounts(pbp) {
         if (d.losingPlayerId) get(d.losingPlayerId).fol++;
         break;
       case 'penalty':
-        if (d.committedByPlayerId && d.typeCode !== 'BEN') get(d.committedByPlayerId).penaltiesTaken++;
-        if (d.drawnByPlayerId) get(d.drawnByPlayerId).penaltiesDrawn++;
+        {
+          const kind = penaltyKind(d);
+          // Fights are not a penalty taken or drawn, bench minors belong to no player, and a game misconduct
+          // or misconduct is not a "taken" penalty of its own: it counts through its severity.
+          const plain = !['fight', 'bench', 'misconduct', 'game-misconduct'].includes(kind);
+          if (d.committedByPlayerId && plain) get(d.committedByPlayerId).penaltiesTaken++;
+          if (d.drawnByPlayerId && kind !== 'fight') get(d.drawnByPlayerId).penaltiesDrawn++;
+          if (d.committedByPlayerId && kind !== 'bench') {
+            const c = get(d.committedByPlayerId);
+            c.severity += SEVERITY_SCORE[kind] ?? 0;
+            if (kind !== 'minor' && kind !== 'penalty-shot') c.discipline.push({ kind, infraction: humanize(d.descKey), minutes: d.duration ?? null, period: periodLabel(e.periodDescriptor), time: clockTime(e.timeInPeriod) });
+          }
+          if (kind === 'match' && d.committedByPlayerId) get(d.committedByPlayerId).severity += SEVERITY_SCORE['game-misconduct'] ?? 0;
+        }
         break;
       case 'missed-shot':
         if (d.shootingPlayerId) get(d.shootingPlayerId).missed++;
@@ -208,7 +221,7 @@ function rosterMap(pbp) {
 }
 
 function skater(raw, counts, roster, momentum, onIce) {
-  const c = counts.get(raw.playerId) ?? { a1: 0, a2: 0, fow: 0, fol: 0, penaltiesDrawn: 0, penaltiesTaken: 0, missed: 0, blockedAgainst: 0, homePlate: 0 };
+  const c = counts.get(raw.playerId) ?? { a1: 0, a2: 0, fow: 0, fol: 0, penaltiesDrawn: 0, penaltiesTaken: 0, severity: 0, discipline: [], missed: 0, blockedAgainst: 0, homePlate: 0 };
   const r = roster.get(raw.playerId);
   const s = {
     id: raw.playerId,
@@ -241,6 +254,8 @@ function skater(raw, counts, roster, momentum, onIce) {
     homePlate: c.homePlate,
     penaltiesDrawn: c.penaltiesDrawn,
     penaltiesTaken: c.penaltiesTaken,
+    severity: c.severity,
+    discipline: c.discipline,
   };
   const mom = momentum?.players?.[raw.playerId] ?? { impact: 0, swingPlays: 0 };
   s.momentum = mom.impact;
@@ -368,6 +383,7 @@ function penalties(landing) {
         player: who ? (typeof who === 'string' ? who : `${t(who.firstName)} ${t(who.lastName)}`.trim()) : (pen.type === 'BEN' ? 'Bench' : 'Team'),
         number: who?.sweaterNumber ?? null,
         infraction: humanize(pen.descKey),
+        kind: penaltyKind({ typeCode: pen.type, descKey: pen.descKey, duration: pen.duration }),
         minutes: pen.duration ?? null,
         type: pen.type ?? null,
         drawnBy: pen.drawnBy ? `${t(pen.drawnBy.firstName)} ${t(pen.drawnBy.lastName)}`.trim() : null,

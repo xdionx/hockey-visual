@@ -222,6 +222,67 @@ function decided(game, final) {
   return out.join(' ');
 }
 
+/** The story of the penalties: who took them, what the other side did with them, and the severe ones. */
+function penaltyStory(game, final) {
+  const pens = (game.penalties ?? []).filter((x) => !['bench', 'penalty-shot'].includes(x.kind));
+  const real = pens.filter((x) => x.kind !== 'fight');
+  const fights = pens.filter((x) => x.kind === 'fight');
+  const tense = (a, b) => (final ? a : b);
+  if (!real.length && !fights.length) return final ? 'A clean game: not a single penalty was called.' : 'No penalties yet.';
+  const name = (s) => `the ${game[s].commonName}`;
+  const cap = (t) => t.charAt(0).toUpperCase() + t.slice(1);
+  const abbr = { away: game.away.abbrev, home: game.home.abbrev };
+  const count = { away: 0, home: 0 };
+  const mins = { away: 0, home: 0 };
+  for (const x of real) {
+    const side = x.team === abbr.away ? 'away' : 'home';
+    if (x.kind === 'misconduct' || x.kind === 'game-misconduct') continue; // no skater lost: not part of the count
+    count[side]++; mins[side] += x.minutes ?? 2;
+  }
+  const out = [];
+  if (count.away + count.home) {
+    if (count.away === count.home) out.push(`Both teams ${tense('took', 'have taken')} ${count.away} ${count.away === 1 ? 'penalty' : 'penalties'}.`);
+    else {
+      const more = count.away > count.home ? 'away' : 'home';
+      out.push(`${cap(name(more))} ${tense('took', 'have taken')} ${count[more]} ${count[more] === 1 ? 'penalty' : 'penalties'} (${mins[more]} minutes) versus ${count[other(more)]} for ${name(other(more))}.`);
+    }
+  }
+  // What the other side did with them.
+  const pps = game.momentum?.powerPlays ?? [];
+  const ppLine = [];
+  for (const side of ['away', 'home']) {
+    const mine = pps.filter((x) => x.team === side);
+    if (!mine.length) continue;
+    ppLine.push(`${abbr[side]} ${mine.filter((x) => x.result === 'goal').length} for ${mine.length}`);
+  }
+  if (ppLine.length) out.push(`Power plays ${tense('went', 'are')} ${ppLine.join(', ')}.`);
+  // Penalty trouble: the momentum it handed over.
+  const handed = { away: 0, home: 0 };
+  for (const p of allSkaters(game)) {
+    const k = p.momentumParts?.kinds ?? {};
+    handed[p.side] += Math.abs(Math.min(0, k['penalty-taken'] ?? 0)) + Math.abs(Math.min(0, k.misconduct ?? 0)) + Math.abs(Math.min(0, k['game-misconduct'] ?? 0));
+  }
+  for (const side of ['away', 'home']) {
+    const other_ = other(side);
+    const oppGoals = pps.filter((x) => x.team === other_ && x.result === 'goal').length;
+    if (count[side] >= count[other_] + 2 && count[side] >= 4) {
+      out.push(`${cap(name(side))} ${tense('had', 'are having')} a discipline problem: it ${tense('handed', 'has handed')} ${name(other_)} ${handed[side].toFixed(1)} momentum${oppGoals ? ` and ${oppGoals} power-play goal${oppGoals === 1 ? '' : 's'}` : ''}.`);
+    }
+  }
+  // The severe ones.
+  const sev = real.filter((x) => ['major', 'match', 'game-misconduct', 'misconduct'].includes(x.kind));
+  for (const x of sev) {
+    const what = { major: `a ${String(x.infraction).toLowerCase()} major`, match: 'a match penalty', 'game-misconduct': 'a game misconduct', misconduct: 'a misconduct' }[x.kind];
+    out.push(`${x.player} (${x.team}) ${tense('took', 'has taken')} ${what}${x.kind === 'major' || x.kind === 'match' ? ' and the team played short for the full 5 minutes' : x.kind === 'game-misconduct' ? ' and was ejected' : ''}.`);
+  }
+  for (const [i, x] of fights.entries()) {
+    if (i % 2) continue;
+    const y = fights[i + 1];
+    out.push(`${x.player} (${x.team})${y ? ` and ${y.player} (${y.team})` : ''} ${tense('fought', 'have fought')} at ${x.time} of the ${String(x.periodName ?? '').toLowerCase().replace(' period', '')}.`);
+  }
+  return out.join(' ');
+}
+
 /** Power plays and the penalty that cost the most momentum. */
 function specialTeams(game, final = true) {
   const pp = game.teamStats?.find((s) => s.key === 'powerPlay');
@@ -245,6 +306,7 @@ export function storyBeats(game) {
     [final ? 'How it unfolded' : 'How it stands', arc(game, final)],
     [final ? 'Who controlled play' : 'Who has the play', control(game, final)],
     [final ? 'What decided it' : 'Chances and goaltending', decided(game, final)],
+    [final ? 'Penalties' : 'Penalties so far', penaltyStory(game, final)],
     [final ? 'The difference' : 'Standing out so far', difference(game, final)],
     [final ? 'Special teams' : 'Special teams so far', specialTeams(game, final)],
   ];

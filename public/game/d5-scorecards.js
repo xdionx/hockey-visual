@@ -37,7 +37,7 @@ export function ratingBadge(r, big = false) {
 const MOM_KIND = {
   goal: 'Goals', sog: 'Shots', miss: 'Missed shots', 'block-attempt': 'Blocked attempts', block: 'Blocks', faceoff: 'Faceoff wins',
   'faceoff-loss': 'Faceoff losses', takeaway: 'Takeaways', giveaway: 'Giveaways', hit: 'Hits', 'penalty-drawn': 'Penalties drawn',
-  'penalty-taken': 'Penalties taken', fight: 'Fighting', 'penalty-kill': 'Penalty kill',
+  'penalty-taken': 'Penalties taken', misconduct: 'Misconducts', 'game-misconduct': 'Game misconducts', fight: 'Fighting', 'penalty-kill': 'Penalty kill',
 };
 
 /** Momentum the player created (green, right) and gave away (red, left), with the biggest reasons. */
@@ -56,6 +56,23 @@ export function momentumBar(p, scale = 15) {
   </div>`;
 }
 
+/** Fights, majors and misconducts, only for players who had one. Shows what each did to momentum and score. */
+export function disciplineChips(p) {
+  const list = p.discipline ?? [];
+  if (!list.length) return '';
+  const k = p.momentumParts?.kinds ?? {};
+  const sgn = (n) => `${n > 0 ? '+' : ''}${n.toFixed(1)}`;
+  const chip = (d) => {
+    const when = `P${String(d.period).replace('P', '')} ${d.time}`;
+    if (d.kind === 'fight') return `<span class="s-disc fight" title="Fighting is not a penalty against the player. It earns a small credit and can spark a team that is behind."><b>Fight</b> ${esc(when)}${k.fight ? ` · ${sgn(k.fight)} momentum` : ''}</span>`;
+    if (d.kind === 'major' || d.kind === 'match') return `<span class="s-disc major" title="A 5 minute major: the team plays short for the full time."><b>${d.kind === 'match' ? 'Match penalty' : 'Major'}</b> ${esc(d.infraction)} · ${esc(when)}</span>`;
+    if (d.kind === 'game-misconduct') return `<span class="s-disc major" title="Ejected from the game."><b>Game misconduct</b> ${esc(when)}${k['game-misconduct'] ? ` · ${sgn(k['game-misconduct'])} momentum` : ''}</span>`;
+    if (d.kind === 'misconduct') return `<span class="s-disc misc" title="10 minutes in the box, but the team does not play short."><b>Misconduct</b> ${esc(when)}${k.misconduct ? ` · ${sgn(k.misconduct)} momentum` : ''}</span>`;
+    return '';
+  };
+  return `<div class="s-discs">${list.map(chip).join('')}</div>`;
+}
+
 export function skaterCard(game, p, c, scale) {
   return `<article class="s-card" style="--team:${c[p.side]}">
     <div class="s-top">${headshot(p, 's-mug')}
@@ -64,6 +81,7 @@ export function skaterCard(game, p, c, scale) {
     </div>
     <div class="s-line"><span><b>${p.goals}</b>G</span><span><b>${p.assists}</b>A</span><span><b>${p.sog}</b>SOG</span><span><b>${signed(p.plusMinus)}</b>+/-</span><span title="Momentum impact: weighted plays that pushed momentum toward the player's team (swing plays count 1.5x)"><b>${p.momentum != null ? (p.momentum > 0 ? '+' : '') + p.momentum.toFixed(1) : '-'}</b>MOM</span><span><b>${esc(p.toi)}</b>TOI</span></div>
     ${p.onIce ? `<div class="s-onice" title="Shot attempts while on the ice, weighted: on goal 1, missed 0.5, blocked 0.35"><span>On-ice shots</span><b>${p.onIce.cf.toFixed(1)}</b><div class="s-oi-bar"><i style="width:${p.onIce.pct ?? 50}%"></i></div><b>${p.onIce.ca.toFixed(1)}</b><em>${p.onIce.pct != null ? `${Math.round(p.onIce.pct)}%` : ''}</em></div>` : ''}
+    ${disciplineChips(p)}
     ${p.swingPlays ? `<div class="s-swing">&#8635; ${p.swingPlays} swing play${p.swingPlays > 1 ? 's' : ''}</div>` : ''}
     <div class="s-body">
       <div class="s-bd"><div class="s-bd-h"><span>Game score</span><b>${p.gameScore > 0 ? '+' : ''}${p.gameScore.toFixed(2)}</b></div>${breakdownBar(p, scale)}${momentumBar(p)}</div>
