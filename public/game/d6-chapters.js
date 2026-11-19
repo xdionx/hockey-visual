@@ -133,7 +133,7 @@ function momentumFlips(game, events) {
       .filter((x) => x.team !== game[mine].abbrev && x.t >= lo && x.t <= hi).sort((x, y) => step(y.t) - step(x.t))[0];
     const gs = goal ? step(goal.t) : 0;
     const ps = pen ? step(pen.t) : 0;
-    let tag; let start; let t = run.t; let person = null;
+    let tag; let start; let t = run.t; let person = null; let small = false;
     const from_ = prev ? `from ${game[prev.team].abbrev} to ${abbr}` : `to ${abbr}`;
     if (Math.max(gs, ps) >= 2.5) {
       if (gs >= ps) {
@@ -144,26 +144,29 @@ function momentumFlips(game, events) {
         start = `${pen.player} (${pen.team}) took a ${String(pen.infraction).toLowerCase()} penalty and the momentum went ${from_} on the spot.`;
       }
     } else {
-      tag = prev ? 'A run of small bumps' : 'Early push';
-      start = prev ? `${game[prev.team].abbrev} had it for ${mins(prev.until - prev.t)}, then a string of small plays handed it to ${abbr}.` : `${abbr} took the first real momentum of the game.`;
+      small = true;
+      tag = prev ? 'Steady takeover' : 'Early push';
+      start = prev ? `${game[prev.team].abbrev} had it for ${mins(prev.until - prev.t)} before ${abbr} took over.` : `${abbr} took the first real momentum of the game.`;
     }
     // What kept it going.
     const a = run.mix?.[mine]; const b = run.mix?.[theirs];
     const reasons = [];
+    const kinds = [];
     const chips = [];
     if (a && b) {
       if (a.att + b.att) chips.push(`SAT ${a.att}-${b.att}`);
       if (a.faceoffs + b.faceoffs) chips.push(`FO won ${a.faceoffs}-${b.faceoffs}`);
       if (a.hits + b.hits) chips.push(`Hits ${a.hits}-${b.hits}`);
       if (a.turnovers + b.turnovers) chips.push(`Turnovers forced ${a.turnovers}-${b.turnovers}`);
-      if (a.att >= 4 && a.att >= b.att * 1.5) reasons.push(`outshot ${foe} ${a.att}-${b.att} in shot attempts (${a.sog} on goal)`);
+      if (a.att >= 4 && a.att >= b.att * 1.5) reasons.push(kinds.push('Shot pressure') && `outshot ${foe} ${a.att}-${b.att} in shot attempts (${a.sog} on goal)`);
       const fo = a.faceoffs + b.faceoffs;
-      if (fo >= 6 && a.faceoffs / fo >= 0.6) reasons.push(`won ${a.faceoffs} of ${fo} faceoffs`);
-      if (a.hits >= 4 && a.hits >= b.hits * 1.5) reasons.push(`out-hit ${foe} ${a.hits}-${b.hits}`);
-      if (a.turnovers >= 3 && a.turnovers >= b.turnovers * 2) reasons.push(`won the turnover battle ${a.turnovers}-${b.turnovers}`);
-      if (a.ppSec >= 40) reasons.push(`spent ${mins(a.ppSec)} on the power play`);
+      if (fo >= 6 && a.faceoffs / fo >= 0.6) reasons.push(kinds.push('Faceoff edge') && `won ${a.faceoffs} of ${fo} faceoffs`);
+      if (a.hits >= 4 && a.hits >= b.hits * 1.5) reasons.push(kinds.push('Physical stretch') && `out-hit ${foe} ${a.hits}-${b.hits}`);
+      if (a.turnovers >= 3 && a.turnovers >= b.turnovers * 2) reasons.push(kinds.push('Turnover swing') && `won the turnover battle ${a.turnovers}-${b.turnovers}`);
+      if (a.ppSec >= 40) reasons.push(kinds.push('Power play') && `spent ${mins(a.ppSec)} on the power play`);
       if (a.goals && !(person && a.goals === 1)) reasons.push(`scored ${a.goals} goal${a.goals === 1 ? '' : 's'}`);
     }
+    if (small && kinds.length) tag = kinds[0];
     const keep = reasons.length
       ? `${name} held it for ${held}: they ${list(reasons)}.`
       : `${name} held it for ${held} on a steady mix of small plays, with no one thing standing out.`;
