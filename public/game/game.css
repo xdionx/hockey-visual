@@ -421,6 +421,7 @@ main { padding: 0 0 48px; }
 .st-drv b { font: 800 18px "Barlow Condensed", sans-serif; }
 .st-drv-s { color: #facc15; font-size: 12px; }
 .s-swing { font-size: 11px; color: #22c55e; font-weight: 700; margin: -4px 0 8px; }
+.a-zone-n, .a-zone-k { pointer-events: none; }
 .a-zone-n.zero { opacity: .45; }
 .a-zone-n { fill: #fff; font: 800 6px "Barlow Condensed", Inter, sans-serif; paint-order: stroke; stroke: rgba(0,0,0,.55); stroke-width: .8px; }
 .a-zone-g { fill: #facc15; }
@@ -453,3 +454,35 @@ main { padding: 0 0 48px; }
   .st-mini-logo { width: 24px; height: 24px; }
   .st-mini-t strong { font-size: 24px; }
 }
+
+/* Zone map: attempt types and numbered goals */
+.a-zone-k { fill: rgba(255,255,255,.85); font: 600 2.6px Inter, sans-serif; paint-order: stroke; stroke: rgba(0,0,0,.5); stroke-width: .5px; }
+.a-zone-k tspan { fill: #94a3b8; font-weight: 800; }
+.a-zone-key { margin: 8px 0 0; font-size: 12px; color: var(--b-mute, #8b95a7); }
+.a-zone-key b { color: var(--b-ink, #fff); }
+.goal-mark { cursor: pointer; outline: none; }
+.goal-mark text { fill: #fff; font-family: "Barlow Condensed", Inter, sans-serif; font-weight: 800; pointer-events: none; }
+.goal-mark:hover circle, .goal-mark:focus-visible circle { stroke: #facc15; stroke-width: 0.9; }
+.a-goal-tip { position: fixed; z-index: 50; width: 250px; padding: 10px 12px; background: #0b1220; border: 1px solid #1f2937; border-top: 3px solid var(--team); border-radius: 6px; box-shadow: 0 12px 30px rgba(0,0,0,.5); color: #f1f5f9; pointer-events: none; font-size: 13px; }
+.gt-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; margin-bottom: 8px; }
+.gt-head b { font: 800 16px "Barlow Condensed", sans-serif; text-transform: uppercase; color: var(--team); letter-spacing: .04em; }
+.gt-head span { color: #8b95a7; font-size: 12px; }
+.gt-head i { font-style: normal; font: 700 10px Inter, sans-serif; background: #facc15; color: #000; padding: 1px 4px; border-radius: 2px; }
+.gt-p { display: flex; align-items: center; gap: 8px; padding: 3px 0; }
+.gt-p b { display: block; font-weight: 600; }
+.gt-p small { color: #8b95a7; font-size: 11px; }
+.gt-role { display: block; font: 700 10px Inter, sans-serif; text-transform: uppercase; letter-spacing: .06em; color: #8b95a7; }
+.gt-mug { width: 36px; height: 36px; border-radius: 50%; background: #1e293b; object-fit: cover; flex: none; font-size: 12px; }
+.gt-none { color: #8b95a7; font-size: 12px; padding: 2px 0; }
+.gt-sep { height: 1px; background: #1f2937; margin: 6px 0; }
+.gt-foot { margin-top: 8px; font-size: 11px; color: #facc15; }
+
+/* Goal visualizer button on scoring cards */
+.b-gc-acts { display: flex; gap: 6px; align-items: center; }
+.b-viz { display: inline-grid; place-items: center; width: 36px; height: 36px; color: #fff; background: #1e293b; clip-path: polygon(20% 0, 100% 0, 80% 100%, 0 100%); }
+.b-viz svg { width: 18px; height: 18px; }
+.b-viz:hover, .b-viz:focus-visible { background: var(--b-accent, #e11d48); }
+.lb-frame.embed iframe { background: #fff; }
+@media (max-width: 640px) { .b-viz { width: 30px; height: 30px; } }
+.a-zone-tables { overflow-x: auto; }
+@media (max-width: 640px) { .a-zt th, .a-zt td { padding: 6px 3px; font-size: 11px; } }

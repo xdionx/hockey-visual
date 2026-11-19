@@ -123,18 +123,35 @@ export function videoButton(id, title, text, cls = 'vid', href = '') {
   return `<a class="${cls}" href="${esc(href || `https://www.nhl.com/video/${id}`)}" data-video-id="${esc(id)}" data-video-title="${esc(title)}" title="${esc(title)}" aria-label="${esc(title)}">${text}</a>`;
 }
 
+/** Button that opens NHL.com's goal visualizer (puck and player tracking replay) in the lightbox. */
+export function visualizerButton(url, title, text, cls = 'viz') {
+  if (!url) return '';
+  return `<a class="${cls}" href="${esc(url)}" data-embed-url="${esc(url)}" data-video-title="${esc(title)}" title="${esc(title)}" aria-label="${esc(title)}">${text}</a>`;
+}
+
 export function initVideo(root) {
   const lb = document.querySelector('#lightbox');
   const frame = document.querySelector('#lightbox-frame');
   root.addEventListener('click', (e) => {
-    const link = e.target.closest('a[data-video-id]');
+    const link = e.target.closest('[data-video-id], [data-embed-url]');
     if (!link || e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
     e.preventDefault();
-    frame.innerHTML = `<iframe src="${BRIGHTCOVE_PLAYER}?videoId=${encodeURIComponent(link.dataset.videoId)}&autoplay=true" title="${esc(link.dataset.videoTitle)}" allow="autoplay; fullscreen; encrypted-media; picture-in-picture" allowfullscreen></iframe>`;
-    document.querySelector('#lightbox-title').textContent = link.dataset.videoTitle;
-    document.querySelector('#lightbox-nhl').href = link.href;
-    lb.showModal();
+    openLightbox(link);
   });
+  // Goal markers on the rink are SVG, not links: open them with Enter too.
+  root.addEventListener('keydown', (e) => {
+    const link = e.target.closest?.('g[data-video-id], g[data-embed-url]');
+    if (link && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); openLightbox(link); }
+  });
+  function openLightbox(link) {
+    const embed = link.dataset.embedUrl;
+    const src = embed || `${BRIGHTCOVE_PLAYER}?videoId=${encodeURIComponent(link.dataset.videoId)}&autoplay=true`;
+    frame.innerHTML = `<iframe src="${esc(src)}" title="${esc(link.dataset.videoTitle)}" allow="autoplay; fullscreen; encrypted-media; picture-in-picture" allowfullscreen></iframe>`;
+    frame.classList.toggle('embed', !!embed);
+    document.querySelector('#lightbox-title').textContent = link.dataset.videoTitle;
+    document.querySelector('#lightbox-nhl').href = embed || link.getAttribute('href') || `https://www.nhl.com/video/${link.dataset.videoId}`;
+    lb.showModal();
+  }
   document.querySelector('#lightbox-close').addEventListener('click', () => lb.close());
   lb.addEventListener('click', (e) => e.target === lb && lb.close());
   lb.addEventListener('close', () => { frame.innerHTML = ''; });

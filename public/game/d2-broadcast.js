@@ -1,6 +1,6 @@
 // Design 2 "Broadcast": a dark, bold, on-air graphics look.
 // Inspired by TSN and NHL broadcast score bugs: team-color panels, condensed type, big numbers.
-import { esc, logo, teamColors, statusText, prettyDate, skaters, goaliesOf, pct, signed, videoButton, elapsed, headshot } from './core.js';
+import { esc, logo, teamColors, statusText, prettyDate, skaters, goaliesOf, pct, signed, videoButton, visualizerButton, elapsed, headshot } from './core.js';
 
 export function hero(game, c) {
   const ls = game.linescore;
@@ -62,7 +62,8 @@ export function scoringCards(game, c) {
           <div class="b-ast">${g.period === 'SO' ? 'Deciding goal' : g.assists.length ? g.assists.map((a) => esc(a.name)).join(', ') : 'Unassisted'}</div>
         </div>
         <div class="b-gc-score">${g.score.away}<i>-</i>${g.score.home}</div>
-        ${videoButton(g.highlightId, `${g.team} · ${g.scorer.name}`, '<span>&#9654;</span>', 'b-play', g.highlight)}
+        <div class="b-gc-acts">${visualizerButton(g.visualizer, `${g.team} · ${g.scorer.name} · Goal visualizer`, '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="9" cy="12" r="2" fill="currentColor"/><path d="M11 12h6" stroke="currentColor" stroke-width="2" stroke-dasharray="2 2"/></svg>', 'b-viz')}
+        ${videoButton(g.highlightId, `${g.team} · ${g.scorer.name}`, '<span>&#9654;</span>', 'b-play', g.highlight)}</div>
       </article>`;
     }).join('')}
   </div></section>`;
