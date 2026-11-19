@@ -419,6 +419,7 @@ main { padding: 0 0 48px; }
 .st-drv b { font: 800 18px "Barlow Condensed", sans-serif; }
 .st-drv-s { color: #facc15; font-size: 12px; }
 .s-swing { font-size: 11px; color: #22c55e; font-weight: 700; margin: -4px 0 8px; }
+.a-zone-n.zero { opacity: .45; }
 .a-zone-n { fill: #fff; font: 800 6px "Barlow Condensed", Inter, sans-serif; paint-order: stroke; stroke: rgba(0,0,0,.55); stroke-width: .8px; }
 .a-zone-g { fill: #facc15; }
 .a-zone-tables { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; margin-top: 12px; }
