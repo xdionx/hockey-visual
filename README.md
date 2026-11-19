@@ -11,16 +11,17 @@ Live games refresh on their own (the hosted site updates about every 10 minutes)
 ## Box scores
 
 Each live or finished game on the scores page has a **Box score** button that opens
-`game.html?id=<gameId>`. The box score comes in five designs to compare; switch with
-the bar at the top, keys 1-5, or `&design=<name>` in the URL (the choice is remembered):
+`game.html?id=<gameId>`. The main design is **Game Story** (`story`): the Broadcast look
+with the Analytics and Scorecards data, in five sections you can jump between:
 
-| # | Design | Idea |
-| --- | --- | --- |
-| 1 | `classic` | Dense one-page box score with sortable tables (ESPN / CBS Sports feel) |
-| 2 | `broadcast` | Dark on-air look: team-color hero, game flow, three stars podium (TSN / NHL broadcasts) |
-| 3 | `cards` | Rounded tabbed cards: summary timeline, players, team stats (Google results) |
-| 4 | `analytics` | Shot map, shot-attempt flow, heat-mapped skater table (HockeyStats / NHL EDGE) |
-| 5 | `scorecards` | A card per player with a 3-10 rating and the Game Score parts behind it (start of the player scorecard) |
+1. **Story**: an automatic headline (comebacks, shutouts, OT/SO, the winning goal, who drove play), scoring plays, three stars, team stats.
+2. **Momentum**: shot-attempt flow with goals marked, key numbers, period-by-period results.
+3. **Shots**: shot map filtered by team and period.
+4. **Players**: player of the game plus a scorecard per player (3-10 rating and the Game Score parts behind it).
+5. **Box score**: goaltending and a heat-mapped skater table.
+
+The earlier designs (`broadcast`, `analytics`, `scorecards`, `classic`) stay in the switcher
+at the top (keys 1-5, or `&design=<name>`) for comparison.
 
 Data: `src/gameDetail.js` combines the `boxscore`, `landing`, `right-rail` and
 `play-by-play` endpoints into `data/games/<gameId>.json`, including every shot's

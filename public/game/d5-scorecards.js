@@ -2,7 +2,7 @@
 // A modern take on HockeyStats-style player game cards; the start of the per-player scorecard.
 import { esc, logo, teamColors, statusText, prettyDate, allSkaters, allGoalies, pct, signed, rinkMarkup, shotMark, headshot, ratingColor, GS_PARTS } from './core.js';
 
-const PART_COLORS = { scoring: '#6366f1', shooting: '#0ea5e9', onIce: '#14b8a6', defense: '#a3a3a3', discipline: '#f59e0b', faceoffs: '#ec4899' };
+export const PART_COLORS = { scoring: '#6366f1', shooting: '#0ea5e9', onIce: '#14b8a6', defense: '#a3a3a3', discipline: '#f59e0b', faceoffs: '#ec4899' };
 
 function header(game, c) {
   const ls = game.linescore;
@@ -14,7 +14,7 @@ function header(game, c) {
 }
 
 /** Diverging bar: negative parts grow left of the zero line, positive parts right. */
-function breakdownBar(p, scale) {
+export function breakdownBar(p, scale) {
   const pos = GS_PARTS.filter(([k]) => p.gameScoreParts[k] > 0);
   const neg = GS_PARTS.filter(([k]) => p.gameScoreParts[k] < 0);
   const seg = ([k, label]) => {
@@ -24,17 +24,17 @@ function breakdownBar(p, scale) {
   return `<div class="s-div"><div class="s-neg">${neg.map(seg).join('')}</div><div class="s-zero"></div><div class="s-pos">${pos.map(seg).join('')}</div></div>`;
 }
 
-function miniRink(game, p, c) {
+export function miniRink(game, p, c) {
   const shots = game.shots.filter((s) => s.shooterId === p.id);
   const vb = p.side === 'away' ? '-101 -43.5 102 87' : '-1 -43.5 102 87';
   return `<svg class="s-rink" viewBox="${vb}" role="img" aria-label="${esc(`${p.fullName} shot locations`)}">${rinkMarkup()}${shots.map((s) => shotMark(s, c[p.side], 3.2)).join('')}</svg>`;
 }
 
-function ratingBadge(r, big = false) {
+export function ratingBadge(r, big = false) {
   return `<span class="s-rate ${big ? 'big' : ''}" style="--r:${ratingColor(r)}">${r.toFixed(1)}</span>`;
 }
 
-function skaterCard(game, p, c, scale) {
+export function skaterCard(game, p, c, scale) {
   return `<article class="s-card" style="--team:${c[p.side]}">
     <div class="s-top">${headshot(p, 's-mug')}
       <div class="s-who"><strong>${esc(p.fullName)}</strong><span>#${p.number ?? ''} · ${esc(p.position)} · ${esc(p.team)}</span></div>
@@ -48,7 +48,7 @@ function skaterCard(game, p, c, scale) {
   </article>`;
 }
 
-function goalieCard(g, c) {
+export function goalieCard(g, c) {
   const sv = g.shotsAgainst ? g.saves / g.shotsAgainst : 0;
   return `<article class="s-card goalie" style="--team:${c[g.side]}">
     <div class="s-top">${headshot(g, 's-mug')}
@@ -63,7 +63,7 @@ function goalieCard(g, c) {
   </article>`;
 }
 
-function spotlight(game, c, players, scale) {
+export function spotlight(game, c, players, scale) {
   const best = players[0];
   if (!best) return '';
   const parts = GS_PARTS.map(([k, label]) => {
@@ -80,7 +80,7 @@ function spotlight(game, c, players, scale) {
   </section>`;
 }
 
-function grid(game, c, state) {
+export function grid(game, c, state) {
   const sk = allSkaters(game);
   const gs = allGoalies(game);
   let list = [...sk, ...gs];
@@ -92,6 +92,38 @@ function grid(game, c, state) {
   list.sort((a, b) => key(b) - key(a));
   const scale = Math.max(1.5, ...sk.map((p) => Object.values(p.gameScoreParts).reduce((a, v) => a + Math.max(0, v), 0)), ...sk.map((p) => -Object.values(p.gameScoreParts).reduce((a, v) => a + Math.min(0, v), 0))) * 1.05;
   return list.map((p) => (p.position === 'G' ? goalieCard(p, c) : skaterCard(game, p, c, scale))).join('') || '<p class="s-muted">No players match.</p>';
+}
+
+export function scorecardControls(game) {
+  return `<section class="s-controls" id="s-controls">
+        <div class="s-seg" data-k="team"><button data-v="all" aria-pressed="true">Both teams</button><button data-v="away" aria-pressed="false">${esc(game.away.abbrev)}</button><button data-v="home" aria-pressed="false">${esc(game.home.abbrev)}</button></div>
+        <div class="s-seg" data-k="pos"><button data-v="all" aria-pressed="true">All</button><button data-v="F" aria-pressed="false">Forwards</button><button data-v="D" aria-pressed="false">Defense</button><button data-v="G" aria-pressed="false">Goalies</button></div>
+        <div class="s-seg" data-k="sort"><button data-v="rating" aria-pressed="true">By rating</button><button data-v="points" aria-pressed="false">By points</button><button data-v="toi" aria-pressed="false">By ice time</button></div>
+      </section>`;
+}
+
+export function scorecardKey() {
+  return `<section class="s-key">
+        <div><b>Rating</b> runs from 3.0 to 10.0. A quiet game is about 6.0; ${['#dc2626', '#ea580c', '#ca8a04', '#65a30d', '#16a34a', '#2563eb'].map((x) => `<i style="background:${x}"></i>`).join('')}</div>
+        <div><b>Game score</b> adds up what a player did: ${GS_PARTS.map(([k, l]) => `<span><i style="background:${PART_COLORS[k]}"></i>${esc(l)}</span>`).join('')}. Goalies: +0.1 per save, -0.75 per goal against.</div>
+        <div class="s-muted">Weights follow the public Game Score model. On-ice shot attempts aren't in the NHL feed we use yet, so on-ice impact uses plus/minus for now.</div>
+      </section>`;
+}
+
+/** Fills #s-grid with player cards and wires the team/position/sort controls. */
+export function mountScorecards(root, game, c) {
+  const state = { team: 'all', pos: 'all', sort: 'rating' };
+  const el = root.querySelector('#s-grid');
+  const draw = () => { el.innerHTML = grid(game, c, state); };
+  root.querySelector('#s-controls').addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-v]');
+    if (!b) return;
+    const seg = b.closest('[data-k]');
+    seg.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+    state[seg.dataset.k] = b.dataset.v;
+    draw();
+  });
+  draw();
 }
 
 export default {
@@ -106,32 +138,12 @@ export default {
     return `<div class="s-wrap">
       ${header(game, c)}
       ${spotlight(game, c, all, scale)}
-      <section class="s-controls" id="s-controls">
-        <div class="s-seg" data-k="team"><button data-v="all" aria-pressed="true">Both teams</button><button data-v="away" aria-pressed="false">${esc(game.away.abbrev)}</button><button data-v="home" aria-pressed="false">${esc(game.home.abbrev)}</button></div>
-        <div class="s-seg" data-k="pos"><button data-v="all" aria-pressed="true">All</button><button data-v="F" aria-pressed="false">Forwards</button><button data-v="D" aria-pressed="false">Defense</button><button data-v="G" aria-pressed="false">Goalies</button></div>
-        <div class="s-seg" data-k="sort"><button data-v="rating" aria-pressed="true">By rating</button><button data-v="points" aria-pressed="false">By points</button><button data-v="toi" aria-pressed="false">By ice time</button></div>
-      </section>
+      ${scorecardControls(game)}
       <section class="s-grid" id="s-grid"></section>
-      <section class="s-key">
-        <div><b>Rating</b> runs from 3.0 to 10.0. A quiet game is about 6.0; ${['#dc2626', '#ea580c', '#ca8a04', '#65a30d', '#16a34a', '#2563eb'].map((x) => `<i style="background:${x}"></i>`).join('')}</div>
-        <div><b>Game score</b> adds up what a player did: ${GS_PARTS.map(([k, l]) => `<span><i style="background:${PART_COLORS[k]}"></i>${esc(l)}</span>`).join('')}. Goalies: +0.1 per save, -0.75 per goal against.</div>
-        <div class="s-muted">Weights follow the public Game Score model. On-ice shot attempts aren't in the NHL feed we use yet, so on-ice impact uses plus/minus for now.</div>
-      </section>
+      ${scorecardKey()}
     </div>`;
   },
   mount(root, game) {
-    const c = teamColors(game);
-    const state = { team: 'all', pos: 'all', sort: 'rating' };
-    const el = root.querySelector('#s-grid');
-    const draw = () => { el.innerHTML = grid(game, c, state); };
-    root.querySelector('#s-controls').addEventListener('click', (e) => {
-      const b = e.target.closest('button[data-v]');
-      if (!b) return;
-      const seg = b.closest('[data-k]');
-      seg.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
-      state[seg.dataset.k] = b.dataset.v;
-      draw();
-    });
-    draw();
+    mountScorecards(root, game, teamColors(game));
   },
 };

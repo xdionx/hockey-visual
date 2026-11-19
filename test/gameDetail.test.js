@@ -47,3 +47,10 @@ test('game score math', () => {
   assert.equal(rating(0), 6);
   assert.equal(rating(99), 10);
 });
+
+test('game story headline finds the comeback and the shootout winner', async () => {
+  const { storyline } = await import('../public/game/d6-story.js');
+  const s = storyline(game);
+  assert.equal(s.headline, 'Jets storm back from 4 down to beat the Blackhawks in a shootout');
+  assert.match(s.dek[0], /Kyle Connor scored the shootout winner/);
+});

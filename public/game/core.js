@@ -18,7 +18,25 @@ const hex = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
 const dist = (a, b) => Math.hypot(...hex(a).map((v, i) => v - hex(b)[i]));
 
 const luminance = (h) => hex(h).reduce((acc, v, i) => acc + [0.2126, 0.7152, 0.0722][i] * (v / 255), 0);
-const lighten = (h, amt) => `#${hex(h).map((v) => Math.round(v + (255 - v) * amt).toString(16).padStart(2, '0')).join('')}`;
+/** Raise a dark color's lightness (keeping its hue) so it reads on a dark page. */
+function lift(h, minL = 0.5) {
+  const [r, g, b] = hex(h).map((v) => v / 255);
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  let l = (max + min) / 2;
+  const d = max - min;
+  let s = d === 0 ? 0 : d / (1 - Math.abs(2 * l - 1));
+  let hue = 0;
+  if (d) hue = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  hue *= 60;
+  l = Math.max(l, minL);
+  s = d === 0 ? 0 : Math.max(s, 0.55);
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const x = c * (1 - Math.abs(((hue / 60) % 2) - 1));
+  const m = l - c / 2;
+  const [r1, g1, b1] = hue < 60 ? [c, x, 0] : hue < 120 ? [x, c, 0] : hue < 180 ? [0, c, x] : hue < 240 ? [0, x, c] : hue < 300 ? [x, 0, c] : [c, 0, x];
+  return `#${[r1, g1, b1].map((v) => Math.round((v + m) * 255).toString(16).padStart(2, '0')).join('')}`;
+}
 
 /**
  * { away, home } accent colors that are distinguishable from each other.
@@ -30,10 +48,10 @@ export function teamColors(game, { dark = false } = {}) {
   let away = a[0];
   let home = dist(a[0], h[0]) < 90 ? h[1] : h[0];
   if (dark) {
-    const lift = (c) => (luminance(c) < 0.12 ? lighten(c, 0.35) : c);
-    away = lift(away);
-    home = lift(home);
-    if (dist(away, home) < 90) home = lift(h[1]);
+    const up = (c) => (luminance(c) < 0.12 ? lift(c) : c);
+    away = up(away);
+    home = up(home);
+    if (dist(away, home) < 90) home = up(h[1]);
   }
   return { away, home, awayAlt: a[1], homeAlt: h[1], awayBase: a[0], homeBase: dist(a[0], h[0]) < 90 ? h[1] : h[0] };
 }
