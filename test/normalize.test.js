@@ -112,3 +112,24 @@ test('a power play that has run out on the clock shows as even strength', async 
   assert.equal(strengthOf({ period: '3', code: '0651', penaltyActive: false }).kind, 'empty-net');
   assert.equal(strengthOf({ period: '3', situation: { situationCode: '1451', timeRemaining: '00:00' } }).kind, 'even');
 });
+
+test('playoff overtime reads 1st OT, 2nd OT, 3rd OT; regular season stays OT/SO', async () => {
+  const { displayPeriod, gameStatus, periodName } = await import('../src/normalize.js');
+  assert.equal(displayPeriod('OT', 3), '1st OT');
+  assert.equal(displayPeriod('2OT', 3), '2nd OT');
+  assert.equal(displayPeriod('3OT', 3), '3rd OT');
+  assert.equal(displayPeriod('4OT', 3), '4th OT');
+  assert.equal(displayPeriod('OT', 2), 'OT');
+  assert.equal(displayPeriod('2', 3), '2');
+  assert.equal(periodName({ number: 4, periodType: 'OT', maxRegulationPeriods: 3 }, 3), '1st Overtime');
+  assert.equal(periodName({ number: 4, periodType: 'OT', maxRegulationPeriods: 3 }, 2), 'Overtime');
+  const live = (gameType, number) => gameStatus({ gameType, gameState: 'LIVE', periodDescriptor: { number, periodType: 'OT', maxRegulationPeriods: 3 }, clock: { timeRemaining: '12:04' } }).label;
+  assert.equal(live(3, 4), '1st OT 12:04');
+  assert.equal(live(3, 5), '2nd OT 12:04');
+  assert.equal(live(2, 4), 'OT 12:04');
+  const fin = (gameType, otPeriods) => gameStatus({ gameType, gameState: 'FINAL', gameOutcome: { lastPeriodType: 'OT', otPeriods } }).label;
+  assert.equal(fin(3, 1), 'Final/1st OT');
+  assert.equal(fin(3, 3), 'Final/3rd OT');
+  assert.equal(fin(2, 1), 'Final/OT');
+  assert.equal(fin(2, 2), 'Final/2OT');
+});
