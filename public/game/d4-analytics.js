@@ -52,7 +52,7 @@ export function shotMap(game, c) {
     <div class="a-rinkwrap"><span class="a-att" style="color:${c.away}">&#9664; ${esc(game.away.abbrev)} attacking</span><span class="a-att r" style="color:${c.home}">${esc(game.home.abbrev)} attacking &#9654;</span>
       <svg class="a-rink" viewBox="-101 -43.5 202 87" role="img" aria-label="Shot locations">${rinkMarkup()}<clipPath id="a-zone-clip"><rect x="-100" y="-42.5" width="200" height="85" rx="28" ry="28"/></clipPath><g id="a-zones" clip-path="url(#a-zone-clip)"></g><g id="a-shots"></g><g id="a-zone-labels"></g></svg></div>
     <div class="a-legend" id="a-dot-legend"><span><svg viewBox="-3 -3 6 6"><circle r="2.6" fill="currentColor"/></svg>Goal</span><span><svg viewBox="-3 -3 6 6"><circle r="2" fill="none" stroke="currentColor" stroke-width=".9"/></svg>On goal</span><span><svg viewBox="-3 -3 6 6"><path d="M-1.6-1.6l3.2 3.2M1.6-1.6l-3.2 3.2" stroke="currentColor" stroke-width=".8"/></svg>Missed</span><span><svg viewBox="-3 -3 6 6"><rect x="-1.4" y="-1.4" width="2.8" height="2.8" fill="currentColor" opacity=".5"/></svg>Blocked</span><span><svg viewBox="-3 -3 6 6"><path d="M-2.5 2V-2H2.5" fill="none" stroke="#facc15" stroke-width=".6" stroke-dasharray="1 .8"/></svg>Home plate (1.5x)</span></div>
-    <p class="a-zone-key" id="a-zone-key" hidden>Big number = shot attempts in the zone. <b>S</b> on goal (including goals), <b>M</b> missed, <b>B</b> blocked. The dashed outline is the home plate, the most dangerous area to shoot from; attempts there count 1.5x toward momentum and on-ice shot share. Discs are goals, numbered with the scorer's sweater number: hover for the scorer, assists and goalie, click to watch.</p>
+    <p class="a-zone-key" id="a-zone-key" hidden>Big number = shot attempts in the zone. <b>S</b> on goal (including goals), <b>M</b> missed, <b>B</b> blocked. The dashed outline is the home plate, the most dangerous area to shoot from; attempts there count 1.5x toward momentum and on-ice shot share. Discs are goals, numbered with the scorer's sweater number: hover for the scorer, assists and goalie, click to watch the highlight.</p>
     <div id="a-zone-table" hidden></div>
   </section>`;
 }
@@ -208,8 +208,7 @@ function goalMark(game, s, color, r, at = null) {
   const scorer = playerIndex(game).get(s.shooterId);
   const g = scoringFor(game, s);
   const title = `${game[s.team].abbrev} · ${scorer?.name ?? 'Goal'} · ${s.period === 'OT' ? 'OT' : `P${s.period}`} ${s.time}`;
-  const open = g?.visualizer ? `data-embed-url="${esc(g.visualizer)}" data-video-title="${esc(`${title} · Goal visualizer`)}"`
-    : g?.highlightId ? `data-video-id="${esc(g.highlightId)}" data-video-title="${esc(title)}"` : '';
+  const open = g?.highlightId ? `data-video-id="${esc(g.highlightId)}" data-video-title="${esc(title)}"` : '';
   const x = at ? at[0] : s.x;
   const y = at ? at[1] : -s.y;
   const num = scorer?.number ?? '';
@@ -240,7 +239,7 @@ function mountGoalTips(root, game, c) {
       ${person(scorer, 'Goal', g?.scorer?.goalsToDate != null ? `${g.scorer.goalsToDate} this season` : '')}
       ${assists.length ? assists.map((a, i) => person(a, i ? 'Secondary assist' : 'Primary assist')).join('') : '<div class="gt-none">Unassisted</div>'}
       ${goalie ? `<div class="gt-sep"></div>${person(goalie, 'Scored on', esc(game[goalie.side].abbrev))}` : g?.tags?.includes('EN') ? '<div class="gt-sep"></div><div class="gt-none">Empty net</div>' : ''}
-      ${el.dataset.embedUrl ? '<div class="gt-foot">Click to watch the goal visualizer</div>' : el.dataset.videoId ? '<div class="gt-foot">Click to watch the highlight</div>' : ''}`;
+      ${el.dataset.videoId ? '<div class="gt-foot">Click to watch the highlight</div>' : ''}`;
     tip.hidden = false;
     // Fixed to the viewport so the card is never clipped; it goes where there is more room.
     const r = el.getBoundingClientRect();
