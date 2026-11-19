@@ -123,10 +123,13 @@ export function videoButton(id, title, text, cls = 'vid', href = '') {
   return `<a class="${cls}" href="${esc(href || `https://www.nhl.com/video/${id}`)}" data-video-id="${esc(id)}" data-video-title="${esc(title)}" title="${esc(title)}" aria-label="${esc(title)}">${text}</a>`;
 }
 
-/** Button that opens NHL.com's goal visualizer (puck and player tracking replay) in the lightbox. */
+/**
+ * Link to NHL.com's goal visualizer (puck and player tracking replay). NHL.com only lets its own
+ * sites frame that page (CSP frame-ancestors 'self' *.nhle.com), so it opens in a new tab.
+ */
 export function visualizerButton(url, title, text, cls = 'viz') {
   if (!url) return '';
-  return `<a class="${cls}" href="${esc(url)}" data-embed-url="${esc(url)}" data-video-title="${esc(title)}" title="${esc(title)}" aria-label="${esc(title)}">${text}</a>`;
+  return `<a class="${cls}" href="${esc(url)}" target="_blank" rel="noopener" title="${esc(title)} (opens NHL.com)" aria-label="${esc(title)} (opens NHL.com)">${text}</a>`;
 }
 
 export function initVideo(root) {
