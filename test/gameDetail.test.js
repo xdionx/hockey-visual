@@ -160,7 +160,7 @@ test('the story narrative tells the arc, momentum control, the difference makers
   const { storyBeats } = await import('../public/game/d6-narrative.js');
   const beats = storyBeats(game);
   const text = Object.fromEntries(beats.map((b) => [b.label, b.text]));
-  assert.deepEqual(beats.map((b) => b.label), ['How it unfolded', 'Who controlled play', 'The difference', 'Special teams']);
+  assert.deepEqual(beats.map((b) => b.label), ['How it unfolded', 'Who controlled play', 'What decided it', 'The difference', 'Special teams']);
   assert.match(text['How it unfolded'], /fought back from 4 down/);
   assert.match(text['Who controlled play'], /shot attempts/);
   assert.match(text['Who controlled play'], /momentum/);
