@@ -13,33 +13,37 @@ BG, RED, PINK = '#0a0e17', '#e11d48', '#fb7185'
 
 ART = f'''
 <g>
-  <!-- momentum streaks: three rounded bars trailing the puck, longest in the middle, fading out -->
-  <rect x="40" y="218" width="190" height="26" rx="13" fill="{RED}"/>
-  <rect x="86" y="258" width="150" height="26" rx="13" fill="{RED}" opacity=".85"/>
-  <rect x="132" y="298" width="104" height="26" rx="13" fill="{PINK}" opacity=".7"/>
-  <!-- puck: 3in wide x 1in thick, rounded edge: side wall, rim, flat top -->
-  <path d="M244 232 V304 A122 42 0 0 0 488 304 V232 Z" fill="#94a3b8"/>
-  <ellipse cx="366" cy="232" rx="122" ry="42" fill="#cbd5e1"/>
-  <ellipse cx="366" cy="229" rx="113" ry="37" fill="#f8fafc"/>
+  <!-- momentum meter: five bars on one baseline, each taller than the last -->
+  <rect x="92" y="312" width="52" height="80" rx="16" fill="{PINK}" opacity="0.6"/>
+  <rect x="162" y="252" width="52" height="140" rx="16" fill="{RED}" opacity="0.8"/>
+  <rect x="232" y="192" width="52" height="200" rx="16" fill="{RED}" opacity="0.9"/>
+  <rect x="302" y="132" width="52" height="260" rx="16" fill="{RED}" opacity="1"/>
+  <rect x="372" y="72" width="52" height="320" rx="16" fill="{RED}" opacity="1"/>
+  <!-- puck, 3in wide x 1in thick, rounded edge, in front of the meter -->
+  <g transform="translate(244 304) scale(.82) translate(-366 -232)">
+    <path d="M244 232 V304 A122 42 0 0 0 488 304 V232 Z" fill="#94a3b8"/>
+    <ellipse cx="366" cy="232" rx="122" ry="42" fill="#cbd5e1"/>
+    <ellipse cx="366" cy="229" rx="113" ry="37" fill="#f8fafc"/>
+  </g>
 </g>'''
 
 def svg(kind):
     """kind: any (rounded square), full (full-bleed square), maskable (full-bleed, art inside the safe zone)."""
     if kind == 'any':
         bg = f'<rect width="512" height="512" rx="104" fill="{BG}"/>'
-        art = f'<g transform="translate(-6 0)">{ART}</g>'
+        art = f'<g transform="translate(0 0)">{ART}</g>'
     elif kind == 'full':
         bg = f'<rect width="512" height="512" fill="{BG}"/>'
-        art = f'<g transform="translate(-6 0)">{ART}</g>'
+        art = f'<g transform="translate(0 0)">{ART}</g>'
     else:  # maskable: keep everything inside the central 80% circle
         bg = f'<rect width="512" height="512" fill="{BG}"/>'
-        art = f'<g transform="translate(256 256) scale(.66) translate(-256 -270)">{ART}</g>'
+        art = f'<g transform="translate(256 256) scale(.7) translate(-256 -240)">{ART}</g>'
     return f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">{bg}{art}</svg>\n'
 
 # The small favicon drops detail: just the puck and two bold streaks so it reads at 16px.
 FAV = f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="{BG}"/>
-<rect x="3" y="21" width="24" height="6" rx="3" fill="{RED}"/><rect x="9" y="30" width="19" height="6" rx="3" fill="{RED}" opacity=".85"/><rect x="15" y="39" width="13" height="6" rx="3" fill="{PINK}" opacity=".7"/>
-<path d="M25 28 V39 A19 7 0 0 0 63 39 V28 Z" fill="#94a3b8"/><ellipse cx="44" cy="28" rx="19" ry="7" fill="#cbd5e1"/><ellipse cx="44" cy="27.4" rx="17.5" ry="6" fill="#f8fafc"/></svg>
+<rect x="9" y="38" width="8" height="12" rx="3" fill="{PINK}" opacity=".7"/><rect x="19" y="29" width="8" height="21" rx="3" fill="{RED}"/><rect x="29" y="20" width="8" height="30" rx="3" fill="{RED}"/><rect x="39" y="11" width="8" height="39" rx="3" fill="{RED}"/><rect x="49" y="6" width="7" height="44" rx="3" fill="{RED}"/>
+<path d="M12 41 V47 A16 6 0 0 0 44 47 V41 Z" fill="#94a3b8"/><ellipse cx="28" cy="41" rx="16" ry="6" fill="#cbd5e1"/><ellipse cx="28" cy="40.4" rx="14.6" ry="5.2" fill="#f8fafc"/></svg>
 '''
 
 files = {'icon.svg': svg('any'), 'icon-full.svg': svg('full'), 'icon-maskable.svg': svg('maskable'), 'favicon.svg': FAV}
