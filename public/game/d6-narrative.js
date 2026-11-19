@@ -148,6 +148,51 @@ function difference(game, final) {
   return out.join(' ');
 }
 
+/** What actually decided it: shot quality, goaltending and defense, which momentum alone can miss. */
+function decided(game, final) {
+  const gl = allGoalies(game).filter((g) => g.played && g.xga != null);
+  if (!gl.length) return '';
+  const side = (g) => (g.team === game.away.abbrev ? 'away' : 'home');
+  const name = (s) => `the ${game[s].commonName}`;
+  const cap = (t) => t.charAt(0).toUpperCase() + t.slice(1);
+  // A goalie's xga is the chances the OTHER team created.
+  const xg = { away: 0, home: 0 };
+  for (const g of gl) xg[other(side(g))] += g.xga;
+  const t = game.linescore.totals;
+  const gsax = { away: 0, home: 0 };
+  for (const g of gl) gsax[side(g)] += g.gsax ?? 0;
+  const out = [];
+  const r = (n) => n.toFixed(1);
+  const tense = (a, b) => (final ? a : b);
+  // Chance quality: who created the better looks.
+  const diff = xg.away - xg.home;
+  if (Math.abs(diff) >= 0.6) {
+    const q = diff > 0 ? 'away' : 'home';
+    const bad = t[q] <= t[other(q)];
+    out.push(`${cap(name(q))} ${tense('created', 'have created')} the better chances (${r(xg[q])} expected goals versus ${r(xg[other(q)])})${bad ? `, but ${tense('trailed', 'trail')} on the scoreboard` : ''}.`);
+  } else out.push(`The chances ${tense('were', 'have been')} close to even (${r(xg.away)} expected goals for ${game.away.abbrev}, ${r(xg.home)} for ${game.home.abbrev}).`);
+  // Goaltending.
+  const hot = gl.filter((g) => g.gsax >= 1 && g.shotsAgainst >= 8).sort((a, b) => b.gsax - a.gsax)[0];
+  const cold = gl.filter((g) => g.gsax <= -1 && g.shotsAgainst >= 8).sort((a, b) => a.gsax - b.gsax)[0];
+  if (hot) out.push(`${hot.fullName} (${hot.team}) ${tense('stood tall', 'is standing tall')}, saving ${r(hot.gsax)} goals more than expected.`);
+  if (cold) out.push(`${cold.fullName} (${cold.team}) ${tense('struggled', 'is struggling')}: ${r(Math.abs(cold.gsax))} more goals allowed than expected.`);
+  // Defense: a team that gave up very little quality.
+  for (const s of ['away', 'home']) {
+    const against = xg[other(s)];
+    if (against <= 1.2 && game.linescore.totals.away + game.linescore.totals.home >= 0 && gl.length) {
+      out.push(`${cap(name(s))} ${tense('held', 'have held')} ${name(other(s))} to just ${r(against)} expected goals, a tight defensive effort.`);
+    } else if (against >= 3.5) {
+      out.push(`${cap(name(s))} ${tense('gave up', 'have given up')} ${r(against)} expected goals, ${tense('a leaky night', 'a lot of quality chances')} defensively.`);
+    }
+  }
+  // Tie it to the result.
+  const lead = t.away === t.home ? null : t.away > t.home ? 'away' : 'home';
+  const ctl = (game.momentum?.periods ?? []).reduce((a, p) => ({ away: a.away + (p.control?.away ?? 0), home: a.home + (p.control?.home ?? 0) }), { away: 0, home: 0 });
+  const mLead = Math.abs(ctl.away - ctl.home) < 120 ? null : ctl.away > ctl.home ? 'away' : 'home';
+  if (lead && mLead && lead !== mLead && (hot || cold)) out.push(`So ${tense('the momentum did not decide this one', 'momentum is not the whole story here')}: goaltending ${tense('did', 'is doing')} a lot of the work.`);
+  return out.join(' ');
+}
+
 /** Power plays and the penalty that cost the most momentum. */
 function specialTeams(game, final = true) {
   const pp = game.teamStats?.find((s) => s.key === 'powerPlay');
@@ -170,6 +215,7 @@ export function storyBeats(game) {
   const beats = [
     [final ? 'How it unfolded' : 'How it stands', arc(game, final)],
     [final ? 'Who controlled play' : 'Who has the play', control(game, final)],
+    [final ? 'What decided it' : 'Chances and goaltending', decided(game, final)],
     [final ? 'The difference' : 'Standing out so far', difference(game, final)],
     [final ? 'Special teams' : 'Special teams so far', specialTeams(game, final)],
   ];
