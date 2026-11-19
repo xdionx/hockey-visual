@@ -176,10 +176,15 @@ export function computeMomentum(pbp, awayId, gameEnd = null) {
   };
   const series = [];
   const players = new Map();
-  const credit = (id, v, swing) => {
-    if (!id) return;
-    const p = players.get(id) ?? { impact: 0, swingPlays: 0, plays: 0 };
+  const credit = (id, v, swing, kind) => {
+    if (!id || !v) return;
+    const p = players.get(id) ?? { impact: 0, pos: 0, neg: 0, swingPlays: 0, plays: 0, kinds: {} };
     p.impact += v;
+    if (v > 0) p.pos += v; else p.neg += v;
+    // Group by what the player did: giveaways and penalties taken show as their own negatives.
+    const k = v < 0 && kind === 'faceoff' ? 'faceoff-loss' : v < 0 && ['penalty', 'power-play', 'pp-goal-against'].includes(kind) ? 'penalty-taken'
+      : v > 0 && ['penalty', 'power-play', 'pp-goal-against'].includes(kind) ? 'penalty-drawn' : kind;
+    p.kinds[k] = (p.kinds[k] ?? 0) + v;
     p.plays += 1;
     if (swing && v > 0) p.swingPlays += 1;
     players.set(id, p);
@@ -192,8 +197,8 @@ export function computeMomentum(pbp, awayId, gameEnd = null) {
       decayTo(e.t);
       const behind = level[e.team] < level[e.team === 'away' ? 'home' : 'away'];
       const mult = behind ? SWING_BONUS : 1;
-      for (const c of e.credits) credit(c.id, (e.creditW ?? e.w) * c.share * mult, behind && e.w >= 0.5);
-      if (e.debit) credit(e.debit, -(e.debitW ?? e.w), false);
+      for (const c of e.credits) credit(c.id, (e.creditW ?? e.w) * c.share * mult, behind && e.w >= 0.5, e.kind);
+      if (e.debit) credit(e.debit, -(e.debitW ?? e.w), false, e.kind);
       level[e.team] += e.w;
       totals[e.team] += e.w;
     }
@@ -247,7 +252,10 @@ export function computeMomentum(pbp, awayId, gameEnd = null) {
       const away = Math.round((100 * p.away) / sum);
       return { away, home: 100 - away, control: { away: p.ctrlAway, home: p.ctrlHome, even: p.ctrlEven } };
     }),
-    players: Object.fromEntries([...players].map(([id, p]) => [id, { impact: round(p.impact, 1), swingPlays: p.swingPlays }])),
+    players: Object.fromEntries([...players].map(([id, p]) => [id, {
+      impact: round(p.impact, 1), pos: round(p.pos, 1), neg: round(p.neg, 1), swingPlays: p.swingPlays,
+      kinds: Object.fromEntries(Object.entries(p.kinds).map(([k, v]) => [k, round(v, 1)]).filter(([, v]) => v)),
+    }])),
   };
 }
 

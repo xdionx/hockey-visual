@@ -34,6 +34,28 @@ export function ratingBadge(r, big = false) {
   return `<span class="s-rate ${big ? 'big' : ''}" style="--r:${ratingColor(r)}">${r.toFixed(1)}</span>`;
 }
 
+const MOM_KIND = {
+  goal: 'Goals', sog: 'Shots', miss: 'Missed shots', 'block-attempt': 'Blocked attempts', block: 'Blocks', faceoff: 'Faceoff wins',
+  'faceoff-loss': 'Faceoff losses', takeaway: 'Takeaways', giveaway: 'Giveaways', hit: 'Hits', 'penalty-drawn': 'Penalties drawn',
+  'penalty-taken': 'Penalties taken', 'penalty-kill': 'Penalty kill',
+};
+
+/** Momentum the player created (green, right) and gave away (red, left), with the biggest reasons. */
+export function momentumBar(p, scale = 15) {
+  const m = p.momentumParts;
+  if (!m || (!m.pos && !m.neg)) return '';
+  const w = (v) => Math.min(100, (100 * Math.abs(v)) / scale);
+  const kinds = Object.entries(m.kinds ?? {});
+  const top = (sign) => kinds.filter(([, v]) => Math.sign(v) === sign).sort((a, b) => Math.abs(b[1]) - Math.abs(a[1])).slice(0, 2)
+    .map(([k]) => esc(MOM_KIND[k] ?? k)).join(', ');
+  const title = kinds.sort((a, b) => b[1] - a[1]).map(([k, v]) => `${MOM_KIND[k] ?? k}: ${v > 0 ? '+' : ''}${v.toFixed(1)}`).join('\n');
+  return `<div class="s-mom" title="${esc(`Momentum created and given away\n${title}`)}">
+    <div class="s-bd-h"><span>Momentum</span><b>${p.momentum > 0 ? '+' : ''}${(p.momentum ?? 0).toFixed(1)}</b></div>
+    <div class="s-mom-bar"><div class="l"><i style="width:${w(m.neg)}%"></i></div><div class="r"><i style="width:${w(m.pos)}%"></i></div></div>
+    <div class="s-mom-why"><span class="neg"><b>${m.neg.toFixed(1)}</b> lost${top(-1) ? `<small>${top(-1)}</small>` : ''}</span><span class="pos"><b>+${m.pos.toFixed(1)}</b> gained${top(1) ? `<small>${top(1)}</small>` : ''}</span></div>
+  </div>`;
+}
+
 export function skaterCard(game, p, c, scale) {
   return `<article class="s-card" style="--team:${c[p.side]}">
     <div class="s-top">${headshot(p, 's-mug')}
@@ -44,7 +66,7 @@ export function skaterCard(game, p, c, scale) {
     ${p.onIce ? `<div class="s-onice" title="Shot attempts while on the ice, weighted: on goal 1, missed 0.5, blocked 0.35"><span>On-ice shots</span><b>${p.onIce.cf.toFixed(1)}</b><div class="s-oi-bar"><i style="width:${p.onIce.pct ?? 50}%"></i></div><b>${p.onIce.ca.toFixed(1)}</b><em>${p.onIce.pct != null ? `${Math.round(p.onIce.pct)}%` : ''}</em></div>` : ''}
     ${p.swingPlays ? `<div class="s-swing">&#8635; ${p.swingPlays} swing play${p.swingPlays > 1 ? 's' : ''}</div>` : ''}
     <div class="s-body">
-      <div class="s-bd"><div class="s-bd-h"><span>Game score</span><b>${p.gameScore > 0 ? '+' : ''}${p.gameScore.toFixed(2)}</b></div>${breakdownBar(p, scale)}</div>
+      <div class="s-bd"><div class="s-bd-h"><span>Game score</span><b>${p.gameScore > 0 ? '+' : ''}${p.gameScore.toFixed(2)}</b></div>${breakdownBar(p, scale)}${momentumBar(p)}</div>
       ${miniRink(game, p, c)}
     </div>
   </article>`;
@@ -108,7 +130,7 @@ export function scorecardKey() {
   return `<section class="s-key">
         <div><b>Rating</b> runs from 3.0 to 10.0. A quiet game is about 6.0; ${['#dc2626', '#ea580c', '#ca8a04', '#65a30d', '#16a34a', '#2563eb'].map((x) => `<i style="background:${x}"></i>`).join('')}</div>
         <div><b>Game score</b> adds up what a player did: ${GS_PARTS.map(([k, l]) => `<span><i style="background:${PART_COLORS[k]}"></i>${esc(l)}</span>`).join('')}. Goalies: +0.1 per save, -0.75 per goal against.</div>
-        <div><b>Momentum (MOM)</b> credits each player for the plays that pushed momentum their team's way: shots on goal, goals and assists, faceoff wins, takeaways, hits, blocks and drawn penalties, minus giveaways and penalties taken. A penalty taken costs the player the momentum the other team gained from it, including the whole power play and 1.5 more if it scored. A penalty drawn earns the player that momentum: 1.0, the power play pressure, and 0.75 more if it scored. Penalties also move game score: +0.25 drawn, -0.25 taken. A <b>swing play</b> came while the team was behind on momentum and counts 1.5x.</div>
+        <div><b>Momentum (MOM)</b> credits each player for the plays that pushed momentum their team's way: shots on goal, goals and assists, faceoff wins, takeaways, hits, blocks and drawn penalties, minus giveaways and penalties taken. A penalty taken costs the player the momentum the other team gained from it, including the whole power play and 1.5 more if it scored. A penalty drawn earns the player that momentum: 1.0, the power play pressure, and 0.75 more if it scored. Penalties also move game score: +0.25 drawn, -0.25 taken. A <b>swing play</b> came while the team was behind on momentum and counts 1.5x. The <b>momentum bar</b> under game score splits MOM into what the player gained (green) and lost (red), with the biggest reasons for each.</div>
         <div class="s-muted">Weights follow the public Game Score model. <b>On-ice</b> uses shot attempts for and against while the player was on the ice (on goal 1, missed 0.5, blocked 0.35, and 1.5x from the home plate area in front of the net) plus goals for and against; <b>Shooting</b> adds a bonus for every attempt from home plate; if the NHL's shift data isn't available yet, it falls back to plus/minus.</div>
       </section>`;
 }

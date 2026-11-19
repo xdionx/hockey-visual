@@ -239,6 +239,7 @@ function skater(raw, counts, roster, momentum, onIce) {
   };
   const mom = momentum?.players?.[raw.playerId] ?? { impact: 0, swingPlays: 0 };
   s.momentum = mom.impact;
+  s.momentumParts = { pos: mom.pos ?? Math.max(0, mom.impact), neg: mom.neg ?? Math.min(0, mom.impact), kinds: mom.kinds ?? {} };
   s.onIce = onIce?.get(raw.playerId) ?? null;
   s.swingPlays = mom.swingPlays;
   const gs = skaterGameScore(s);

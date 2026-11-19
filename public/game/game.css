@@ -565,3 +565,20 @@ main { padding: 0 0 48px; }
 .st-pd-bar { height: 8px; }
 .st-pd-bar.thin { height: 5px; }
 @media (max-width: 640px) { .st-periods { grid-template-columns: 1fr !important; } }
+
+/* Momentum created vs given away on player cards (inside the game score block) */
+.s-mom { margin-top: 12px; font-size: 11px; color: var(--s-mute); }
+.s-mom .s-bd-h { margin-bottom: 6px; }
+.s-mom-bar { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; height: 8px; }
+.s-mom-bar > div { background: rgba(148,163,184,.18); overflow: hidden; display: flex; }
+.s-mom-bar .l { justify-content: flex-end; border-radius: 4px 0 0 4px; }
+.s-mom-bar .r { border-radius: 0 4px 4px 0; }
+.s-mom-bar .l i { background: #ef4444; }
+.s-mom-bar .r i { background: #22c55e; }
+.s-mom-bar i { display: block; height: 100%; }
+.s-mom-why { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 4px; }
+.s-mom-why b { font-variant-numeric: tabular-nums; }
+.s-mom-why .neg b { color: #dc2626; }
+.s-mom-why .pos b { color: #16a34a; }
+.s-mom-why .pos { text-align: right; }
+.s-mom-why small { display: block; font-size: 10px; opacity: .85; }
