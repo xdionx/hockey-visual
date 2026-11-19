@@ -24,20 +24,42 @@ function goalFlow(game) {
   });
 }
 
-/** Present-tense account of a game still being played. */
+/** A game still being played: the scoring so far in plain sentences, then where the game stands. */
 function liveArc(game, goals) {
   const name = (s) => game[s].commonName;
   const t = game.linescore.totals;
-  const last = goals.at(-1);
   const lead = t.away === t.home ? null : t.away > t.home ? 'away' : 'home';
-  const score = lead ? `${t[lead]}-${t[other(lead)]}` : `${t.away}-${t.home}`;
-  const first = goals[0];
-  const parts = [`The ${name(first.side)} struck first, ${lastName(first.scorer.fullName)} at ${when(first)}.`];
-  const behind = lead ? Math.max(0, ...goals.map((g) => (g.lead === other(lead) ? g.margin : 0))) : 0;
-  const peakTrail = Math.max(0, ...goals.map((g) => g.margin));
-  if (lead && behind >= 1) parts.push(`The ${name(lead)} have come back from ${behind} down and now lead ${score}.`);
-  else if (lead) parts.push(`The ${name(lead)} lead ${score}${last.side === lead && goals.length > 1 ? `, extending it on ${lastName(last.scorer.fullName)}'s goal at ${when(last)}` : ''}.`);
-  else parts.push(`It's tied ${score}${last.side && goals.length > 1 ? `, ${lastName(last.scorer.fullName)} evening it at ${when(last)}` : ''}${peakTrail >= 2 ? ' after a big swing' : ''}.`);
+  const score = `${Math.max(t.away, t.home)}-${Math.min(t.away, t.home)}`;
+  if (!goals.length) return 'Still scoreless. Nobody has put one past the goalie yet.';
+  // One short sentence per goal, worded by what the goal did.
+  const say = (g, i) => {
+    const who = lastName(g.scorer.fullName);
+    const tm = name(g.side);
+    const at = `${g.time} of the ${ord(g.period === 'OT' ? 3 : Number(g.period) - 1)}`;
+    const before = goals[i - 1]?.lead ?? null;
+    if (i === 0) return `${who} opened the scoring for the ${tm} at ${at}.`;
+    if (g.lead === null) return `${who} tied it for the ${tm} at ${at}.`;
+    if (before === null) return `${who} put the ${tm} ahead at ${at}, ${g.after[g.lead]}-${g.after[other(g.lead)]}.`;
+    if (before !== g.lead) return `${who} took the lead back for the ${tm} at ${at}, ${g.after[g.lead]}-${g.after[other(g.lead)]}.`;
+    if (g.side === g.lead) return `${who} stretched the ${tm} lead to ${g.after[g.lead]}-${g.after[other(g.lead)]} at ${at}.`;
+    return `${who} cut the ${tm} deficit to ${g.after[g.lead]}-${g.after[other(g.lead)]} at ${at}.`;
+  };
+  const shown = goals.length > 4 ? goals.slice(-3) : goals;
+  const parts = [];
+  if (goals.length > 4) parts.push(`${goals.length} goals so far.`);
+  const offset = goals.length - shown.length;
+  shown.forEach((g, i) => parts.push(say(g, i + offset)));
+  // Where it stands.
+  const changes = goals.filter((g, i) => g.lead && goals.slice(0, i).reverse().find((x) => x.lead)?.lead && goals.slice(0, i).reverse().find((x) => x.lead).lead !== g.lead).length;
+  const peakTrail = lead ? Math.max(0, ...goals.map((g) => (g.lead === other(lead) ? g.margin : 0))) : 0;
+  if (lead && peakTrail >= 1) parts.push(`The ${name(lead)} have come back from ${peakTrail} down and now lead ${score}.`);
+  else if (lead) parts.push(t[lead] - t[other(lead)] === 1 ? `It's a one-goal game, ${name(lead)} up ${score}.` : `The ${name(lead)} lead ${score}.`);
+  else parts.push(`It's tied ${score}${changes ? ` after ${changes} lead change${changes === 1 ? '' : 's'}` : ''}.`);
+  // The period in progress.
+  const per = game.linescore.periods.filter((p) => p.away != null).at(-1);
+  if (per && goals.length > 1 && (per.away + per.home) > 0) {
+    parts.push(`This period: ${game.away.abbrev} ${per.away}, ${game.home.abbrev} ${per.home}${per.shotsAway != null ? `, shots ${per.shotsAway}-${per.shotsHome}` : ''}.`);
+  }
   return parts.join(' ');
 }
 
