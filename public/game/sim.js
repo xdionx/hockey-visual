@@ -1,7 +1,7 @@
 // Simulation mode for the box score (?id=<gameId>&sim=<speed>): replays a finished game from its
 // play-by-play as if it were live, through the same render path, goal horns included.
-import { sliceRaw, replayDuration } from '../../src/replay.js';
-import { normalizeGameDetail } from '../../src/gameDetail.js';
+import { sliceRaw, replayDuration } from '../src/replay.js';
+import { normalizeGameDetail } from '../src/gameDetail.js';
 import { getData } from '../data.js';
 import { resetGoals } from '../horn.js';
 
