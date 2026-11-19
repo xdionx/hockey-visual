@@ -157,7 +157,8 @@ function teamBlock(game, side, tc, big) {
   </div>`;
 }
 
-const horns = (game) => hornToggles(game);
+// Horns only matter while a game is on (or being replayed in the simulator), so finished games have none.
+const horns = (game) => (game.status.state === 'final' ? '' : hornToggles(game));
 
 function gameHtml(game) {
   const tc = teamColors(game, { dark: true });

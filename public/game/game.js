@@ -113,7 +113,8 @@ function showGame(data) {
   lastText = text;
   document.title = `${game.away.abbrev} @ ${game.home.abbrev} ${shortDate(game.gameDate)}${params.has('sim') ? ' (sim)' : ''}`;
   document.querySelector('#back').href = params.has('sim') ? 'sim.html' : `./?date=${game.gameDate}`;
-  document.querySelector('#horns').innerHTML = hornToggles(game);
+  // Finished games have no horns to blow, except while replaying one in the simulator.
+  document.querySelector('#horns').innerHTML = game.status.state === 'final' && !params.has('sim') ? '' : hornToggles(game);
   render();
 }
 
