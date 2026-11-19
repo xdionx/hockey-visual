@@ -7,6 +7,11 @@ const gamesEl = $('#games');
 let refreshTimer = null;
 let current = null; // last scoreboard response
 
+// Layout: compact rows (every game on one screen, scorers on one line) or full cards.
+const store = (k, v) => { try { return v === undefined ? localStorage.getItem(k) : localStorage.setItem(k, v); } catch { return null; } };
+let view = store('scores-view') === 'cards' ? 'cards' : 'compact';
+const openGames = new Set(); // compact rows the user expanded
+
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
 function shiftDate(iso, days) {
@@ -124,12 +129,85 @@ function gameHtml(game) {
   </article>`;
 }
 
+/** "N. Suzuki" -> "Suzuki" */
+const lastName = (n) => String(n ?? '').replace(/^(?:[A-Z]\.\s*)+/, '');
+
+/** One line of scorers per team: "Peterka, Zacha PP 2, Pastrnak". */
+function scorerLine(game, side) {
+  const abbrev = game[side].abbrev;
+  const mine = game.goals.filter((g) => g.team === abbrev);
+  if (!mine.length) return '';
+  const by = new Map();
+  for (const g of mine) {
+    const key = g.scorer.name;
+    const e = by.get(key) ?? { name: lastName(key), n: 0, tags: new Set() };
+    e.n++;
+    if (g.period === 'SO') e.tags.add('SO');
+    for (const t of g.tags) e.tags.add(t === 'PPG' ? 'PP' : t === 'SHG' ? 'SH' : t);
+    by.set(key, e);
+  }
+  return [...by.values()].map((e) => `<span class="sc">${esc(e.name)}${e.n > 1 ? `<b>${e.n}</b>` : ''}${[...e.tags].map((t) => `<i>${esc(t)}</i>`).join('')}</span>`).join('');
+}
+
+function compactTeam(game, side, tc) {
+  const team = game[side];
+  const ls = game.linescore;
+  const other = side === 'away' ? 'home' : 'away';
+  const started = game.status.state !== 'pre' && game.status.state !== 'postponed';
+  const loser = game.status.state === 'final' && ls.totals[side] < ls.totals[other];
+  return `<div class="ct ${side}${loser ? ' loser' : ''}" style="--team:${tc[side]}">
+    <img src="${esc(team.logo.replace('_light.', '_dark.'))}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">
+    <span class="abbr">${esc(team.abbrev)}</span><b class="tot">${started ? ls.totals[side] : ''}</b>
+  </div>`;
+}
+
+function compactHtml(game) {
+  const tc = teamColors(game, { dark: true });
+  const hasBox = game.status.state === 'live' || game.status.state === 'final';
+  const started = game.status.state !== 'pre' && game.status.state !== 'postponed';
+  const open = openGames.has(game.id);
+  const lines = ['away', 'home'].map((side) => {
+    const sc = scorerLine(game, side);
+    return sc ? `<div class="sl" style="--team:${tc[side]}"><span class="tm">${esc(game[side].abbrev)}</span><div>${sc}</div></div>` : '';
+  }).join('');
+  return `<article class="game cg${open ? ' open' : ''}" data-id="${game.id}" style="--away:${tc.away};--home:${tc.home}">
+    <div class="cg-head">
+      <div class="status ${game.status.state}"><span class="label">${esc(statusText(game))}${strengthBadge(game, tc)}</span></div>
+      <div class="cg-score">${compactTeam(game, 'away', tc)}<span class="dash">–</span>${compactTeam(game, 'home', tc)}</div>
+      <div class="cg-act">${started && game.goals.length ? `<button type="button" class="more" aria-expanded="${open}" aria-label="Show all goals">${open ? '▴' : '▾'}</button>` : ''}${hasBox ? `<a class="cg-box" href="game.html?id=${game.id}" aria-label="Box score: ${esc(game.away.abbrev)} at ${esc(game.home.abbrev)}">Box ›</a>` : ''}</div>
+    </div>
+    ${started ? `<div class="cg-scorers">${lines || '<span class="none">No goals yet</span>'}</div>` : ''}
+    ${open ? `<div class="cg-more">${goalsHtml(game)}</div>` : ''}
+  </article>`;
+}
+
 function render(data) {
   $('#dateLabel').textContent = prettyDate(data.date);
+  gamesEl.className = view;
   gamesEl.innerHTML = data.games.length
-    ? data.games.map(gameHtml).join('')
+    ? data.games.map(view === 'compact' ? compactHtml : gameHtml).join('')
     : '<p class="msg">No games scheduled on this date.</p>';
 }
+
+gamesEl.addEventListener('click', (e) => {
+  const more = e.target.closest('.cg .more');
+  if (!more) return;
+  const id = Number(more.closest('.cg').dataset.id);
+  if (openGames.has(id)) openGames.delete(id); else openGames.add(id);
+  if (current?.games) render(current);
+});
+
+const viewEl = $('#view');
+function syncView() { viewEl.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.view === view))); }
+viewEl.addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-view]');
+  if (!b || b.dataset.view === view) return;
+  view = b.dataset.view;
+  store('scores-view', view);
+  syncView();
+  if (current?.games) render(current);
+});
+syncView();
 
 let lastText = '';
 

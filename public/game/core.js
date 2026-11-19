@@ -41,6 +41,18 @@ function lift(h, minL = 0.5) {
 /** Hero panel color: true team color, but near-black ones are raised so they stand off the black page. */
 export function panelColor(h) { return luminance(h) < 0.08 ? lift(h, 0.3) : h; }
 
+/** WCAG relative luminance and contrast ratio. */
+const relLum = (h) => hex(h).map((v) => v / 255).map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4)).reduce((a, v, i) => a + [0.2126, 0.7152, 0.0722][i] * v, 0);
+export function contrastRatio(a, b) {
+  const [hi, lo] = [relLum(a), relLum(b)].sort((x, y) => y - x);
+  return (hi + 0.05) / (lo + 0.05);
+}
+/** Make a team color readable as text, bars and borders on the dark page (default 4.5:1). */
+export function readable(color, bg = '#111827', min = 4.5) {
+  for (let l = 0.3; contrastRatio(color, bg) < min && l <= 0.9; l += 0.04) color = lift(color, l);
+  return color;
+}
+
 /**
  * { away, home } accent colors that are distinguishable from each other.
  * With { dark: true }, very dark colors (navy, black) are lifted so they show on a dark page.
@@ -51,7 +63,7 @@ export function teamColors(game, { dark = false } = {}) {
   let away = a[0];
   let home = dist(a[0], h[0]) < 90 ? h[1] : h[0];
   if (dark) {
-    const up = (c) => (luminance(c) < 0.12 ? lift(c) : c);
+    const up = (c) => readable(c);
     away = up(away);
     home = up(home);
     if (dist(away, home) < 90) home = up(h[1]);
