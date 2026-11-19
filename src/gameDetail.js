@@ -4,7 +4,7 @@
 // Output feeds the box score page designs and, later, per-player scorecards.
 import { gameStatus, periodLabel, periodName, nhlVideoUrl, videoId } from './normalize.js';
 import { computeMomentum, onIceAttempts, inHomePlate } from './momentum.js';
-import { strengthOf } from './strength.js';
+import { strengthOf, penaltyRunning, gameElapsed } from './strength.js';
 
 const t = (v) => (v && typeof v === 'object' ? v.default : v) ?? '';
 const clockTime = (s) => (s ?? '').replace(/^0(?=\d:)/, '');
@@ -416,6 +416,9 @@ export function normalizeGameDetail({ box, landing = null, rightRail = null, pbp
       period: periodLabel(box.periodDescriptor),
       gameType: box.gameType,
       intermission: box.clock?.inIntermission,
+      penaltyActive: box.clock?.timeRemaining
+        ? penaltyRunning(pbp?.plays, gameElapsed(box.periodDescriptor?.number, box.clock.timeRemaining, box.gameType))
+        : undefined,
     })
     : null;
   return {
