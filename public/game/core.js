@@ -38,6 +38,9 @@ function lift(h, minL = 0.5) {
   return `#${[r1, g1, b1].map((v) => Math.round((v + m) * 255).toString(16).padStart(2, '0')).join('')}`;
 }
 
+/** Hero panel color: true team color, but near-black ones are raised so they stand off the black page. */
+export function panelColor(h) { return luminance(h) < 0.08 ? lift(h, 0.3) : h; }
+
 /**
  * { away, home } accent colors that are distinguishable from each other.
  * With { dark: true }, very dark colors (navy, black) are lifted so they show on a dark page.
