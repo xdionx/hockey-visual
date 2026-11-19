@@ -178,6 +178,8 @@ export function rinkMarkup() {
       <path class="crease" d="M 89 -4 L 85 -4 A 4 4 0 0 0 85 4 L 89 4 Z"/>
       <rect class="net" x="-92" y="-3" width="3" height="6"/>
       <rect class="net" x="89" y="-3" width="3" height="6"/>
+      <path class="plate" d="M -89 -4 L -69 -22 L -54 -22 L -54 22 L -69 22 L -89 4"/>
+      <path class="plate" d="M 89 -4 L 69 -22 L 54 -22 L 54 22 L 69 22 L 89 4"/>
     </g>
     <rect class="boards" x="-100" y="-42.5" width="200" height="85" rx="28" ry="28"/>`;
 }

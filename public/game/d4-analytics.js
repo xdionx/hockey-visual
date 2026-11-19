@@ -16,7 +16,8 @@ export function shotSummary(game) {
     const s = game.shots.filter((x) => x.team === side);
     const n = (k) => s.filter((x) => x.kind === k).length;
     const sog = n('sog') + n('goal');
-    return { attempts: s.length, sog, goals: n('goal'), miss: n('miss'), block: n('block'), shPct: sog ? (100 * n('goal')) / sog : 0 };
+    const plate = s.filter((x) => x.homePlate);
+    return { attempts: s.length, sog, goals: n('goal'), miss: n('miss'), block: n('block'), shPct: sog ? (100 * n('goal')) / sog : 0, plate: plate.length, plateGoals: plate.filter((x) => x.kind === 'goal').length };
   };
   return { away: by('away'), home: by('home') };
 }
@@ -32,6 +33,7 @@ export function kpis(game, c) {
     ${aw != null ? `<div class="a-kbar"><i style="width:${aw}%;background:${c.away}"></i><i style="width:${100 - aw}%;background:${c.home}"></i></div>` : ''}</div>`;
   return `<section class="a-kpis">
     ${tile('Shot attempts (Corsi)', s.away.attempts, s.home.attempts, cf)}
+    ${tile('Home plate attempts', `${s.away.plate}<small>${s.away.plateGoals}G</small>`, `${s.home.plate}<small>${s.home.plateGoals}G</small>`, (100 * s.away.plate) / (s.away.plate + s.home.plate || 1))}
     ${tile('Shots on goal', s.away.sog, s.home.sog, (100 * s.away.sog) / (s.away.sog + s.home.sog || 1))}
     ${tile('Shooting %', `${s.away.shPct.toFixed(1)}%`, `${s.home.shPct.toFixed(1)}%`)}
     ${tile('Missed / blocked', `${s.away.miss}/${s.away.block}`, `${s.home.miss}/${s.home.block}`)}
@@ -49,8 +51,8 @@ export function shotMap(game, c) {
       </div></div>
     <div class="a-rinkwrap"><span class="a-att" style="color:${c.away}">&#9664; ${esc(game.away.abbrev)} attacking</span><span class="a-att r" style="color:${c.home}">${esc(game.home.abbrev)} attacking &#9654;</span>
       <svg class="a-rink" viewBox="-101 -43.5 202 87" role="img" aria-label="Shot locations">${rinkMarkup()}<clipPath id="a-zone-clip"><rect x="-100" y="-42.5" width="200" height="85" rx="28" ry="28"/></clipPath><g id="a-zones" clip-path="url(#a-zone-clip)"></g><g id="a-shots"></g><g id="a-zone-labels"></g></svg></div>
-    <div class="a-legend" id="a-dot-legend"><span><svg viewBox="-3 -3 6 6"><circle r="2.6" fill="currentColor"/></svg>Goal</span><span><svg viewBox="-3 -3 6 6"><circle r="2" fill="none" stroke="currentColor" stroke-width=".9"/></svg>On goal</span><span><svg viewBox="-3 -3 6 6"><path d="M-1.6-1.6l3.2 3.2M1.6-1.6l-3.2 3.2" stroke="currentColor" stroke-width=".8"/></svg>Missed</span><span><svg viewBox="-3 -3 6 6"><rect x="-1.4" y="-1.4" width="2.8" height="2.8" fill="currentColor" opacity=".5"/></svg>Blocked</span></div>
-    <p class="a-zone-key" id="a-zone-key" hidden>Big number = shot attempts in the zone. <b>S</b> on goal (including goals), <b>M</b> missed, <b>B</b> blocked. Discs are goals, numbered with the scorer's sweater number: hover for the scorer, assists and goalie, click to watch.</p>
+    <div class="a-legend" id="a-dot-legend"><span><svg viewBox="-3 -3 6 6"><circle r="2.6" fill="currentColor"/></svg>Goal</span><span><svg viewBox="-3 -3 6 6"><circle r="2" fill="none" stroke="currentColor" stroke-width=".9"/></svg>On goal</span><span><svg viewBox="-3 -3 6 6"><path d="M-1.6-1.6l3.2 3.2M1.6-1.6l-3.2 3.2" stroke="currentColor" stroke-width=".8"/></svg>Missed</span><span><svg viewBox="-3 -3 6 6"><rect x="-1.4" y="-1.4" width="2.8" height="2.8" fill="currentColor" opacity=".5"/></svg>Blocked</span><span><svg viewBox="-3 -3 6 6"><path d="M-2.5 2V-2H2.5" fill="none" stroke="#facc15" stroke-width=".6" stroke-dasharray="1 .8"/></svg>Home plate (1.5x)</span></div>
+    <p class="a-zone-key" id="a-zone-key" hidden>Big number = shot attempts in the zone. <b>S</b> on goal (including goals), <b>M</b> missed, <b>B</b> blocked. The dashed outline is the home plate, the most dangerous area to shoot from; attempts there count 1.5x toward momentum and on-ice shot share. Discs are goals, numbered with the scorer's sweater number: hover for the scorer, assists and goalie, click to watch.</p>
     <div id="a-zone-table" hidden></div>
   </section>`;
 }

@@ -5,6 +5,7 @@
 //
 // Weights (one shot on goal = 1.0):
 //   goal 3.0, shot on goal 1.0, missed shot 0.35, blocked attempt 0.2 (and 0.1 to the blocking team)
+//   attempts from the home plate area (posts to faceoff dots to top of circles) count 1.5x
 //   faceoff win 0.6 offensive zone / 0.35 neutral / 0.25 defensive (you start with the puck)
 //   takeaway 0.5, giveaway 0.5 to the other team, hit 0.2
 //   penalty drawn 1.0, plus 0.2 every 10 seconds of power play (extended possession)
@@ -15,6 +16,21 @@
 //
 // Each push is credited to the player who made it (goal: scorer 60%, assists 25% / 15%).
 // A push made while that player's team was behind on momentum counts 1.5x and is a "swing play".
+
+/**
+ * "Home plate": the most dangerous scoring area. From the goal posts out to the faceoff dots,
+ * then straight out to the top of the circles. Works on either end (rink feet, centre ice = 0).
+ */
+export const HOME_PLATE_BONUS = 1.5;
+export function inHomePlate(x, y) {
+  if (x == null || y == null) return false;
+  const ax = Math.abs(x);
+  const ay = Math.abs(y);
+  if (ax > 89 || ax < 54) return false;
+  if (ax >= 69) return ay <= 4 + ((89 - ax) * 18) / 20; // posts (89, 4) to dots (69, 22)
+  return ay <= 22; // dots out to the top of the circles
+}
+const plateMult = (d) => (inHomePlate(d.xCoord, d.yCoord) ? HOME_PLATE_BONUS : 1);
 
 export const MOMENTUM_WEIGHTS = {
   goal: 3, sog: 1, miss: 0.35, blockedShooter: 0.2, blocker: 0.1,
@@ -93,13 +109,13 @@ export function pushes(plays, awayId, rosterTeam) {
         add(owner, W.goal, 'goal', credits);
         break;
       }
-      case 'shot-on-goal': add(owner, W.sog, 'sog', [{ id: d.shootingPlayerId, share: 1 }]); break;
-      case 'missed-shot': add(owner, W.miss, 'miss', [{ id: d.shootingPlayerId, share: 1 }]); break;
+      case 'shot-on-goal': add(owner, W.sog * plateMult(d), 'sog', [{ id: d.shootingPlayerId, share: 1 }]); break;
+      case 'missed-shot': add(owner, W.miss * plateMult(d), 'miss', [{ id: d.shootingPlayerId, share: 1 }]); break;
       case 'blocked-shot': {
         const shooterTeam = rosterTeam.get(d.shootingPlayerId);
         const shooter = shooterTeam != null ? sideOf(shooterTeam) : owner ? other(owner) : null;
         if (!shooter) break;
-        add(shooter, W.blockedShooter, 'block-attempt', [{ id: d.shootingPlayerId, share: 1 }]);
+        add(shooter, W.blockedShooter * plateMult(d), 'block-attempt', [{ id: d.shootingPlayerId, share: 1 }]);
         if (d.blockingPlayerId && rosterTeam.get(d.blockingPlayerId) !== rosterTeam.get(d.shootingPlayerId)) {
           add(other(shooter), W.blocker, 'block', [{ id: d.blockingPlayerId, share: 1 }]);
         }
@@ -256,7 +272,8 @@ export function onIceAttempts(pbp, shiftsRaw, goalieIds = new Set()) {
     const shooter = d.shootingPlayerId ?? d.scoringPlayerId;
     const team = rosterTeam.get(shooter) ?? d.eventOwnerTeamId;
     const t = toSeconds(p.timeInPeriod);
-    const w = ON_ICE_WEIGHTS[kind];
+    // Goals already count in full; other attempts from home plate count 1.5x.
+    const w = ON_ICE_WEIGHTS[kind] * (kind === 'goal' ? 1 : plateMult(p.details ?? {}));
     for (const s of byPeriod.get(p.periodDescriptor.number) ?? []) {
       if (!(s.start < t && t <= s.end) && !(t === 0 && s.start === 0)) continue;
       const row = get(s.id);

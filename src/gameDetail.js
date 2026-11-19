@@ -3,7 +3,7 @@
 //
 // Output feeds the box score page designs and, later, per-player scorecards.
 import { gameStatus, periodLabel, periodName, nhlVideoUrl, videoId } from './normalize.js';
-import { computeMomentum, onIceAttempts } from './momentum.js';
+import { computeMomentum, onIceAttempts, inHomePlate } from './momentum.js';
 
 const t = (v) => (v && typeof v === 'object' ? v.default : v) ?? '';
 const clockTime = (s) => (s ?? '').replace(/^0(?=\d:)/, '');
@@ -19,6 +19,7 @@ const humanize = (key) => String(key ?? '').replace(/-/g, ' ').replace(/\b\w/, (
 export const GAME_SCORE_WEIGHTS = {
   goals: 0.75, primaryAssists: 0.7, secondaryAssists: 0.55, shots: 0.075, blocks: 0.05,
   penaltiesDrawn: 0.15, penaltiesTaken: -0.15, faceoffWins: 0.01, faceoffLosses: -0.01, plusMinus: 0.15, onIceAttempts: 0.05,
+  homePlate: 0.04, // per shot attempt from the home plate area; our addition
   momentum: 0.05, // per point of momentum impact (see momentum.js); our addition to the public model
 };
 
@@ -27,7 +28,7 @@ export function skaterGameScore(s) {
   const w = GAME_SCORE_WEIGHTS;
   const parts = {
     scoring: s.goals * w.goals + s.a1 * w.primaryAssists + s.a2 * w.secondaryAssists,
-    shooting: s.sog * w.shots,
+    shooting: s.sog * w.shots + (s.homePlate ?? 0) * w.homePlate,
     defense: s.blocks * w.blocks,
     discipline: s.penaltiesDrawn * w.penaltiesDrawn + s.penaltiesTaken * w.penaltiesTaken,
     faceoffs: s.fow * w.faceoffWins + s.fol * w.faceoffLosses,
@@ -102,12 +103,14 @@ function linescore(box, rightRail) {
 function eventCounts(pbp) {
   const counts = new Map();
   const get = (id) => {
-    if (!counts.has(id)) counts.set(id, { a1: 0, a2: 0, fow: 0, fol: 0, penaltiesDrawn: 0, penaltiesTaken: 0, missed: 0, blockedAgainst: 0 });
+    if (!counts.has(id)) counts.set(id, { a1: 0, a2: 0, fow: 0, fol: 0, penaltiesDrawn: 0, penaltiesTaken: 0, missed: 0, blockedAgainst: 0, homePlate: 0 });
     return counts.get(id);
   };
   for (const e of pbp?.plays ?? []) {
     if (e.periodDescriptor?.periodType === 'SO') continue;
     const d = e.details ?? {};
+    const shooter = d.shootingPlayerId ?? d.scoringPlayerId;
+    if (shooter && ['goal', 'shot-on-goal', 'missed-shot', 'blocked-shot'].includes(e.typeDescKey) && inHomePlate(d.xCoord, d.yCoord)) get(shooter).homePlate++;
     switch (e.typeDescKey) {
       case 'goal':
         if (d.assist1PlayerId) get(d.assist1PlayerId).a1++;
@@ -185,6 +188,7 @@ function shotList(pbp, awayId, roster) {
       ...(kind === 'goal' ? { assistIds: [d.assist1PlayerId, d.assist2PlayerId].filter(Boolean), goalieId: d.goalieInNetId ?? null } : {}),
       shotType: d.shotType ?? null,
       zone: shotZone(shooterTeam, x, y),
+      homePlate: inHomePlate(x, y),
     });
   }
   return out;
@@ -197,7 +201,7 @@ function rosterMap(pbp) {
 }
 
 function skater(raw, counts, roster, momentum, onIce) {
-  const c = counts.get(raw.playerId) ?? { a1: 0, a2: 0, fow: 0, fol: 0, penaltiesDrawn: 0, penaltiesTaken: 0, missed: 0, blockedAgainst: 0 };
+  const c = counts.get(raw.playerId) ?? { a1: 0, a2: 0, fow: 0, fol: 0, penaltiesDrawn: 0, penaltiesTaken: 0, missed: 0, blockedAgainst: 0, homePlate: 0 };
   const r = roster.get(raw.playerId);
   const s = {
     id: raw.playerId,
@@ -227,6 +231,7 @@ function skater(raw, counts, roster, momentum, onIce) {
     fol: c.fol,
     foPct: c.fow + c.fol ? round((100 * c.fow) / (c.fow + c.fol), 1) : null,
     attempts: (raw.sog ?? 0) + c.missed + c.blockedAgainst,
+    homePlate: c.homePlate,
     penaltiesDrawn: c.penaltiesDrawn,
     penaltiesTaken: c.penaltiesTaken,
   };
