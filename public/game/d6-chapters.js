@@ -310,11 +310,16 @@ function byTheNumbers(game, c, events) {
   return `<div class="st-nums">${tiles.join('')}${topDrivers(game, c)}</div>`;
 }
 
+/** Turning points and momentum runs, for the Momentum section. */
+export function momentumTimeline(game, c) {
+  if (game.status.state !== 'live' && game.status.state !== 'final') return '';
+  return turningPoints(game, c, goalEvents(game), goalieChanges(game));
+}
+
 export function storyChapters(game, c) {
   if (game.status.state !== 'live' && game.status.state !== 'final') return '';
   const events = goalEvents(game);
   const changes = goalieChanges(game);
   return `${byTheNumbers(game, c, events)}
-    <div class="b-cols st-cols st-story-cols"><div class="b-card"><h2>How it unfolded</h2><div class="st-chs">${chapters(game, c, events, changes)}</div></div>
-    <div>${turningPoints(game, c, events, changes)}</div></div>`;
+    <div class="b-card"><h2>How it unfolded</h2><div class="st-chs">${chapters(game, c, events, changes)}</div></div>`;
 }

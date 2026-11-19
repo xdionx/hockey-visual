@@ -5,7 +5,7 @@ import { esc, teamColors, allSkaters, allGoalies, elapsed, logo, statusText, str
 import { hero, scoringCards, stars, statBars, shotLine } from './d2-broadcast.js';
 import { kpis, shotMap, heatTable, goalies, shotSummary, mountShotMap } from './d4-analytics.js';
 import { spotlight, scorecardControls, scorecardKey, mountScorecards } from './d5-scorecards.js';
-import { storyChapters } from './d6-chapters.js';
+import { storyChapters, momentumTimeline } from './d6-chapters.js';
 import { storyBeats } from './d6-narrative.js';
 
 const SECTIONS = [
@@ -278,16 +278,6 @@ function momentumStrip(game, c) {
     </svg></div>`;
 }
 
-function swingList(game, c) {
-  const m = game.momentum;
-  if (!m?.swings?.length) return '';
-  return `<div class="b-card"><h2>Momentum swings</h2><ol class="st-swings">${m.swings.map((sw, i) => `<li style="--team:${c[sw.team]}">
-    <span class="st-sw-n">${i + 1}</span>
-    <div><b>${esc(game[sw.team].commonName)}</b> take over at ${esc(clock(sw.t))}<span class="st-sw-c">sparked by ${esc(causeText(game, sw.cause))}</span></div>
-    <span class="st-sw-d">held ${Math.round((sw.until - sw.t) / 60)}:${String(Math.round((sw.until - sw.t) % 60)).padStart(2, '0')}</span>
-  </li>`).join('')}</ol></div>`;
-}
-
 function drivers(game, c) {
   const list = allSkaters(game).filter((p) => p.momentum != null).sort((a, b) => b.momentum - a.momentum).slice(0, 6);
   if (!list.length) return '';
@@ -375,7 +365,7 @@ export default {
         ${header(2, 'momentum', 'Momentum', 'Who was pushing the play, minute by minute. Above the line is the home team, below is the away team.')}
         ${momentumChart(game, c)}
         ${periodWins(game, c)}
-        <div class="b-cols st-cols"><div>${swingList(game, c)}</div><div>${drivers(game, c)}</div></div>
+        <div class="b-cols st-cols"><div>${momentumTimeline(game, c)}</div><div>${drivers(game, c)}</div></div>
         ${kpis(game, c)}
       </section>
 

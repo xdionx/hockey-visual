@@ -550,7 +550,7 @@ main { padding: 0 0 48px; }
 .st-td-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .st-td-p b { font: 800 18px "Barlow Condensed", sans-serif; color: #4ade80; font-variant-numeric: tabular-nums; }
 .st-story-cols { margin-bottom: 18px; }
-.st-chs { display: flex; flex-direction: column; gap: 12px; }
+.st-chs { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; align-items: start; }
 .st-ch { border-left: 4px solid var(--team); padding: 2px 0 2px 14px; }
 .st-ch header { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-bottom: 4px; }
 .st-ch-p { font: 800 18px "Barlow Condensed", sans-serif; text-transform: uppercase; letter-spacing: .06em; }
