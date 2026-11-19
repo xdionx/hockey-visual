@@ -54,3 +54,32 @@ test('game story headline finds the comeback and the shootout winner', async () 
   assert.equal(s.headline, 'Jets storm back from 4 down to beat the Blackhawks in a shootout');
   assert.match(s.dek[0], /Kyle Connor scored the shootout winner/);
 });
+
+test('on-ice weighted shot attempts from shift charts', async () => {
+  const { onIceAttempts, ON_ICE_WEIGHTS } = await import('../src/momentum.js');
+  const pbp = load('pbp');
+  // One WPG skater on the ice for all of period 2.
+  const shifts = { data: [{ playerId: 8476460, teamId: 52, period: 2, startTime: '00:00', endTime: '20:00', typeCode: 517 }] };
+  const row = onIceAttempts(pbp, shifts).get(8476460);
+  const kinds = { goal: 'goal', 'shot-on-goal': 'sog', 'missed-shot': 'miss', 'blocked-shot': 'block' };
+  const team = new Map(pbp.rosterSpots.map((r) => [r.playerId, r.teamId]));
+  let cf = 0; let ca = 0;
+  for (const p of pbp.plays) {
+    const k = kinds[p.typeDescKey];
+    if (!k || p.periodDescriptor.number !== 2) continue;
+    const id = p.details.shootingPlayerId ?? p.details.scoringPlayerId;
+    if (team.get(id) === 52) cf += ON_ICE_WEIGHTS[k]; else ca += ON_ICE_WEIGHTS[k];
+  }
+  assert.ok(Math.abs(row.cf - cf) < 0.01 && Math.abs(row.ca - ca) < 0.01);
+  assert.equal(row.gf, 2);
+  // Without shifts the box score still builds and falls back to plus/minus.
+  assert.equal(onIceAttempts(pbp, null), null);
+  assert.equal(game.hasShifts, false);
+});
+
+test('momentum swings and player momentum', () => {
+  assert.ok(game.momentum.series.length > 300);
+  assert.ok(game.momentum.swings.length >= 3 && game.momentum.swings.length <= 10);
+  const all = [...game.players.away.forwards, ...game.players.away.defense];
+  assert.ok(all.find((p) => p.lastName === 'Scheifele').momentum > 5);
+});

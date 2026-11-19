@@ -1,4 +1,5 @@
 import { getData, LIVE_REFRESH_MS } from './data.js';
+import { teamColors } from './game/core.js';
 
 const $ = (s) => document.querySelector(s);
 const dateInput = $('#date');
@@ -32,9 +33,10 @@ function teamRow(game, side) {
   const loser = game.status.state === 'final' && ls.totals[side] < ls.totals[other];
   const started = game.status.state !== 'pre' && game.status.state !== 'postponed';
   const periodCells = ls.periods.map((p) => `<td>${started ? p[side] : ''}</td>`).join('');
-  return `<tr class="${loser ? 'loser' : ''}">
+  const color = teamColors(game, { dark: true })[side];
+  return `<tr class="${side} ${loser ? 'loser' : ''}" style="--team:${color}">
     <td class="team"><div class="team-cell">
-      <picture><source srcset="${esc(team.logo.replace('_light.', '_dark.'))}" media="(prefers-color-scheme: dark)"><img src="${esc(team.logo)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'"></picture>
+      <img src="${esc(team.logo.replace('_light.', '_dark.'))}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">
       <div><span class="abbr">${esc(team.abbrev)}</span>${team.record ? `<span class="rec">${esc(team.record)}</span>` : ''}<div class="name">${esc(team.name)}</div></div>
     </div></td>
     ${periodCells}
@@ -59,7 +61,7 @@ function goalsHtml(game) {
     const count = g.scorer.goalsToDate != null ? ` (${g.scorer.goalsToDate})` : '';
     const meta = g.period === 'SO' ? 'Deciding goal' : `${esc(g.time)} · ${g.score.away}-${g.score.home}`;
     html += `<div class="goal">
-      <span class="tm">${esc(g.team)}</span>
+      <span class="tm" style="color:${teamColors(game, { dark: true })[g.team === game.away.abbrev ? 'away' : 'home']}">${esc(g.team)}</span>
       <div class="who"><strong>${esc(g.scorer.name)}</strong>${count}${tags}${assists ? `<div class="ast">${assists}</div>` : ''}</div>
       <span class="meta">${meta}</span>
       ${g.highlight ? videoLink(g.highlight, g.highlightId, `${g.team} · ${g.scorer.name} (${g.period === 'SO' ? 'SO' : `${g.time} ${g.periodName}`})`, '', 'play', `Watch ${g.scorer.name}'s goal`) : '<span></span>'}
@@ -110,7 +112,8 @@ function gameHtml(game) {
   const ls = game.linescore;
   const hasBox = game.status.state === 'live' || game.status.state === 'final';
   const head = ls.periods.map((p) => `<th>${esc(p.label)}</th>`).join('');
-  return `<article class="game">
+  const tc = teamColors(game, { dark: true });
+  return `<article class="game" style="--away:${tc.away};--home:${tc.home}">
     <div class="status ${game.status.state}"><span class="label">${esc(statusText(game))}</span><span class="venue">${esc(game.venue)}</span></div>
     <table class="ls">
       <thead><tr><th></th>${head}<th>T</th><th>SOG</th></tr></thead>

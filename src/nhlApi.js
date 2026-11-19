@@ -53,13 +53,22 @@ export function getLanding(gameId) {
   return getJson(`gamecenter/${gameId}/landing`);
 }
 
+/** Every player shift in a game (stats API, a different host). Used for on-ice shot attempts. */
+export async function getShifts(gameId) {
+  const res = await fetch(`https://api.nhle.com/stats/rest/en/shiftcharts?cayenneExp=gameId=${gameId}`, { headers: { accept: 'application/json' } });
+  if (!res.ok) throw new Error(`NHL stats API ${res.status} for shiftcharts ${gameId}`);
+  return res.json();
+}
+
 /** Everything a box score page needs, fetched one after another to stay under the rate limit. */
 export async function getGameDetailRaw(gameId) {
   const box = await getBoxscore(gameId);
   const landing = await getLanding(gameId);
   const rightRail = await getRightRail(gameId);
   const pbp = await getPlayByPlay(gameId);
-  return { box, landing, rightRail, pbp };
+  // Shifts are optional: without them on-ice impact falls back to plus/minus.
+  const shifts = await getShifts(gameId).catch(() => null);
+  return { box, landing, rightRail, pbp, shifts };
 }
 
 /** A player's profile and career stats. */
