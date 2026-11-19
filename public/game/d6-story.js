@@ -1,7 +1,7 @@
 // Design "Game Story": the Broadcast look with the Analytics and Scorecards data,
 // ordered to tell the game's story: what happened, how momentum swung, where the
 // shots came from, who drove it, then the full box score.
-import { esc, teamColors, allSkaters, allGoalies, elapsed } from './core.js';
+import { esc, teamColors, allSkaters, allGoalies, elapsed, logo, statusText } from './core.js';
 import { hero, scoringCards, stars, statBars } from './d2-broadcast.js';
 import { kpis, shotMap, heatTable, goalies, shotSummary, mountShotMap } from './d4-analytics.js';
 import { spotlight, scorecardControls, scorecardKey, mountScorecards } from './d5-scorecards.js';
@@ -97,6 +97,13 @@ export function storyline(game) {
 
 function header(n, id, title, sub = '') {
   return `<header class="st-h"><span class="st-n">${String(n).padStart(2, '0')}</span><h2>${esc(title)}</h2>${sub ? `<p>${esc(sub)}</p>` : ''}</header>`;
+}
+
+/** Compact score and clock that slides into the sticky bar once the big scoreboard scrolls away. */
+function miniScore(game, c) {
+  const pre = game.status.state === 'pre';
+  const team = (side) => `<span class="st-mini-t" style="--team:${c[side]}">${logo(game[side], 'st-mini-logo', true)}<b>${esc(game[side].abbrev)}</b><strong>${pre ? '' : game.linescore.totals[side]}</strong></span>`;
+  return `<div class="st-mini" aria-hidden="true">${team('away')}<span class="st-mini-s ${game.status.state}">${esc(statusText(game))}</span>${team('home')}</div>`;
 }
 
 const KIND_LABEL = {
@@ -223,7 +230,10 @@ export default {
     const started = game.status.state === 'live' || game.status.state === 'final';
     return `<div class="b-wrap st-wrap">
       ${hero(game, c)}
-      <nav class="st-nav" aria-label="Sections">${SECTIONS.map(([id, label], i) => `<a href="#st-${id}" data-sec="${id}"><span>${String(i + 1).padStart(2, '0')}</span>${esc(label)}</a>`).join('')}</nav>
+      <div class="st-bar">
+        ${miniScore(game, c)}
+        <nav class="st-nav" aria-label="Sections">${SECTIONS.map(([id, label], i) => `<a href="#st-${id}" data-sec="${id}"><span>${String(i + 1).padStart(2, '0')}</span>${esc(label)}</a>`).join('')}</nav>
+      </div>
 
       <section class="st-sec" id="st-story">
         ${header(1, 'story', 'The story')}
@@ -276,6 +286,15 @@ export default {
     }, { rootMargin: '-45% 0px -50% 0px' });
     root.storyObserver?.disconnect();
     root.storyObserver = io;
+
+    // Show the compact score once the big scoreboard has scrolled under the sticky header.
+    const bar = root.querySelector('.st-bar');
+    const heroEl = root.querySelector('.b-hero');
+    root.heroObserver?.disconnect();
+    if (bar && heroEl) {
+      root.heroObserver = new IntersectionObserver(([e]) => bar.classList.toggle('stuck', !e.isIntersecting && e.boundingClientRect.top < 0), { rootMargin: '-60px 0px 0px 0px' });
+      root.heroObserver.observe(heroEl);
+    }
     root.querySelectorAll('.st-sec').forEach((s) => io.observe(s));
   },
 };
