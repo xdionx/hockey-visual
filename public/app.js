@@ -157,7 +157,7 @@ function teamBlock(game, side, tc, big) {
   </div>`;
 }
 
-const horns = (game) => (game.status.state === 'final' ? '' : hornToggles(game));
+const horns = (game) => hornToggles(game);
 
 function gameHtml(game) {
   const tc = teamColors(game, { dark: true });
