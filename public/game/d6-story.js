@@ -3,7 +3,7 @@
 // shots came from, who drove it, then the full box score.
 import { esc, teamColors, allSkaters, allGoalies, elapsed, logo, statusText, strengthBadge, headshot, on, panelColor, fold } from './core.js';
 import { hero, scoringCards, stars, statBars, shotLine } from './d2-broadcast.js';
-import { kpis, shotMap, heatTable, goalies, shotSummary, mountShotMap } from './d4-analytics.js';
+import { kpis, shotMap, heatTable, goalieTable, shotSummary, mountShotMap } from './d4-analytics.js';
 import { spotlight, scorecardControls, scorecardKey, mountScorecards } from './d5-scorecards.js';
 import { storyChapters, momentumTimeline } from './d6-chapters.js';
 import { storyBeats } from './d6-narrative.js';
@@ -386,8 +386,8 @@ export default {
       <section class="st-sec" id="st-box">
         ${header(5, 'box', 'Box score')}
         ${lineScore(game, c)}
-        ${goalies(game, c)}
         ${heatTable(game, c)}
+        ${goalieTable(game, c)}
       </section>` : ''}
     </div>`;
   },

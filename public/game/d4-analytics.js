@@ -96,7 +96,7 @@ export function flowChart(game, c) {
 }
 
 const HEAT_COLS = [
-  ['gameScore', 'GS', (p) => p.gameScore.toFixed(2)], ['points', 'P'], ['goals', 'G'], ['assists', 'A'], ['sog', 'SOG'], ['attempts', 'SAT'],
+  ['gameScore', 'GS', (p) => p.gameScore.toFixed(2)], ['momentum', 'MOM', (p) => `${(p.momentum ?? 0) > 0 ? '+' : ''}${(p.momentum ?? 0).toFixed(1)}`], ['points', 'P'], ['goals', 'G'], ['assists', 'A'], ['sog', 'SOG'], ['attempts', 'SAT'],
   ['plusMinus', '+/-', (p) => signed(p.plusMinus)], ['hits', 'HIT'], ['blocks', 'BLK'], ['takeaways', 'TK'], ['giveaways', 'GV'], ['toiSeconds', 'TOI', (p) => p.toi],
 ];
 
@@ -120,6 +120,34 @@ export function heatTable(game, c) {
       <tbody>${list.map((p) => `<tr><td class="l" data-v="${esc(p.lastName)}">${esc(p.name)}</td><td><span class="a-tm" style="background:${c[p.side]}">${esc(p.team)}</span></td><td>${esc(p.position)}</td>${HEAT_COLS.map((col) => cell(col)(p)).join('')}</tr>`).join('')}</tbody>
     </table></div>
     ${fold('What GS and SAT mean', `GS = Game Score (goals, primary and secondary assists, shots, blocks, penalties drawn and taken, faceoffs and on-ice +/-). SAT = the player's own shot attempts (on goal, missed or blocked).`, { cls: 'a-note' })}
+  </section>`;
+}
+
+/** Goalie box score: the usual lines plus our expected-goals numbers. Sortable like the skater table. */
+export function goalieTable(game, c) {
+  const list = allGoalies(game).filter((g) => g.played);
+  if (!list.length) return '';
+  const f1 = (n, d = 1) => (n == null ? '-' : `${n > 0 ? '+' : ''}${n.toFixed(d)}`);
+  const sv3 = (n) => (n == null ? '-' : n.toFixed(3).replace(/^0/, ''));
+  const heat = (v, scale) => (v == null ? '' : ` style="background:${v >= 0 ? `rgba(56, 189, 248, ${Math.min(0.55, (v / scale) * 0.55).toFixed(2)})` : `rgba(248, 113, 113, ${Math.min(0.5, (-v / scale) * 0.5).toFixed(2)})`}"`);
+  const rows = list.sort((a, b) => b.toiSeconds - a.toiSeconds).map((g) => `<tr>
+    <td class="l" data-v="${esc(g.lastName ?? g.name)}">${esc(g.name)}${g.decision ? ` <small class="a-muted">(${esc(g.decision)})</small>` : ''}</td>
+    <td><span class="a-tm" style="background:${c[g.side]}">${esc(g.team)}</span></td>
+    <td data-v="${g.toiSeconds}">${esc(g.toi)}</td>
+    <td>${g.shotsAgainst}</td><td>${g.goalsAgainst}</td><td>${g.saves}</td>
+    <td data-v="${g.savePct ?? 0}"><b>${sv3(g.savePct)}</b></td>
+    <td data-v="${g.xga ?? 0}">${g.xga == null ? '-' : g.xga.toFixed(1)}</td>
+    <td data-v="${g.gsax ?? 0}"${heat(g.gsax, 2)}>${f1(g.gsax)}</td>
+    <td data-v="${g.expectedSavePct ?? 0}">${sv3(g.expectedSavePct)}</td>
+    <td data-v="${g.savePctAboveExpected ?? 0}"${heat(g.savePctAboveExpected, 0.1)}>${g.savePctAboveExpected == null ? '-' : f1(g.savePctAboveExpected * 100)}%</td>
+    <td data-v="0">${esc(g.evenStrength ?? '')}</td><td data-v="0">${esc(g.powerPlay ?? '')}</td><td data-v="0">${esc(g.shorthanded ?? '')}</td>
+    <td data-v="${g.gameScore}">${g.gameScore.toFixed(2)}</td></tr>`).join('');
+  return `<section class="a-card"><h2>Goalies <small>click a heading to re-sort</small></h2>
+    <div class="a-scroll"><table class="a-table sortable">
+      <thead><tr><th class="l" data-sort>Goalie</th><th data-sort>Tm</th><th data-sort>TOI</th><th data-sort>SA</th><th data-sort>GA</th><th data-sort>SV</th><th data-sort>SV%</th><th data-sort>xGA</th><th data-sort>GSAx</th><th data-sort>xSV%</th><th data-sort>SV% vs exp</th><th data-sort>EV</th><th data-sort>PP</th><th data-sort>SH</th><th data-sort>GS</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>
+    ${fold('What the goalie columns mean', 'xGA = expected goals against, from the distance, angle and type of each shot faced. GSAx = goals saved above expected (xGA minus goals allowed). xSV% = the save % those shots would be expected to produce. SV% vs exp = actual save % minus expected. EV, PP and SH are saves/shots at even strength, on the power play and shorthanded. These are our own estimates, not official NHL stats.', { cls: 'a-note' })}
   </section>`;
 }
 
