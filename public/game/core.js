@@ -270,18 +270,54 @@ export const GS_PARTS = [
   ['scoring', 'Scoring'], ['momentum', 'Momentum'], ['shooting', 'Shots'], ['onIce', 'On-ice +/-'], ['defense', 'Blocks'], ['discipline', 'Penalties'], ['faceoffs', 'Faceoffs'],
 ];
 
-/** Offensive-zone areas (see shotZone in src/gameDetail.js), as rectangles for the home team's attacking end. */
+/**
+ * Offensive-zone areas (see shotZone in src/gameDetail.js) for the home team's attacking end:
+ * [key, label, polygon points [x, y] in rink feet (y > 0 = left side), label anchor [x, y], tall].
+ * Home plate (posts -> faceoff dots -> top of the circles) is its own sector; the circles get
+ * what is left of the faceoff-circle area outside it.
+ */
+const rect = (x1, x2, y1, y2) => [[x1, y1], [x2, y1], [x2, y2], [x1, y2]];
 export const ZONES = [
-  ['low-slot', 'Low slot', 69, 89, -9, 9],
-  ['high-slot', 'High slot', 49, 69, -9, 9],
-  ['circle-left', 'Left circle', 49, 89, 9, 28],
-  ['circle-right', 'Right circle', 49, 89, -28, -9],
-  ['boards-left', 'Left boards', 49, 89, 28, 42.5],
-  ['boards-right', 'Right boards', 49, 89, -42.5, -28],
-  ['point-center', 'Center point', 25, 49, -9, 9],
-  ['point-left', 'Left point', 25, 49, 9, 42.5],
-  ['point-right', 'Right point', 25, 49, -42.5, -9],
-  ['behind-net', 'Behind the net', 89, 100, -42.5, 42.5],
+  ['home-plate', 'Home plate', [[89, -4], [69, -22], [54, -22], [54, 22], [69, 22], [89, 4]], [67, 0], true],
+  ['circle-left', 'Left circle', [[49, 9], [54, 9], [54, 22], [69, 22], [89, 4], [89, 28], [49, 28]], [80, 18.5], true],
+  ['circle-right', 'Right circle', [[49, -9], [54, -9], [54, -22], [69, -22], [89, -4], [89, -28], [49, -28]], [80, -18.5], true],
+  ['boards-left', 'Left boards', rect(49, 89, 28, 42.5), [69, 35.2], false],
+  ['boards-right', 'Right boards', rect(49, 89, -42.5, -28), [69, -35.2], false],
+  ['point-center', 'Center point', rect(25, 54, -9, 9), [38, 0], true],
+  ['point-left', 'Left point', rect(25, 49, 9, 42.5), [37, 25], true],
+  ['point-right', 'Right point', rect(25, 49, -42.5, -9), [37, -25], true],
+  ['behind-net', 'Behind the net', rect(89, 100, -42.5, 42.5), [94.5, 0], false],
   ['outside', 'Outside the zone', null],
 ];
-export const zoneName = (key) => ZONES.find((z) => z[0] === key)?.[1] ?? key;
+/** Same rules as inHomePlate in src/momentum.js (rink feet, either end). */
+export function inHomePlate(x, y) {
+  const ax = Math.abs(x);
+  const ay = Math.abs(y);
+  if (ax > 89 || ax < 54) return false;
+  return ax >= 69 ? ay <= 4 + ((89 - ax) * 18) / 20 : ay <= 22;
+}
+
+/** Same rules as shotZone in src/gameDetail.js; lets older saved games use the current zones. */
+export function zoneOf(team, x, y) {
+  const dx = team === 'home' ? 89 - x : x + 89;
+  const side = (team === 'home' ? y : -y) >= 0 ? 'left' : 'right';
+  const ay = Math.abs(y);
+  if (dx < 0) return 'behind-net';
+  if (dx > 64) return 'outside';
+  if (inHomePlate(89 - dx, y)) return 'home-plate';
+  if (dx > 35 && ay <= 9) return 'point-center';
+  if (dx > 40) return `point-${side}`;
+  if (ay <= 28) return `circle-${side}`;
+  return `boards-${side}`;
+}
+
+/** Bring shots saved by an older version up to the current zone rules. */
+export function upgradeShots(game) {
+  for (const s of game?.shots ?? []) {
+    s.zone = zoneOf(s.team, s.x, s.y);
+    s.homePlate = inHomePlate(s.x, s.y);
+  }
+  return game;
+}
+
+export const zoneName = (key) => ({ 'low-slot': 'Low slot', 'high-slot': 'High slot' })[key] ?? ZONES.find((z) => z[0] === key)?.[1] ?? key;

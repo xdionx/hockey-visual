@@ -1,6 +1,6 @@
 // Box score page: loads one game's data/games/<id>.json and renders it in the chosen design.
 // Switch designs with the bar at the top, keys 1-5, or ?design=<name> in the URL.
-import { esc, initVideo, makeSortable, makeTabs } from './core.js';
+import { esc, initVideo, makeSortable, makeTabs, upgradeShots } from './core.js';
 import { getData, LIVE_REFRESH_MS } from '../data.js';
 import classic from './d1-classic.js';
 import broadcast from './d2-broadcast.js';
@@ -75,7 +75,7 @@ async function load(quiet = false) {
     }
     const text = JSON.stringify(data);
     if (text !== lastText) {
-      game = data;
+      game = upgradeShots(data);
       lastText = text;
       document.title = `${game.away.abbrev} ${game.linescore.totals.away}, ${game.home.abbrev} ${game.linescore.totals.home} · Box score`;
       document.querySelector('#back').href = `./?date=${game.gameDate}`;

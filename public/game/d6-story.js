@@ -133,7 +133,7 @@ function causeText(game, cause) {
 function momentumChart(game, c) {
   const m = game.momentum;
   if (!m?.series?.length) return '';
-  const W = 1000; const H = 300; const P = { l: 8, r: 8, t: 26, b: 26 };
+  const W = 1000; const H = 330; const P = { l: 8, r: 8, t: 56, b: 26 };
   const end = Math.max(3600, m.series.at(-1)[0]);
   const X = (t) => P.l + ((W - P.l - P.r) * t) / end;
   const mid = (H - P.b + P.t) / 2;
@@ -144,7 +144,7 @@ function momentumChart(game, c) {
   const pp = m.powerPlays.map((p) => {
     const x1 = X(p.start); const x2 = X(p.end ?? m.series.at(-1)[0]);
     const top = p.team === 'home';
-    return `<rect x="${x1}" y="${top ? P.t : mid}" width="${Math.max(2, x2 - x1)}" height="${half}" fill="${c[p.team]}" opacity=".12"/><text x="${(x1 + x2) / 2}" y="${top ? P.t - 6 : H - P.b + 16}" text-anchor="middle" class="st-mc-pp" fill="${c[p.team]}">PP${p.result === 'goal' ? ' ✓' : ''}</text>`;
+    return `<rect x="${x1}" y="${top ? P.t : mid}" width="${Math.max(2, x2 - x1)}" height="${half}" fill="${c[p.team]}" opacity=".12"/><text x="${(x1 + x2) / 2}" y="${top ? P.t + 12 : H - P.b + 16}" text-anchor="middle" class="st-mc-pp" fill="${c[p.team]}">PP${p.result === 'goal' ? ' ✓' : ''}</text>`;
   }).join('');
   const goals = game.scoring.filter((g) => g.period !== 'SO').map((g) => {
     const side = g.team === game.away.abbrev ? 'away' : 'home';
@@ -152,14 +152,27 @@ function momentumChart(game, c) {
     return `<g><line x1="${X(t)}" x2="${X(t)}" y1="${P.t}" y2="${H - P.b}" stroke="${c[side]}" stroke-width="1.5" stroke-dasharray="3 3" opacity=".8"/><circle cx="${X(t)}" cy="${side === 'home' ? P.t + 8 : H - P.b - 8}" r="9" fill="${c[side]}" stroke="#fff" stroke-width="1.5"/><text x="${X(t)}" y="${(side === 'home' ? P.t + 8 : H - P.b - 8) + 4}" text-anchor="middle" class="st-mc-g">G</text><title>${esc(`${g.team} goal: ${g.scorer.fullName} (${g.period === 'OT' ? 'OT' : `P${g.period}`} ${g.time})`)}</title></g>`;
   }).join('');
   const swings = m.swings.map((sw, i) => `<g><circle cx="${X(sw.t)}" cy="${mid}" r="8" fill="#0b1220" stroke="${c[sw.team]}" stroke-width="2"/><text x="${X(sw.t)}" y="${mid + 4}" text-anchor="middle" class="st-mc-s">${i + 1}</text></g>`).join('');
-  const periods = [1200, 2400, 3600].filter((t) => t < end).map((t) => `<line x1="${X(t)}" x2="${X(t)}" y1="${P.t}" y2="${H - P.b}" class="st-mc-grid"/>`).join('');
-  const labels = ['1st', '2nd', '3rd', 'OT'].map((l, i) => (i * 1200 < end ? `<text x="${X(Math.min(i * 1200 + (i < 3 ? 600 : (end - 3600) / 2), end))}" y="${H - 6}" text-anchor="middle" class="st-mc-lbl">${l}</text>` : '')).join('');
+  // Periods: alternating bands, solid dividers and a header with each period's score and momentum share.
+  const spans = [[0, 1200, '1st period'], [1200, 2400, '2nd period'], [2400, 3600, '3rd period']];
+  if (end > 3600) spans.push([3600, end, 'OT']);
+  const lines = game.linescore.periods.filter((p) => p.label !== 'SO');
+  const periods = spans.map(([a, b], i) => `<rect x="${X(a)}" y="${P.t - 30}" width="${X(b) - X(a)}" height="${H - P.b - P.t + 30}" class="st-mc-band${i % 2 ? ' alt' : ''}"/>`).join('')
+    + spans.slice(1).map(([a]) => `<line x1="${X(a)}" x2="${X(a)}" y1="${P.t - 30}" y2="${H - P.b}" class="st-mc-div"/>`).join('');
+  const labels = spans.map(([a, b, name], i) => {
+    const ls = lines[i];
+    const share = m.periods?.[i];
+    const wide = X(b) - X(a) > 200;
+    const lead = share && wide ? (share.home > share.away ? 'home' : share.away > share.home ? 'away' : null) : null;
+    return `<text x="${X(a) + 10}" y="${P.t - 34}" class="st-mc-ph">${name.toUpperCase()}</text>
+      ${ls && wide ? `<text x="${X(a) + 10}" y="${P.t - 14}" class="st-mc-ps"><tspan fill="${c.away}">${esc(game.away.abbrev)} ${ls.away ?? 0}</tspan><tspan fill="#64748b"> – </tspan><tspan fill="${c.home}">${ls.home ?? 0} ${esc(game.home.abbrev)}</tspan></text>` : ''}
+      ${lead ? `<text x="${X(b) - 10}" y="${P.t - 14}" text-anchor="end" class="st-mc-pm" fill="${c[lead]}">${esc(game[lead].abbrev)} ${share[lead]}% momentum</text>` : ''}`;
+  }).join('');
   return `<div class="b-card st-mc"><div class="st-mc-key"><span style="color:${c.home}">&#9650; ${esc(game.home.commonName)}</span><span style="color:${c.away}">&#9660; ${esc(game.away.commonName)}</span></div>
     <svg viewBox="0 0 ${W} ${H}" class="st-mc-svg" role="img" aria-label="Momentum over the game">
       <defs><clipPath id="st-top"><rect x="0" y="0" width="${W}" height="${mid}"/></clipPath><clipPath id="st-bot"><rect x="0" y="${mid}" width="${W}" height="${H}"/></clipPath>
         <linearGradient id="st-gh" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${c.home}" stop-opacity=".9"/><stop offset="1" stop-color="${c.home}" stop-opacity=".25"/></linearGradient>
         <linearGradient id="st-ga" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="${c.away}" stop-opacity=".9"/><stop offset="1" stop-color="${c.away}" stop-opacity=".25"/></linearGradient></defs>
-      ${pp}${periods}
+      ${periods}${pp}
       <path d="${area}" fill="url(#st-gh)" clip-path="url(#st-top)"/><path d="${area}" fill="url(#st-ga)" clip-path="url(#st-bot)"/>
       <line x1="${P.l}" x2="${W - P.r}" y1="${mid}" y2="${mid}" class="st-mc-zero"/>
       ${goals}${swings}${labels}

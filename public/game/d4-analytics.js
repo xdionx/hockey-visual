@@ -52,7 +52,7 @@ export function shotMap(game, c) {
     <div class="a-rinkwrap"><span class="a-att" style="color:${c.away}">&#9664; ${esc(game.away.abbrev)} attacking</span><span class="a-att r" style="color:${c.home}">${esc(game.home.abbrev)} attacking &#9654;</span>
       <svg class="a-rink" viewBox="-101 -43.5 202 87" role="img" aria-label="Shot locations">${rinkMarkup()}<clipPath id="a-zone-clip"><rect x="-100" y="-42.5" width="200" height="85" rx="28" ry="28"/></clipPath><g id="a-zones" clip-path="url(#a-zone-clip)"></g><g id="a-shots"></g><g id="a-zone-labels"></g></svg></div>
     <div class="a-legend" id="a-dot-legend"><span><svg viewBox="-3 -3 6 6"><circle r="2.6" fill="currentColor"/></svg>Goal</span><span><svg viewBox="-3 -3 6 6"><circle r="2" fill="none" stroke="currentColor" stroke-width=".9"/></svg>On goal</span><span><svg viewBox="-3 -3 6 6"><path d="M-1.6-1.6l3.2 3.2M1.6-1.6l-3.2 3.2" stroke="currentColor" stroke-width=".8"/></svg>Missed</span><span><svg viewBox="-3 -3 6 6"><rect x="-1.4" y="-1.4" width="2.8" height="2.8" fill="currentColor" opacity=".5"/></svg>Blocked</span><span><svg viewBox="-3 -3 6 6"><path d="M-2.5 2V-2H2.5" fill="none" stroke="#facc15" stroke-width=".6" stroke-dasharray="1 .8"/></svg>Home plate (1.5x)</span></div>
-    <p class="a-zone-key" id="a-zone-key" hidden>Big number = shot attempts in the zone. <b>S</b> on goal (including goals), <b>M</b> missed, <b>B</b> blocked. The dashed outline is the home plate, the most dangerous area to shoot from; attempts there count 1.5x toward momentum and on-ice shot share. Discs are goals, numbered with the scorer's sweater number: hover for the scorer, assists and goalie, click to watch the highlight.</p>
+    <p class="a-zone-key" id="a-zone-key" hidden>Big number = shot attempts in the zone. <b>S</b> on goal (including goals), <b>M</b> missed, <b>B</b> blocked. <b>Home plate</b> (yellow outline) is the most dangerous area to shoot from: posts to faceoff dots to the top of the circles. Attempts there count 1.5x toward momentum and on-ice shot share. Discs are goals, numbered with the scorer's sweater number: hover for the scorer, assists and goalie, click to watch the highlight.</p>
     <div id="a-zone-table" hidden></div>
   </section>`;
 }
@@ -152,25 +152,29 @@ function zoneLayer(game, shots, team, color) {
     if (s.kind === 'goal' || s.kind === 'sog') z.sog++;
     else z[s.kind]++;
   }
-  const max = Math.max(1, ...ZONES.filter((z) => z[2] != null).map(([k]) => counts[k]?.att ?? 0));
+  const drawn = ZONES.filter((z) => z[2]);
+  const max = Math.max(1, ...drawn.map(([k]) => counts[k]?.att ?? 0));
   const out = { rects: '', labels: '', goals: '' };
-  for (const [k, label, x1, x2, y1, y2] of ZONES.filter((z) => z[2] != null)) {
+  const P = ([x, y]) => [x * flip, -y * flip]; // svg y is flipped
+  for (const [k, label, pts, anchor, tall] of drawn) {
     const n = counts[k] ?? { att: 0, goals: 0, sog: 0, miss: 0, block: 0 };
-    const xs = [x1 * flip, x2 * flip].sort((a, b) => a - b);
-    const ys = [-y2 * flip, -y1 * flip].sort((a, b) => a - b); // svg y is flipped
     const op = n.att ? 0.12 + 0.7 * (n.att / max) : 0.03;
-    const cx = (xs[0] + xs[1]) / 2;
-    const cy = (ys[0] + ys[1]) / 2;
-    out.rects += `<rect class="a-zone" x="${xs[0]}" y="${ys[0]}" width="${xs[1] - xs[0]}" height="${ys[1] - ys[0]}" fill="${color}" fill-opacity="${op.toFixed(2)}" stroke="rgba(255,255,255,.25)" stroke-width=".4"><title>${esc(`${label}: ${n.att} attempts, ${n.goals} goals`)}</title></rect>`;
+    const [cx, cy] = P(anchor);
+    const plate = k === 'home-plate';
+    out.rects += `<polygon class="a-zone${plate ? ' plate-zone' : ''}" points="${pts.map(P).map((p) => p.join(',')).join(' ')}" fill="${color}" fill-opacity="${op.toFixed(2)}" stroke="${plate ? '#facc15' : 'rgba(255,255,255,.25)'}" stroke-width="${plate ? 0.7 : 0.4}"><title>${esc(`${label}: ${n.att} attempts, ${n.goals} goals`)}</title></polygon>`;
     // Labels sit above the goal dots so the counts stay readable.
-    const tall = ys[1] - ys[0] > 12;
     const goals = shots.filter((x) => x.kind === 'goal' && x.zone === k);
     const ny = n.att && tall ? cy - (goals.length ? 3.6 : 2) : cy;
     out.labels += `<text x="${cx}" y="${ny}" text-anchor="middle" dominant-baseline="middle" class="a-zone-n${n.att ? '' : ' zero'}">${n.att}${n.goals ? `<tspan class="a-zone-g"> · ${n.goals}G</tspan>` : ''}</text>`;
     // Attempt types under the total: S on goal (incl. goals), M missed, B blocked.
     if (n.att && tall) out.labels += `<text x="${cx}" y="${goals.length ? cy + 1.6 : cy + 3.6}" text-anchor="middle" dominant-baseline="middle" class="a-zone-k"><tspan>S</tspan>${n.sog} <tspan>M</tspan>${n.miss} <tspan>B</tspan>${n.block}</text>`;
-    // Goals sit in their zone as a row of scorer-number discs.
-    goals.forEach((g, i) => { out.goals += goalMark(game, g, color, 1.9, [cx + (i - (goals.length - 1) / 2) * 4.3, tall ? cy + 6 : cy + 4]); });
+    // Goals sit in their zone as a row of scorer-number discs (two rows when there are many).
+    const perRow = plate ? 5 : 4;
+    goals.forEach((g, i) => {
+      const row = Math.floor(i / perRow);
+      const inRow = Math.min(perRow, goals.length - row * perRow);
+      out.goals += goalMark(game, g, color, 1.9, [cx + ((i % perRow) - (inRow - 1) / 2) * 4.3, (tall ? cy + 6 : cy + 4) + row * 4.3]);
+    });
   }
   return out;
 }
@@ -233,11 +237,12 @@ function mountGoalTips(root, game, c) {
     const g = scoringFor(game, s);
     const scorer = idx.get(s.shooterId);
     const assists = (s.assistIds ?? []).map((id) => idx.get(id)).filter(Boolean);
+    const aToDate = new Map((g?.assists ?? []).map((a) => [a.id, a.assistsToDate]));
     const goalie = idx.get(s.goalieId);
     tip.style.setProperty('--team', c[s.team]);
     tip.innerHTML = `<div class="gt-head"><b>${esc(game[s.team].abbrev)} goal</b><span>${s.period === 'OT' ? 'OT' : `P${esc(s.period)}`} ${esc(s.time)}${s.shotType ? ` · ${esc(s.shotType)}` : ''}${g ? ` · ${g.score.away}-${g.score.home}` : ''}</span>${(g?.tags ?? []).map((t) => `<i>${esc(t)}</i>`).join('')}</div>
       ${person(scorer, 'Goal', g?.scorer?.goalsToDate != null ? `${g.scorer.goalsToDate} this season` : '')}
-      ${assists.length ? assists.map((a, i) => person(a, i ? 'Secondary assist' : 'Primary assist')).join('') : '<div class="gt-none">Unassisted</div>'}
+      ${assists.length ? assists.map((a, i) => person(a, i ? 'Secondary assist' : 'Primary assist', aToDate.get(a.id) != null ? `${aToDate.get(a.id)} this season` : '')).join('') : '<div class="gt-none">Unassisted</div>'}
       ${goalie ? `<div class="gt-sep"></div>${person(goalie, 'Scored on', esc(game[goalie.side].abbrev))}` : g?.tags?.includes('EN') ? '<div class="gt-sep"></div><div class="gt-none">Empty net</div>' : ''}
       ${el.dataset.videoId ? '<div class="gt-foot">Click to watch the highlight</div>' : ''}`;
     tip.hidden = false;
@@ -273,7 +278,7 @@ export function mountShotMap(root, game, c) {
     // Draw goals last so they sit on top. In zone view only goals stay, to show where scoring came from.
     const order = { block: 0, miss: 1, sog: 2, goal: 3 };
     // In zone view goals are drawn inside their zone; only goals from outside the zone keep their spot.
-    const dots = zones ? shots.filter((s) => s.kind === 'goal' && !ZONES.find((z) => z[0] === s.zone && z[2] != null)) : shots;
+    const dots = zones ? shots.filter((s) => s.kind === 'goal' && !ZONES.find((z) => z[0] === s.zone && z[2])) : shots;
     root.querySelector('#a-shots').innerHTML = dots.sort((a, b) => order[a.kind] - order[b.kind]).map((s) => (s.kind === 'goal' ? goalMark(game, s, c[s.team], zones ? 2.4 : 2.9) : shotMark(s, c[s.team], 2.2))).join('');
     root.querySelector('#a-dot-legend').hidden = zones;
     root.querySelector('#a-zone-key').hidden = !zones;

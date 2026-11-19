@@ -59,7 +59,7 @@ export function scoringCards(game, c) {
         <div class="b-gc-body">
           <div class="b-gc-top"><span class="b-tm">${esc(g.team)}</span><span>${g.period === 'SO' ? 'Shootout' : `${esc(g.period === 'OT' ? 'OT' : `P${g.period}`)} · ${esc(g.time)}`}</span>${g.tags.map((t) => `<span class="b-tag">${esc(t)}</span>`).join('')}</div>
           <strong>${esc(g.scorer.fullName)}${g.scorer.goalsToDate != null ? ` <small>(${g.scorer.goalsToDate})</small>` : ''}</strong>
-          <div class="b-ast">${g.period === 'SO' ? 'Deciding goal' : g.assists.length ? g.assists.map((a) => esc(a.name)).join(', ') : 'Unassisted'}</div>
+          <div class="b-ast">${g.period === 'SO' ? 'Deciding goal' : g.assists.length ? g.assists.map((a) => `${esc(a.name)}${a.assistsToDate != null ? ` <small>(${a.assistsToDate})</small>` : ''}`).join(', ') : 'Unassisted'}</div>
         </div>
         <div class="b-gc-score">${g.score.away}<i>-</i>${g.score.home}</div>
         <div class="b-gc-acts">${visualizerButton(g.visualizer, `${g.team} · ${g.scorer.name} · Goal visualizer`, '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="9" cy="12" r="2" fill="currentColor"/><path d="M11 12h6" stroke="currentColor" stroke-width="2" stroke-dasharray="2 2"/></svg>', 'b-viz')}
