@@ -278,3 +278,11 @@ test('How it unfolded lists goals period by period with the running score', asyn
   assert.match(goalRows[0].text, /opened the scoring/);
   assert.match(goalRows.at(-1).score, /\d – \d/);
 });
+
+test('team stats include momentum and time in control', () => {
+  const m = game.teamStats.find((s) => s.key === 'momentum');
+  const c = game.teamStats.find((s) => s.key === 'momentumControl');
+  assert.ok(m && c);
+  assert.equal(m.awayNum, game.momentum.totals.away);
+  assert.match(c.away, /^\d+ min$/);
+});

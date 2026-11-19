@@ -64,6 +64,17 @@ const TEAM_STAT_LABELS = {
   hits: 'Hits', blockedShots: 'Blocked shots', giveaways: 'Giveaways', takeaways: 'Takeaways',
 };
 
+/** Momentum as team stats: how much each team pushed, and how long each was in control. */
+function momentumStats(momentum) {
+  if (!momentum?.series?.length) return [];
+  const ctl = (momentum.periods ?? []).reduce((a, p) => ({ away: a.away + (p.control?.away ?? 0), home: a.home + (p.control?.home ?? 0) }), { away: 0, home: 0 });
+  const mins = (sec) => Math.round(sec / 60);
+  return [
+    { key: 'momentum', label: 'Momentum', away: momentum.totals.away.toFixed(1), home: momentum.totals.home.toFixed(1), awayNum: momentum.totals.away, homeNum: momentum.totals.home },
+    { key: 'momentumControl', label: 'Momentum control', away: `${mins(ctl.away)} min`, home: `${mins(ctl.home)} min`, awayNum: ctl.away, homeNum: ctl.home },
+  ];
+}
+
 function teamStats(rightRail) {
   const out = [];
   for (const s of rightRail?.teamGameStats ?? []) {
@@ -468,7 +479,7 @@ export function normalizeGameDetail({ box, landing = null, rightRail = null, pbp
     away: team(box.awayTeam, info.awayTeam),
     home: team(box.homeTeam, info.homeTeam),
     linescore: linescore(box, rightRail),
-    teamStats: teamStats(rightRail),
+    teamStats: [...teamStats(rightRail), ...momentumStats(momentum)],
     scoring: scoring(landing),
     shootout: shootout(landing),
     penalties: penalties(landing),
