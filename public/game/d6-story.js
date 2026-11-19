@@ -1,7 +1,7 @@
 // Design "Game Story": the Broadcast look with the Analytics and Scorecards data,
 // ordered to tell the game's story: what happened, how momentum swung, where the
 // shots came from, who drove it, then the full box score.
-import { esc, teamColors, allSkaters, allGoalies, elapsed, logo, statusText, strengthBadge, headshot } from './core.js';
+import { esc, teamColors, allSkaters, allGoalies, elapsed, logo, statusText, strengthBadge, headshot, on } from './core.js';
 import { hero, scoringCards, stars, statBars, shotLine } from './d2-broadcast.js';
 import { kpis, shotMap, heatTable, goalies, shotSummary, mountShotMap } from './d4-analytics.js';
 import { spotlight, scorecardControls, scorecardKey, mountScorecards } from './d5-scorecards.js';
@@ -153,7 +153,7 @@ function mountMomentumTips(root, game, c) {
     cross.setAttribute('visibility', 'hidden'); dot.setAttribute('visibility', 'hidden');
     place(r.left + r.width / 2, r.top);
   };
-  svg.addEventListener('pointermove', (e) => {
+  on(svg, 'pointermove', (e) => {
     const item = e.target.closest('.st-mc-item');
     if (item) { showItem(item); return; }
     const box = svg.getBoundingClientRect();
@@ -172,10 +172,10 @@ function mountMomentumTips(root, game, c) {
     tip.innerHTML = `<b${side ? ` style="color:${c[side]}"` : ''}>${side ? `${esc(game[side].commonName)} pushing` : 'Even'}</b><span>${esc(clock(st))} · momentum ${Math.abs(v).toFixed(1)}</span>`;
     place(box.left + (x / vb.width) * box.width, box.top + (y / vb.height) * box.height);
   });
-  svg.addEventListener('pointerleave', hide);
-  svg.addEventListener('focusin', (e) => { const item = e.target.closest('.st-mc-item'); if (item) showItem(item); });
-  svg.addEventListener('focusout', hide);
-  addEventListener('scroll', hide, { passive: true });
+  on(svg, 'pointerleave', hide);
+  on(svg, 'focusin', (e) => { const item = e.target.closest('.st-mc-item'); if (item) showItem(item); });
+  on(svg, 'focusout', hide);
+  on(window, 'scroll', hide, { passive: true });
 }
 
 /** Diverging momentum chart: home pushes up, away pushes down. */
@@ -381,7 +381,7 @@ export default {
         ${header(4, 'players', 'Player scorecards', 'Each player’s rating and what drove it.')}
         ${spotlight(game, c, all, scale)}
         ${scorecardControls(game)}
-        <div class="s-grid" id="s-grid"></div>
+        <div class="s-grid" id="s-grid" data-js></div>
         ${scorecardKey()}
       </section>
 
@@ -416,6 +416,8 @@ export default {
     const heroEl = root.querySelector('.b-hero');
     root.heroObserver?.disconnect();
     if (bar && heroEl) {
+      // Set it now too, so a live refresh never collapses the bar for a frame.
+      bar.classList.toggle('stuck', heroEl.getBoundingClientRect().bottom < 60);
       root.heroObserver = new IntersectionObserver(([e]) => bar.classList.toggle('stuck', !e.isIntersecting && e.boundingClientRect.top < 0), { rootMargin: '-60px 0px 0px 0px' });
       root.heroObserver.observe(heroEl);
     }

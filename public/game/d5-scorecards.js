@@ -1,6 +1,6 @@
 // Design 5 "Scorecards": one card per player with a game rating and what drove it.
 // A modern take on HockeyStats-style player game cards; the start of the per-player scorecard.
-import { esc, logo, teamColors, statusText, prettyDate, allSkaters, allGoalies, pct, signed, rinkMarkup, shotMark, headshot, ratingColor, GS_PARTS } from './core.js';
+import { esc, logo, teamColors, statusText, prettyDate, allSkaters, allGoalies, pct, signed, rinkMarkup, shotMark, headshot, ratingColor, GS_PARTS, on, morphInner } from './core.js';
 
 export const PART_COLORS = { scoring: '#6366f1', momentum: '#22c55e', shooting: '#0ea5e9', onIce: '#14b8a6', defense: '#a3a3a3', discipline: '#f59e0b', faceoffs: '#ec4899' };
 
@@ -145,8 +145,8 @@ export function mountScorecards(root, game, c) {
     seg.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x.dataset.v === state[seg.dataset.k])));
   });
   const el = root.querySelector('#s-grid');
-  const draw = () => { el.innerHTML = grid(game, c, state); };
-  root.querySelector('#s-controls').addEventListener('click', (e) => {
+  const draw = () => morphInner(el, grid(game, c, state));
+  on(root.querySelector('#s-controls'), 'click', (e) => {
     const b = e.target.closest('button[data-v]');
     if (!b) return;
     const seg = b.closest('[data-k]');
@@ -170,7 +170,7 @@ export default {
       ${header(game, c)}
       ${spotlight(game, c, all, scale)}
       ${scorecardControls(game)}
-      <section class="s-grid" id="s-grid"></section>
+      <section class="s-grid" id="s-grid" data-js></section>
       ${scorecardKey()}
     </div>`;
   },

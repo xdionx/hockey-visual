@@ -1,6 +1,6 @@
 // Design 4 "Analytics": shot map, shot-attempt flow and heat-mapped player stats.
 // Inspired by HockeyStats and NHL EDGE style analytics pages.
-import { ZONES, esc, logo, teamColors, statusText, prettyDate, allSkaters, allGoalies, pct, signed, rinkMarkup, shotMark, elapsed, headshot } from './core.js';
+import { ZONES, esc, logo, teamColors, statusText, prettyDate, allSkaters, allGoalies, pct, signed, rinkMarkup, shotMark, elapsed, headshot, on, morphInner } from './core.js';
 
 function header(game, c) {
   const ls = game.linescore;
@@ -50,10 +50,10 @@ export function shotMap(game, c) {
         <div class="a-seg" data-filter="period"><button data-v="all" aria-pressed="true">All</button>${[...new Set(game.shots.map((s) => s.period))].map((p) => `<button data-v="${esc(p)}" aria-pressed="false">${p === 'OT' ? 'OT' : `P${esc(p)}`}</button>`).join('')}</div>
       </div></div>
     <div class="a-rinkwrap"><span class="a-att" style="color:${c.away}">&#9664; ${esc(game.away.abbrev)} attacking</span><span class="a-att r" style="color:${c.home}">${esc(game.home.abbrev)} attacking &#9654;</span>
-      <svg class="a-rink" viewBox="-101 -43.5 202 87" role="img" aria-label="Shot locations">${rinkMarkup()}<clipPath id="a-zone-clip"><rect x="-100" y="-42.5" width="200" height="85" rx="28" ry="28"/></clipPath><g id="a-zones" clip-path="url(#a-zone-clip)"></g><g id="a-shots"></g><g id="a-zone-labels"></g></svg></div>
+      <svg class="a-rink" viewBox="-101 -43.5 202 87" role="img" aria-label="Shot locations">${rinkMarkup()}<clipPath id="a-zone-clip"><rect x="-100" y="-42.5" width="200" height="85" rx="28" ry="28"/></clipPath><g id="a-zones" data-js clip-path="url(#a-zone-clip)"></g><g id="a-shots" data-js></g><g id="a-zone-labels" data-js></g></svg></div>
     <div class="a-legend" id="a-dot-legend"><span><svg viewBox="-3 -3 6 6"><circle r="2.6" fill="currentColor"/></svg>Goal</span><span><svg viewBox="-3 -3 6 6"><circle r="2" fill="none" stroke="currentColor" stroke-width=".9"/></svg>On goal</span><span><svg viewBox="-3 -3 6 6"><path d="M-1.6-1.6l3.2 3.2M1.6-1.6l-3.2 3.2" stroke="currentColor" stroke-width=".8"/></svg>Missed</span><span><svg viewBox="-3 -3 6 6"><rect x="-1.4" y="-1.4" width="2.8" height="2.8" fill="currentColor" opacity=".5"/></svg>Blocked</span><span><svg viewBox="-3 -3 6 6"><path d="M-2.5 2V-2H2.5" fill="none" stroke="#facc15" stroke-width=".6" stroke-dasharray="1 .8"/></svg>Home plate (1.5x)</span></div>
     <p class="a-zone-key" id="a-zone-key" hidden>Big number = shot attempts in the zone, with goals in yellow. Below it: <b>SOG</b> on goal (including goals), <b>MISS</b> missed the net, <b>BLK</b> blocked. <b>Home plate</b> (yellow outline) is the most dangerous area to shoot from: posts to faceoff dots to the top of the circles. Attempts there count 1.5x toward momentum and on-ice shot share. Discs are goals, numbered with the scorer's sweater number: hover for the scorer, assists and goalie, click to watch the highlight.</p>
-    <div id="a-zone-table" hidden></div>
+    <div id="a-zone-table" data-js hidden></div>
   </section>`;
 }
 
@@ -259,11 +259,11 @@ function mountGoalTips(root, game, c) {
     tip.style.top = `${above >= 70 || r.top > innerHeight - r.bottom ? Math.max(8, above) : r.bottom + 10}px`;
   };
   const hide = () => { tip.hidden = true; };
-  wrap.addEventListener('pointerover', (e) => { const el = e.target.closest('.goal-mark'); if (el) show(el); });
-  wrap.addEventListener('pointerout', (e) => { if (e.target.closest('.goal-mark') && !e.relatedTarget?.closest?.('.goal-mark')) hide(); });
-  wrap.addEventListener('focusin', (e) => { const el = e.target.closest('.goal-mark'); if (el) show(el); });
-  wrap.addEventListener('focusout', hide);
-  addEventListener('scroll', hide, { passive: true });
+  on(wrap, 'pointerover', (e) => { const el = e.target.closest('.goal-mark'); if (el) show(el); });
+  on(wrap, 'pointerout', (e) => { if (e.target.closest('.goal-mark') && !e.relatedTarget?.closest?.('.goal-mark')) hide(); });
+  on(wrap, 'focusin', (e) => { const el = e.target.closest('.goal-mark'); if (el) show(el); });
+  on(wrap, 'focusout', hide);
+  on(window, 'scroll', hide, { passive: true });
 }
 
 export function mountShotMap(root, game, c) {
@@ -278,21 +278,21 @@ export function mountShotMap(root, game, c) {
     const zones = state.view === 'zones';
     const teams = state.team === 'all' ? ['away', 'home'] : [state.team];
     const layers = zones ? teams.map((t) => zoneLayer(game, shots.filter((s) => s.team === t), t, c[t])) : [];
-    root.querySelector('#a-zones').innerHTML = layers.map((l) => l.rects).join('');
-    root.querySelector('#a-zone-labels').innerHTML = layers.map((l) => l.labels).join('') + `<g pointer-events="all">${layers.map((l) => l.goals).join('')}</g>`;
+    morphInner(root.querySelector('#a-zones'), layers.map((l) => l.rects).join(''));
+    morphInner(root.querySelector('#a-zone-labels'), layers.map((l) => l.labels).join('') + `<g pointer-events="all">${layers.map((l) => l.goals).join('')}</g>`);
     // Draw goals last so they sit on top. In zone view only goals stay, to show where scoring came from.
     const order = { block: 0, miss: 1, sog: 2, goal: 3 };
     // In zone view goals are drawn inside their zone; only goals from outside the zone keep their spot.
     const dots = zones ? shots.filter((s) => s.kind === 'goal' && !ZONES.find((z) => z[0] === s.zone && z[2])) : shots;
-    root.querySelector('#a-shots').innerHTML = dots.sort((a, b) => order[a.kind] - order[b.kind]).map((s) => (s.kind === 'goal' ? goalMark(game, s, c[s.team], zones ? 2.4 : 2.9) : shotMark(s, c[s.team], 2.2))).join('');
+    morphInner(root.querySelector('#a-shots'), dots.sort((a, b) => order[a.kind] - order[b.kind]).map((s) => (s.kind === 'goal' ? goalMark(game, s, c[s.team], zones ? 2.4 : 2.9) : shotMark(s, c[s.team], 2.2))).join(''));
     root.querySelector('#a-dot-legend').hidden = zones;
     root.querySelector('#a-zone-key').hidden = !zones;
     const table = root.querySelector('#a-zone-table');
     table.hidden = !zones;
-    table.innerHTML = zones ? zoneTable(game, shots, c, teams) : '';
+    morphInner(table, zones ? zoneTable(game, shots, c, teams) : '');
   };
   mountGoalTips(root, game, c);
-  root.querySelector('#a-filters')?.addEventListener('click', (e) => {
+  on(root.querySelector('#a-filters'), 'click', (e) => {
     const b = e.target.closest('button[data-v]');
     if (!b) return;
     const seg = b.closest('[data-filter]');

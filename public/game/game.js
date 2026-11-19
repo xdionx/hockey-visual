@@ -1,6 +1,6 @@
 // Box score page: loads one game's data/games/<id>.json and renders it in the chosen design.
 // Switch designs with the bar at the top, keys 1-5, or ?design=<name> in the URL.
-import { esc, initVideo, makeSortable, makeTabs, upgradeShots } from './core.js';
+import { esc, initVideo, makeSortable, makeTabs, upgradeShots, morphInner, setMountSignal, resetRinkIds } from './core.js';
 import { getData, LIVE_REFRESH_MS } from '../data.js';
 import classic from './d1-classic.js';
 import broadcast from './d2-broadcast.js';
@@ -41,18 +41,56 @@ function setDesign(id) {
   render();
 }
 
+let mountCtl = null;
+let rendered = null; // design id currently in the page
+
+/** UI choices the user made (open tabs, sorted columns) so a live refresh keeps them. */
+function uiState() {
+  const tabs = [...box.querySelectorAll('[data-tabs]')].map((g) => g.querySelector('[data-tab][aria-selected="true"]')?.dataset.tab);
+  const sorts = [...box.querySelectorAll('table.sortable')].map((t) => {
+    const th = t.querySelector('th[data-dir]');
+    return th ? { col: [...th.parentNode.children].indexOf(th), dir: th.dataset.dir } : null;
+  });
+  return { tabs, sorts };
+}
+
+function restoreUi({ tabs, sorts }) {
+  box.querySelectorAll('[data-tabs]').forEach((g, i) => {
+    const btn = tabs[i] && g.querySelector(`[data-tab="${tabs[i]}"]`);
+    if (btn && btn.getAttribute('aria-selected') !== 'true') btn.click();
+  });
+  box.querySelectorAll('table.sortable').forEach((t, i) => {
+    const s = sorts[i];
+    const th = s && t.querySelector('thead tr')?.children[s.col];
+    if (!th) return;
+    th.click(); // first click sorts descending
+    if (s.dir === 'asc') th.click();
+  });
+}
+
 function render() {
   switcher.querySelectorAll('[data-design]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.design === design)));
   document.body.dataset.design = design;
   if (!game) return;
   const d = DESIGNS.find((x) => x.id === design);
+  // Same design already showing (a live refresh): patch only what changed, so nothing blinks,
+  // images don't reload and the page doesn't jump.
+  const patch = rendered === d.id && box.firstElementChild;
+  const ui = patch ? uiState() : null;
   const y = scrollY;
+  mountCtl?.abort();
+  mountCtl = new AbortController();
+  setMountSignal(mountCtl.signal);
   box.className = `design d-${d.id} ${d.classes ?? ''}`;
-  box.innerHTML = d.render(game);
+  resetRinkIds();
+  if (patch) morphInner(box, d.render(game));
+  else box.innerHTML = d.render(game);
+  rendered = d.id;
   makeSortable(box);
   makeTabs(box);
   d.mount?.(box, game);
-  scrollTo(0, y);
+  if (ui) restoreUi(ui);
+  else scrollTo(0, y);
 }
 
 let lastText = '';
