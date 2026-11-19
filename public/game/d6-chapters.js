@@ -155,7 +155,7 @@ function momentumFlips(game, events) {
       const sog = mineShots.filter((x) => x.kind === 'sog' || x.kind === 'goal').length;
       const lopsided = mineShots.length >= 4 && mineShots.length >= theirs * 1.5;
       tag = 'A run of small bumps';
-      text = `${game[prev.team].abbrev} had the momentum for ${prevHeld}. Then ${abbr} ${lopsided ? `piled up ${mineShots.length} shot attempts to ${theirs}${sog ? ` (${sog} on goal)` : ''} and` : 'strung together faceoff wins, takeaways, hits and chances, and'} took it over. ${name} kept it for ${held}.`;
+      text = `${game[prev.team].abbrev} had the momentum for ${prevHeld}. Then ${abbr} ${lopsided ? `piled up ${mineShots.length} SAT to ${theirs}${sog ? ` (${sog} on goal)` : ''} and` : 'strung together faceoff wins, takeaways, hits and chances, and'} took it over. ${name} kept it for ${held}.`;
     }
     out.push({ t, side: mine, tag, person, text, size });
   }

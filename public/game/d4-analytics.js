@@ -32,7 +32,7 @@ export function kpis(game, c) {
     <div class="a-kv"><b style="color:${c.away}">${a}</b><b style="color:${c.home}">${h}</b></div>
     ${aw != null ? `<div class="a-kbar"><i style="width:${aw}%;background:${c.away}"></i><i style="width:${100 - aw}%;background:${c.home}"></i></div>` : ''}</div>`;
   return `<section class="a-kpis">
-    ${tile('Shot attempts (Corsi)', s.away.attempts, s.home.attempts, cf)}
+    ${tile('SAT (shot attempts)', s.away.attempts, s.home.attempts, cf)}
     ${tile('Home plate attempts', `${s.away.plate}<small>${s.away.plateGoals}G</small>`, `${s.home.plate}<small>${s.home.plateGoals}G</small>`, (100 * s.away.plate) / (s.away.plate + s.home.plate || 1))}
     ${tile('Shots on goal', s.away.sog, s.home.sog, (100 * s.away.sog) / (s.away.sog + s.home.sog || 1))}
     ${tile('Shooting %', `${s.away.shPct.toFixed(1)}%`, `${s.home.shPct.toFixed(1)}%`)}
@@ -52,7 +52,7 @@ export function shotMap(game, c) {
     <div class="a-rinkwrap"><span class="a-att" style="color:${c.away}">&#9664; ${esc(game.away.abbrev)} attacking</span><span class="a-att r" style="color:${c.home}">${esc(game.home.abbrev)} attacking &#9654;</span>
       <svg class="a-rink" viewBox="-101 -43.5 202 87" role="img" aria-label="Shot locations">${rinkMarkup()}<clipPath id="a-zone-clip"><rect x="-100" y="-42.5" width="200" height="85" rx="28" ry="28"/></clipPath><g id="a-zones" data-js clip-path="url(#a-zone-clip)"></g><g id="a-shots" data-js></g><g id="a-zone-labels" data-js></g></svg></div>
     <div class="a-legend" id="a-dot-legend"><span><svg viewBox="-3 -3 6 6"><circle r="2.6" fill="currentColor"/></svg>Goal</span><span><svg viewBox="-3 -3 6 6"><circle r="2" fill="none" stroke="currentColor" stroke-width=".9"/></svg>On goal</span><span><svg viewBox="-3 -3 6 6"><path d="M-1.6-1.6l3.2 3.2M1.6-1.6l-3.2 3.2" stroke="currentColor" stroke-width=".8"/></svg>Missed</span><span><svg viewBox="-3 -3 6 6"><rect x="-1.4" y="-1.4" width="2.8" height="2.8" fill="currentColor" opacity=".5"/></svg>Blocked</span><span><svg viewBox="-3 -3 6 6"><path d="M-2.5 2V-2H2.5" fill="none" stroke="#facc15" stroke-width=".6" stroke-dasharray="1 .8"/></svg>Home plate (1.5x)</span></div>
-    <p class="a-zone-key" id="a-zone-key" hidden>Big number = shot attempts in the zone, with goals in yellow. Below it: <b>SOG</b> on goal (including goals), <b>MISS</b> missed the net, <b>BLK</b> blocked. <b>Home plate</b> (yellow outline) is the most dangerous area to shoot from: posts to faceoff dots to the top of the circles. Attempts there count 1.5x toward momentum and on-ice shot share. Discs are goals, numbered with the scorer's sweater number: hover for the scorer, assists and goalie, click to watch the highlight.</p>
+    <p class="a-zone-key" id="a-zone-key" hidden>Big number = shot attempts (SAT) in the zone, with goals in yellow. Below it: <b>SOG</b> on goal (including goals), <b>MISS</b> missed the net, <b>BLK</b> blocked. <b>Home plate</b> (yellow outline) is the most dangerous area to shoot from: posts to faceoff dots to the top of the circles. Attempts there count 1.5x toward momentum and on-ice shot share. Discs are goals, numbered with the scorer's sweater number: hover for the scorer, assists and goalie, click to watch the highlight.</p>
     <div id="a-zone-table" data-js hidden></div>
   </section>`;
 }
@@ -193,8 +193,8 @@ function zoneTable(game, shots, c, teams) {
       const g = z.filter((s) => s.kind === 'goal').length;
       return { label, att: z.length, sog, g, miss: z.filter((s) => s.kind === 'miss').length, block: z.filter((s) => s.kind === 'block').length };
     }).sort((a, b) => b.att - a.att);
-    return `<table class="a-table a-zt"><caption style="color:${c[team]}">${esc(game[team].abbrev)} shot attempts by zone</caption>
-      <thead><tr><th class="l">Zone</th><th title="Shot attempts">Att</th><th title="Shots on goal">SOG</th><th title="Missed the net">Miss</th><th title="Blocked">Blk</th><th title="Goals">G</th><th title="Shooting percentage">Sh%</th></tr></thead>
+    return `<table class="a-table a-zt"><caption style="color:${c[team]}">${esc(game[team].abbrev)} SAT by zone</caption>
+      <thead><tr><th class="l">Zone</th><th title="Shot attempts (SAT)">SAT</th><th title="Shots on goal">SOG</th><th title="Missed the net">Miss</th><th title="Blocked">Blk</th><th title="Goals">G</th><th title="Shooting percentage">Sh%</th></tr></thead>
       <tbody>${rows.map((r) => `<tr><td class="l">${esc(r.label)}</td><td>${r.att}</td><td>${r.sog}</td><td>${r.miss}</td><td>${r.block}</td><td>${r.g}</td><td>${r.sog ? `${Math.round((100 * r.g) / r.sog)}%` : '-'}</td></tr>`).join('')}</tbody></table>`;
   }).join('')}</div>`;
 }
