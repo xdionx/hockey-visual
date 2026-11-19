@@ -666,3 +666,13 @@ main { padding: 0 0 48px; }
 /* Mirror the home team's stats so both sides read outward from the clock */
 .st-mini-t:last-child .b-shots, .b-panel.home .b-shots { flex-direction: row-reverse; }
 .b-shots > span { display: inline-flex; align-items: baseline; gap: 3px; }
+
+/* The sticky bar never changes size: the compact score overlays the top of the bar and the bar's
+   content slides down with a transform, so nothing below moves and the bar can't flicker. */
+.st-bar { background: transparent; }
+.st-bar-body { background: #000; position: relative; transition: transform .15s ease; }
+.st-bar .st-mini { position: absolute; left: 0; right: 0; top: 0; height: 52px; max-height: none; padding: 0 12px; box-sizing: border-box; opacity: 0; pointer-events: none; transition: opacity .15s ease; }
+.st-bar.stuck .st-mini { max-height: none; padding: 0 12px; opacity: 1; pointer-events: auto; }
+.st-bar.stuck .st-bar-body { transform: translateY(52px); }
+.st-mini-s { height: 100%; justify-content: center; overflow: hidden; }
+@media (max-width: 640px) { .st-bar .st-mini { height: 48px; } .st-bar.stuck .st-bar-body { transform: translateY(48px); } }

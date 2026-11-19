@@ -60,7 +60,8 @@ export function teamColors(game, { dark = false } = {}) {
 }
 
 export function logo(team, cls = 'logo', dark = false) {
-  const src = dark && team.darkLogo ? team.darkLogo : team.logo;
+  // NHL ships a _light and a _dark version of every logo; the dark one is for dark backgrounds.
+  const src = dark ? (team.darkLogo ?? team.logo?.replace('_light.', '_dark.')) : team.logo;
   if (!src) return `<span class="${cls} logo-fallback">${esc(team.abbrev)}</span>`;
   return `<img class="${cls}" src="${esc(src)}" alt="${esc(team.abbrev)}" loading="lazy" onerror="const s=Object.assign(document.createElement('span'),{className:'${cls} logo-fallback',textContent:'${esc(team.abbrev)}'});s.dataset.imgSrc=this.getAttribute('src');this.replaceWith(s)">`;
 }

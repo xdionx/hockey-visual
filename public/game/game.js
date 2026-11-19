@@ -93,6 +93,13 @@ function render() {
   else scrollTo(0, y);
 }
 
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+/** "2026-11-17" -> "Nov 17, 2026" */
+function shortDate(d) {
+  const [y, m, day] = String(d).split('-').map(Number);
+  return `${MONTHS[m - 1]} ${day}, ${y}`;
+}
+
 let lastText = '';
 
 async function load(quiet = false) {
@@ -115,7 +122,7 @@ async function load(quiet = false) {
     if (text !== lastText) {
       game = upgradeShots(data);
       lastText = text;
-      document.title = `${game.away.abbrev} ${game.linescore.totals.away}, ${game.home.abbrev} ${game.linescore.totals.home} · Box score`;
+      document.title = `${game.away.abbrev} @ ${game.home.abbrev} ${shortDate(game.gameDate)}`;
       document.querySelector('#back').href = `./?date=${game.gameDate}`;
       render();
     }
