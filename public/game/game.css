@@ -540,3 +540,19 @@ main { padding: 0 0 48px; }
 .st-tp li > div { font-size: 14px; line-height: 1.4; color: #e2e8f0; }
 .st-tp-tag { display: block; font: 800 12px "Barlow Condensed", sans-serif; text-transform: uppercase; letter-spacing: .1em; color: var(--team); filter: brightness(1.3); }
 @media (max-width: 640px) { .st-num b { font-size: 26px; } .st-nums { grid-template-columns: repeat(2, 1fr); } }
+
+/* Momentum chart hover */
+.st-mc-svg { cursor: crosshair; }
+.st-mc-item { cursor: pointer; outline: none; }
+.st-mc-item:hover circle, .st-mc-item:focus-visible circle { stroke: #facc15; }
+.st-mc-item:hover rect, .st-mc-item:focus-visible rect { opacity: .25; }
+.st-mc-cross { stroke: rgba(255,255,255,.5); stroke-width: 1; pointer-events: none; }
+.st-mc-dot { stroke: #fff; stroke-width: 1.5; pointer-events: none; }
+.st-tip { position: fixed; z-index: 50; max-width: 300px; padding: 10px 12px; background: #0b1220; border: 1px solid #1f2937; border-radius: 6px; box-shadow: 0 12px 30px rgba(0,0,0,.5); color: #e2e8f0; font-size: 13px; line-height: 1.4; pointer-events: none; }
+.st-tip > b { display: block; font: 800 16px "Barlow Condensed", sans-serif; text-transform: uppercase; letter-spacing: .05em; }
+.st-tip > span { display: block; color: #8b95a7; font-size: 12px; margin-bottom: 4px; }
+.st-tip p { margin: 4px 0 0; }
+.st-tip small { display: block; margin-top: 6px; color: #8b95a7; font-size: 11px; }
+.st-tip-p { display: flex; gap: 8px; align-items: center; margin-top: 4px; }
+.st-tip-p small { margin-top: 0; }
+.st-tip-mug { width: 38px; height: 38px; border-radius: 50%; background: #1e293b; flex: none; object-fit: cover; font-size: 12px; }
