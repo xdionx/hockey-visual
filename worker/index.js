@@ -85,7 +85,8 @@ async function build(path) {
     const [box, landing, rightRail, pbp, shifts] = await Promise.all([
       nhl(`gamecenter/${id}/boxscore`), nhl(`gamecenter/${id}/landing`), nhl(`gamecenter/${id}/right-rail`), nhl(`gamecenter/${id}/play-by-play`),
       // Shifts (for on-ice shot attempts) live on the stats API; the box score works without them.
-      fetch(`https://api.nhle.com/stats/rest/en/shiftcharts?cayenneExp=gameId=${id}`, { headers: { accept: 'application/json', 'user-agent': 'hockey-visual-live/1.0' } })
+      // A replay never uses them, so it doesn't wait on that slower API.
+      m[1] === 'raw' ? null : fetch(`https://api.nhle.com/stats/rest/en/shiftcharts?cayenneExp=gameId=${id}`, { headers: { accept: 'application/json', 'user-agent': 'hockey-visual-live/1.0' } })
         .then((r) => (r.ok ? r.json() : null)).catch(() => null),
     ]);
     if (m[1] === 'raw') {
