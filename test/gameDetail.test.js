@@ -56,7 +56,7 @@ test('game story headline finds the comeback and the shootout winner', async () 
 });
 
 test('on-ice weighted shot attempts from shift charts', async () => {
-  const { onIceAttempts, ON_ICE_WEIGHTS } = await import('../src/momentum.js');
+  const { onIceAttempts, ON_ICE_WEIGHTS, inHomePlate, HOME_PLATE_BONUS } = await import('../src/momentum.js');
   const pbp = load('pbp');
   // One WPG skater on the ice for all of period 2.
   const shifts = { data: [{ playerId: 8476460, teamId: 52, period: 2, startTime: '00:00', endTime: '20:00', typeCode: 517 }] };
@@ -68,7 +68,8 @@ test('on-ice weighted shot attempts from shift charts', async () => {
     const k = kinds[p.typeDescKey];
     if (!k || p.periodDescriptor.number !== 2) continue;
     const id = p.details.shootingPlayerId ?? p.details.scoringPlayerId;
-    if (team.get(id) === 52) cf += ON_ICE_WEIGHTS[k]; else ca += ON_ICE_WEIGHTS[k];
+    const w = ON_ICE_WEIGHTS[k] * (k !== 'goal' && inHomePlate(p.details.xCoord, p.details.yCoord) ? HOME_PLATE_BONUS : 1);
+    if (team.get(id) === 52) cf += w; else ca += w;
   }
   assert.ok(Math.abs(row.cf - cf) < 0.01 && Math.abs(row.ca - ca) < 0.01);
   assert.equal(row.gf, 2);
@@ -93,4 +94,14 @@ test('taking a penalty costs the offender the power play it gave up', async () =
   const cost = pushes(plays, 52, roster).filter((e) => e.debit === yager).reduce((n, e) => n + (e.debitW ?? e.w), 0);
   // 1.0 for the penalty, power play pressure, and 1.5 because the power play scored.
   assert.ok(cost > 2.5, `cost ${cost}`);
+});
+
+test('home plate area', async () => {
+  const { inHomePlate } = await import('../src/momentum.js');
+  assert.equal(inHomePlate(80, 0), true); // low slot
+  assert.equal(inHomePlate(-60, 15), true); // between the dots, other end
+  assert.equal(inHomePlate(85, 20), false); // below the dots, near the goal line
+  assert.equal(inHomePlate(45, 0), false); // point
+  assert.equal(inHomePlate(95, 0), false); // behind the net
+  assert.ok(game.shots.some((s) => s.homePlate));
 });

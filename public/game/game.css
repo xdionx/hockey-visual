@@ -486,3 +486,7 @@ main { padding: 0 0 48px; }
 @media (max-width: 640px) { .b-viz { width: 30px; height: 30px; } }
 .a-zone-tables { overflow-x: auto; }
 @media (max-width: 640px) { .a-zt th, .a-zt td { padding: 6px 3px; font-size: 11px; } }
+
+/* Home plate (most dangerous scoring area) */
+.rink .plate { fill: rgba(250, 204, 21, .05); stroke: #facc15; stroke-width: .5; stroke-dasharray: 1.6 1.2; opacity: .7; }
+.a-kv small { font-size: .55em; margin-left: 3px; opacity: .75; }
