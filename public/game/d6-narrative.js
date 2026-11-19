@@ -72,8 +72,12 @@ function unfolded(game, final) {
     if (link?.w.kind === 'pp-goal') how = ` on the power play, after ${pen(link.x)} at ${link.x.period === g.period ? link.x.time : shortWhen(link.x)}`;
     else if (link?.w.kind === 'expiry') {
       const secs = link.w.goal.t - (elapsed(link.x.period, link.x.time) + (link.x.minutes ?? 2) * 60);
-      const own = link.x.player === g.scorer.fullName;
-      how = `, ${secs ? `${secs} second${secs === 1 ? '' : 's'} after` : 'the moment'} ${own ? 'his own' : `${pen(link.x)}`} penalty ran out`;
+      const gap = secs ? `${secs} second${secs === 1 ? '' : 's'} after` : 'the moment';
+      const same = link.x.team === g.team;
+      const own = same && link.x.player === g.scorer.fullName;
+      if (own) how = `, ${gap} stepping out of the penalty box (${String(link.x.infraction).toLowerCase()}), catching the ${nick(other(g.side))} off guard`;
+      else if (same) how = `, ${gap} the ${nick(g.side)} killed off ${pen(link.x)}, catching the ${nick(other(g.side))} off guard`;
+      else how = `, ${gap} ${pen(link.x)} ran out`;
     }
     else if (g.tags?.includes('PPG')) how = ' on the power play';
     else if (g.tags?.includes('SHG')) how = ' shorthanded';
@@ -159,7 +163,7 @@ function unfolded(game, final) {
       if (!w.goal) continue;
       const g = goals.find((q) => sameGoal(w.goal, q));
       if (!g) continue;
-      penalty.push(`${pen(x)} at ${shortWhen(x)} ${w.kind === 'pp-goal' ? `led to ${lastName(g.scorer.fullName)}'s power-play goal for the ${nick(g.side)}` : `ran out and ${lastName(g.scorer.fullName)} scored for the ${nick(g.side)} moments later`} (${g.after.away}-${g.after.home}).`);
+      penalty.push(`${pen(x)} at ${shortWhen(x)} ${w.kind === 'pp-goal' ? `led to ${lastName(g.scorer.fullName)}'s power-play goal for the ${nick(g.side)}` : x.team === g.team ? `was killed off and ${lastName(g.scorer.fullName)} scored for the ${nick(g.side)} right out of the box` : `ran out and ${lastName(g.scorer.fullName)} scored for the ${nick(g.side)} moments later`} (${g.after.away}-${g.after.home}).`);
     }
   }
   return { points, penalty, periods };
