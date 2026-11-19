@@ -96,7 +96,7 @@ export function flowChart(game, c) {
 }
 
 const HEAT_COLS = [
-  ['gameScore', 'GS', (p) => p.gameScore.toFixed(2)], ['points', 'P'], ['goals', 'G'], ['assists', 'A'], ['sog', 'SOG'], ['attempts', 'iCF'],
+  ['gameScore', 'GS', (p) => p.gameScore.toFixed(2)], ['points', 'P'], ['goals', 'G'], ['assists', 'A'], ['sog', 'SOG'], ['attempts', 'SAT'],
   ['plusMinus', '+/-', (p) => signed(p.plusMinus)], ['hits', 'HIT'], ['blocks', 'BLK'], ['takeaways', 'TK'], ['giveaways', 'GV'], ['toiSeconds', 'TOI', (p) => p.toi],
 ];
 
@@ -119,7 +119,7 @@ export function heatTable(game, c) {
       <thead><tr><th class="l" data-sort>Player</th><th data-sort>Tm</th><th data-sort>Pos</th>${HEAT_COLS.map(([, l]) => `<th data-sort>${l}</th>`).join('')}</tr></thead>
       <tbody>${list.map((p) => `<tr><td class="l" data-v="${esc(p.lastName)}">${esc(p.name)}</td><td><span class="a-tm" style="background:${c[p.side]}">${esc(p.team)}</span></td><td>${esc(p.position)}</td>${HEAT_COLS.map((col) => cell(col)(p)).join('')}</tr>`).join('')}</tbody>
     </table></div>
-    ${fold('What GS and iCF mean', `GS = Game Score (goals, primary and secondary assists, shots, blocks, penalties drawn and taken, faceoffs and on-ice +/-). iCF = individual shot attempts.`, { cls: 'a-note' })}
+    ${fold('What GS and SAT mean', `GS = Game Score (goals, primary and secondary assists, shots, blocks, penalties drawn and taken, faceoffs and on-ice +/-). SAT = the player's own shot attempts (on goal, missed or blocked).`, { cls: 'a-note' })}
   </section>`;
 }
 
