@@ -139,7 +139,7 @@ export function goalies(game, c) {
 
 /** Draws the shot map dots and wires its team/period filters. */
 // Kept outside the render so live refreshes don't reset the filters.
-const shotFilter = { view: 'dots', team: 'all', period: 'all' };
+const shotFilter = { view: 'zones', team: 'all', period: 'all' };
 
 /** Zone rectangles shaded by attempts, with "attempts · goals" labels, for one team's attacking end. */
 function zoneLayer(game, shots, team, color) {

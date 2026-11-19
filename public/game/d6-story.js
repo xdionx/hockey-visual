@@ -352,8 +352,10 @@ export default {
       ${hero(game, c, { strip: false, shots: true })}
       <div class="st-bar">
         ${miniScore(game, c)}
+        <div class="st-bar-body">
         ${started ? momentumStrip(game, c) : ''}
         <nav class="st-nav" aria-label="Sections">${SECTIONS.map(([id, label], i) => `<a href="#st-${id}" data-sec="${id}"><span>${String(i + 1).padStart(2, '0')}</span>${esc(label)}</a>`).join('')}</nav>
+        </div>
       </div>
 
       <section class="st-sec" id="st-story">
