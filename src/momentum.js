@@ -38,6 +38,7 @@ export const MOMENTUM_WEIGHTS = {
   goal: 3, sog: 1, miss: 0.35, blockedShooter: 0.2, blocker: 0.1,
   faceoff: { O: 0.6, N: 0.35, D: 0.25 }, takeaway: 0.5, giveaway: 0.5, hit: 0.2,
   shorthandedGoalMult: 1.5, penaltyDrawn: 1, powerPlayTick: 0.2, penaltyKilled: 1.5, powerPlayGoalAgainst: 1.5, powerPlayGoalDrawn: 0.75,
+  fighterCredit: 0.5, fightSpark: 1,
 };
 const HALF_LIFE = 75; // seconds
 const DECAY = Math.LN2 / HALF_LIFE;
@@ -95,6 +96,7 @@ export function powerPlays(plays, awayId) {
 export function pushes(plays, awayId, rosterTeam) {
   const W = MOMENTUM_WEIGHTS;
   const out = [];
+  const fightSeen = new Set();
   const sideOf = (teamId) => (teamId === awayId ? 'away' : 'home');
   const other = (s) => (s === 'away' ? 'home' : 'away');
   for (const p of plays) {
@@ -132,6 +134,15 @@ export function pushes(plays, awayId, rosterTeam) {
       case 'hit': if (owner) add(owner, W.hit, 'hit', [{ id: d.hittingPlayerId, share: 1 }]); break;
       case 'penalty': {
         if (!owner) break; // owner = the penalized team
+        // Fighting majors come in matched pairs (one per team, same moment). A fight is not a mistake that
+        // costs the team: no debit, a small credit to each fighter, and a spark for whichever team was behind
+        // on momentum when it happened (resolved while the line is walked, see computeMomentum).
+        if (d.descKey === 'fighting') {
+          if (d.committedByPlayerId) out.push({ t, team: owner, w: 0, creditW: W.fighterCredit, kind: 'fight', credits: [{ id: d.committedByPlayerId, share: 1 }], debit: null, period: p.periodDescriptor.number, time: p.timeInPeriod });
+          const key = `${p.periodDescriptor?.number}:${p.timeInPeriod}`;
+          if (!fightSeen.has(key)) { fightSeen.add(key); add(null, W.fightSpark, 'fight-spark'); }
+          break;
+        }
         add(other(owner), W.penaltyDrawn, 'penalty', d.drawnByPlayerId ? [{ id: d.drawnByPlayerId, share: 1 }] : [], d.committedByPlayerId ?? null);
         break;
       }
@@ -198,6 +209,11 @@ export function computeMomentum(pbp, awayId, gameEnd = null) {
     while (i < list.length && list[i].t <= t) {
       const e = list[i++];
       decayTo(e.t);
+      if (e.kind === 'fight-spark') {
+        // The team that was behind gets the lift; when it's even there is nobody to wake up.
+        e.team = level.away < level.home - 0.5 ? 'away' : level.home < level.away - 0.5 ? 'home' : null;
+        if (!e.team) continue;
+      }
       const behind = level[e.team] < level[e.team === 'away' ? 'home' : 'away'];
       const mult = behind ? SWING_BONUS : 1;
       for (const c of e.credits) credit(c.id, (e.creditW ?? e.w) * c.share * mult, behind && e.w >= 0.5, e.kind);

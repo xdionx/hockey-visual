@@ -130,7 +130,9 @@ function momentumFlips(game, events) {
     const lo = run.t - 90; const hi = run.t + 40;
     const goal = events.filter((g) => g.side === mine && g.t >= lo && g.t <= hi).sort((x, y) => step(y.t) - step(x.t))[0];
     const pen = (game.penalties ?? []).map((x) => ({ ...x, t: elapsed(x.period, x.time) }))
-      .filter((x) => x.team !== game[mine].abbrev && x.t >= lo && x.t <= hi).sort((x, y) => step(y.t) - step(x.t))[0];
+      .filter((x) => !/fight/i.test(x.infraction) && x.team !== game[mine].abbrev && x.t >= lo && x.t <= hi).sort((x, y) => step(y.t) - step(x.t))[0];
+    // A fight shortly before the flip: both teams get the major at once, so it is a spark, not a mistake.
+    const fighters = (game.penalties ?? []).filter((x) => /fight/i.test(x.infraction) && elapsed(x.period, x.time) >= lo && elapsed(x.period, x.time) <= hi);
     const gs = goal ? step(goal.t) : 0;
     const ps = pen ? step(pen.t) : 0;
     let tag; let start; let t = run.t; let person = null; let small = false;
@@ -143,6 +145,11 @@ function momentumFlips(game, events) {
         tag = 'A penalty flipped it'; t = pen.t;
         start = `${pen.player} (${pen.team}) took a ${String(pen.infraction).toLowerCase()} penalty and the momentum went ${from_} on the spot.`;
       }
+    } else if (fighters.length >= 2) {
+      const f1 = fighters[0];
+      const f2 = fighters.find((x) => x.team !== f1.team) ?? fighters[1];
+      tag = 'A fight sparked it'; t = elapsed(f1.period, f1.time);
+      start = `${f1.player} (${f1.team}) and ${f2.player} (${f2.team}) dropped the gloves and the momentum went ${from_}.`;
     } else {
       small = true;
       tag = prev ? 'Steady takeover' : 'Early push';
