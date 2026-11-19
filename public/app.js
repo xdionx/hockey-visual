@@ -21,6 +21,12 @@ function shiftDate(iso, days) {
   return d.toISOString().slice(0, 10);
 }
 
+/** The browser tab title carries the date being shown. */
+function setTitle(iso) {
+  const short = new Date(`${iso}T12:00:00Z`).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
+  document.title = `NHL Scores · ${short}`;
+}
+
 function prettyDate(iso) {
   return new Date(`${iso}T12:00:00Z`).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
 }
@@ -197,6 +203,7 @@ function compactHtml(game) {
 
 function render(data) {
   $('#dateLabel').textContent = prettyDate(data.date);
+  setTitle(data.date);
   gamesEl.className = view;
   gamesEl.innerHTML = data.games.length
     ? data.games.map(view === 'compact' ? compactHtml : gameHtml).join('')
@@ -264,6 +271,7 @@ async function load(date, { quiet = false } = {}) {
     if (!data) {
       current = { date };
       $('#dateLabel').textContent = prettyDate(date);
+      setTitle(date);
       gamesEl.innerHTML = '<p class="msg">No scores saved for this date.</p>';
       return;
     }
