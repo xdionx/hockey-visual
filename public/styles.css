@@ -228,3 +228,5 @@ main.compact { grid-template-columns: repeat(auto-fill, minmax(min(100%, 640px),
   .cg-act { margin-left: auto; }
   .cd-foot .horn-toggles { margin-left: 0; }
 }
+
+.h1-date { font-weight: 500; opacity: .7; white-space: nowrap; }
