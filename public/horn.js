@@ -1,6 +1,6 @@
 // Goal horns: per team and per game, off by default, remembered in this browser.
 // Shared by the Scores page and the box score. Horn files live in audio/horns/<ABBREV>.mp3.
-const HORNS = new Set(['ANA', 'TOR']); // teams that have a horn file
+const HORNS = new Set(['ANA', 'BOS', 'BUF', 'CGY', 'CAR', 'CHI', 'COL', 'CBJ', 'DAL', 'DET', 'EDM', 'FLA', 'LAK', 'MIN', 'MTL', 'NSH', 'NJD', 'NYI', 'NYR', 'OTT', 'PHI', 'PIT', 'SJS', 'SEA', 'STL', 'TBL', 'TOR', 'UTA', 'VAN', 'VGK', 'WSH', 'WPG']); // every team has a horn file
 const KEY = (id, abbrev) => `horn:${id}:${abbrev}`;
 const store = (k, v) => { try { return v === undefined ? localStorage.getItem(k) : (v === null ? localStorage.removeItem(k) : localStorage.setItem(k, v)); } catch { return null; } };
 
