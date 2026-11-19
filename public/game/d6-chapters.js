@@ -347,6 +347,39 @@ function byTheNumbers(game, c, events) {
   return `<div class="st-nums">${tiles.join('')}${topDrivers(game, c)}</div>`;
 }
 
+const PEN_BADGE = { fight: 'Fight', major: 'Major', match: 'Match', 'game-misconduct': 'Game misc.', misconduct: 'Misconduct', bench: 'Bench' };
+
+/** Every penalty in the game, with what the other side did with it. */
+function penaltySummary(game, c) {
+  const pens = (game.penalties ?? []).filter((x) => x.kind !== 'penalty-shot');
+  if (!pens.length) return `<div class="b-card st-pen"><h2>Penalties</h2><p class="st-pen-none">No penalties were called.</p></div>`;
+  const pps = game.momentum?.powerPlays ?? [];
+  const side = (x) => (x.team === game.away.abbrev ? 'away' : 'home');
+  const outcome = (x) => {
+    if (['fight', 'misconduct', 'game-misconduct'].includes(x.kind)) return x.kind === 'fight' ? ['Coincidental', ''] : ['No skater lost', ''];
+    const t = elapsed(x.period, x.time);
+    const pp = pps.find((q) => q.team !== side(x) && Math.abs(q.start - t) <= 4);
+    if (!pp) return [pens.some((q) => q !== x && q.team !== x.team && q.time === x.time && q.period === x.period) ? 'Coincidental minors' : 'No power play', ''];
+    if (pp.result === 'goal') return ['Power-play goal against', 'bad'];
+    if (pp.result === 'shorthanded-goal') return ['Scored shorthanded', 'good'];
+    if (pp.result === 'ongoing') return ['Power play on', ''];
+    return ['Penalty killed', 'good'];
+  };
+  const rows = pens.map((x) => {
+    const [res, cls] = outcome(x);
+    const badge = PEN_BADGE[x.kind] ? `<em class="st-pen-b ${x.kind}">${PEN_BADGE[x.kind]}</em>` : '';
+    return `<tr style="--team:${c[side(x)]}"><td class="st-pen-t">P${esc(String(x.period).replace('P', ''))} ${esc(x.time)}</td>
+      <td><span class="st-ch-tm" style="--team:${c[side(x)]}">${esc(x.team)}</span></td>
+      <td class="st-pen-w"><b>${esc(x.player)}</b><small>${esc(x.infraction)}${x.drawnBy ? ` · drawn by ${esc(x.drawnBy)}` : ''}</small></td>
+      <td>${badge}<span class="st-pen-m">${x.minutes ?? ''}${x.minutes ? ' min' : ''}</span></td>
+      <td class="st-pen-r ${cls}">${esc(res)}</td></tr>`;
+  });
+  const sum = (sd) => pens.filter((x) => side(x) === sd && !['fight', 'bench', 'misconduct', 'game-misconduct'].includes(x.kind));
+  const head = ['away', 'home'].map((sd) => `<span style="--team:${c[sd]}"><b>${esc(game[sd].abbrev)}</b> ${sum(sd).length} penalties · ${sum(sd).reduce((n, x) => n + (x.minutes ?? 2), 0)} min</span>`).join('');
+  return `<div class="b-card st-pen"><h2>Penalties</h2><div class="st-pen-head">${head}</div>
+    <table class="st-pen-table"><thead><tr><th>Time</th><th></th><th class="l">Player</th><th>Type</th><th class="l">What happened</th></tr></thead><tbody>${rows.join('')}</tbody></table></div>`;
+}
+
 /** Turning points and momentum runs, for the Momentum section. */
 export function momentumTimeline(game, c) {
   if (game.status.state !== 'live' && game.status.state !== 'final') return '';
@@ -358,5 +391,6 @@ export function storyChapters(game, c) {
   const events = goalEvents(game);
   const changes = goalieChanges(game);
   return `${byTheNumbers(game, c, events)}
-    <div class="b-card"><h2>How it unfolded</h2><div class="st-chs">${chapters(game, c, events, changes)}</div></div>`;
+    <div class="b-card"><h2>How it unfolded</h2><div class="st-chs">${chapters(game, c, events, changes)}</div></div>
+    ${penaltySummary(game, c)}`;
 }

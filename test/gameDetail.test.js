@@ -160,7 +160,7 @@ test('the story narrative tells the arc, momentum control, the difference makers
   const { storyBeats } = await import('../public/game/d6-narrative.js');
   const beats = storyBeats(game);
   const text = Object.fromEntries(beats.map((b) => [b.label, b.text]));
-  assert.deepEqual(beats.map((b) => b.label), ['How it unfolded', 'Who controlled play', 'What decided it', 'The difference', 'Special teams']);
+  assert.deepEqual(beats.map((b) => b.label), ['How it unfolded', 'Who controlled play', 'What decided it', 'Penalties', 'The difference', 'Special teams']);
   assert.match(text['How it unfolded'], /fought back from 4 down/);
   assert.match(text['Who controlled play'], /shot attempts/);
   assert.match(text['Who controlled play'], /momentum/);
@@ -202,4 +202,35 @@ test('a fight is not charged to the fighters and sparks the team that was behind
   const before = m.series.find(([t]) => t >= 470)[1];
   const after = m.series.find(([t]) => t >= 490)[1];
   assert.ok(after < before, 'the trailing (away) team got the lift, pulling the line toward away');
+});
+
+test('penalty kinds: majors, game misconducts and misconducts are told apart from minors and fights', async () => {
+  const { penaltyKind } = await import('../src/penalties.js');
+  assert.equal(penaltyKind({ typeCode: 'MIN', descKey: 'tripping', duration: 2 }), 'minor');
+  assert.equal(penaltyKind({ typeCode: 'MAJ', descKey: 'fighting', duration: 5 }), 'fight');
+  assert.equal(penaltyKind({ typeCode: 'MAJ', descKey: 'boarding', duration: 5 }), 'major');
+  assert.equal(penaltyKind({ typeCode: 'MIS', descKey: 'misconduct', duration: 10 }), 'misconduct');
+  assert.equal(penaltyKind({ typeCode: 'GAM', descKey: 'game-misconduct', duration: 10 }), 'game-misconduct');
+  assert.equal(penaltyKind({ typeCode: 'BEN', descKey: 'too-many-men-on-the-ice', duration: 2 }), 'bench');
+});
+
+test('a major costs far more than a minor, a game misconduct more again, and a misconduct scales with the player', async () => {
+  const { computeMomentum } = await import('../src/momentum.js');
+  const play = (n, type, period, time, d) => ({ sortOrder: n, typeDescKey: type, periodDescriptor: { number: period, periodType: 'REG' }, timeInPeriod: time, details: d });
+  const roster = [{ playerId: 1, teamId: 52 }, { playerId: 2, teamId: 53 }];
+  const run = (extra) => computeMomentum({ rosterSpots: roster, plays: [
+    // Player 1 (away) piles up momentum first, so a misconduct costs more.
+    ...Array.from({ length: 8 }, (_, i) => play(i + 1, 'shot-on-goal', 1, `0${i}:30`, { eventOwnerTeamId: 52, shootingPlayerId: 1, xCoord: 60, yCoord: 0 })),
+    ...extra,
+  ] }, 52, 900).players[1];
+  const pen = (typeCode, descKey, duration) => [play(30, 'penalty', 1, '09:00', { eventOwnerTeamId: 52, committedByPlayerId: 1, drawnByPlayerId: 2, typeCode, descKey, duration })];
+  const minor = run(pen('MIN', 'tripping', 2));
+  const major = run(pen('MAJ', 'boarding', 5));
+  const gm = run(pen('GAM', 'game-misconduct', 10));
+  const mis = run(pen('MIS', 'misconduct', 10));
+  assert.ok(major.neg < minor.neg, 'a major hurts more than a minor');
+  assert.ok(gm.neg < 0, 'a game misconduct dings the player');
+  assert.ok(mis.neg < 0 && mis.neg > major.neg, 'a misconduct dings the player, but far less than a major');
+  const calm = computeMomentum({ rosterSpots: roster, plays: pen('MIS', 'misconduct', 10) }, 52, 900).players[1];
+  assert.ok(mis.neg < calm.neg, 'costs more for a player who was driving the game');
 });
