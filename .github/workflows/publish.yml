@@ -88,11 +88,13 @@ jobs:
         run: |
           mkdir -p site/data
           cp -r prod/public/. site/
+          cp -r prod/src site/src   # shared modules the replay simulator runs in the browser
           cp -r data/scores data/latest.json site/data/
           if [ -d data/games ]; then cp -r data/games site/data/; fi
           if [ -d test/public ]; then
             mkdir -p site/test/data
             cp -r test/public/. site/test/
+            cp -r test/src site/test/src
             cp -r data/scores data/latest.json site/test/data/
             if [ -d data/games ]; then cp -r data/games site/test/data/; fi
           fi

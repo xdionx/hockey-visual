@@ -3,6 +3,7 @@
 import { hornToggles, watchGoals } from '../horn.js';
 import { esc, initVideo, makeSortable, makeTabs, upgradeShots, morphInner, setMountSignal, resetRinkIds } from './core.js';
 import { getData, LIVE_REFRESH_MS } from '../data.js';
+import { startSim } from './sim.js';
 import classic from './d1-classic.js';
 import broadcast from './d2-broadcast.js';
 import analytics from './d4-analytics.js';
@@ -102,6 +103,19 @@ function shortDate(d) {
 }
 
 let lastText = '';
+let simStarted = false;
+
+function showGame(data) {
+  watchGoals([data]);
+  const text = JSON.stringify(data);
+  if (text === lastText) return;
+  game = upgradeShots(data);
+  lastText = text;
+  document.title = `${game.away.abbrev} @ ${game.home.abbrev} ${shortDate(game.gameDate)}${params.has('sim') ? ' (sim)' : ''}`;
+  document.querySelector('#back').href = params.has('sim') ? 'sim.html' : `./?date=${game.gameDate}`;
+  document.querySelector('#horns').innerHTML = hornToggles(game);
+  render();
+}
 
 async function load(quiet = false) {
   clearTimeout(timer);
@@ -113,22 +127,27 @@ async function load(quiet = false) {
     timer = setTimeout(() => load(true), LIVE_REFRESH_MS);
     return;
   }
+  if (params.has('sim')) {
+    if (simStarted) return;
+    simStarted = true;
+    try {
+      await startSim({
+        id: gameId,
+        speed: Number(params.get('sim')),
+        bar: document.querySelector('#sim'),
+        show: showGame,
+        onMissing: () => { box.innerHTML = '<p class="msg">This game\'s replay data isn\'t available here. Replays need the live data service. <a href="sim.html">Pick another game</a></p>'; },
+      });
+    } catch (err) { box.innerHTML = `<p class="msg">Couldn't start the simulation: ${esc(err.message)}</p>`; }
+    return;
+  }
   try {
     const data = await getData(`games/${gameId}.json`);
     if (!data) {
       box.innerHTML = '<p class="msg">This box score isn\'t ready yet. Box scores appear once a game starts.</p>';
       return;
     }
-    const text = JSON.stringify(data);
-    watchGoals([data]);
-    if (text !== lastText) {
-      game = upgradeShots(data);
-      lastText = text;
-      document.title = `${game.away.abbrev} @ ${game.home.abbrev} ${shortDate(game.gameDate)}`;
-      document.querySelector('#back').href = `./?date=${game.gameDate}`;
-      document.querySelector('#horns').innerHTML = hornToggles(game);
-      render();
-    }
+    showGame(data);
     if (game.status.state === 'live') timer = setTimeout(() => load(true), LIVE_REFRESH_MS);
     else if (game.status.state === 'pre') timer = setTimeout(() => load(true), 60_000);
   } catch (err) {

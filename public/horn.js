@@ -56,7 +56,10 @@ document.addEventListener('click', (e) => {
   });
 });
 
-const seen = new Map(); // `${gameId}:${abbrev}` -> goals counted so far
+const seen = new Map();
+/** Forget the goal counts, so the next frame is a fresh baseline (after a seek or restart). */
+export function resetGoals() { seen.clear(); }
+ // `${gameId}:${abbrev}` -> goals counted so far
 /** Call with every game on each refresh. The first sight of a game sets the baseline, so opening the page never honks. */
 export function watchGoals(games) {
   for (const g of games ?? []) {
