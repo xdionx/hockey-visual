@@ -9,10 +9,11 @@
 //   finished, from yesterday or today .............. 1 hour
 //   finished, 2 or more days old ................... 30 days (never changes)
 //
-// Routes: /latest.json, /scores/<YYYY-MM-DD>.json, /games/<gameId>.json, /raw/<gameId>.json (the raw
+// Routes: /sat/<gameId>.json (shot attempts per team, for the Scores page), /latest.json, /scores/<YYYY-MM-DD>.json, /games/<gameId>.json, /raw/<gameId>.json (the raw
 // NHL responses, for the replay simulator)
 import { normalizeScoreboard } from '../src/normalize.js';
 import { normalizeGameDetail } from '../src/gameDetail.js';
+import { shotAttempts } from '../src/sat.js';
 
 const NHL = 'https://api-web.nhle.com/v1';
 const SECOND = 1;
@@ -78,6 +79,13 @@ async function build(path) {
     const raw = m[1] === today ? now : await nhl(`score/${m[1]}`);
     const board = normalizeScoreboard(raw);
     return { body: board, ttl: scoreboardTtl(board, today) };
+  }
+  m = path.match(/^\/sat\/(\d{10})\.json$/);
+  if (m) {
+    const pbp = await nhl(`gamecenter/${m[1]}/play-by-play`);
+    const state = ['LIVE', 'CRIT'].includes(pbp.gameState) ? 'live' : ['FINAL', 'OFF'].includes(pbp.gameState) ? 'final' : 'pre';
+    const today = new Date(Date.now() - 10 * HOUR * 1000).toISOString().slice(0, 10);
+    return { body: shotAttempts(pbp), ttl: ttlFor(state, pbp.gameDate, today) };
   }
   m = path.match(/^\/(games|raw)\/(\d{10})\.json$/);
   if (m) {

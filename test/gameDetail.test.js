@@ -256,3 +256,14 @@ test('decisive penalties: a power-play goal, a swing, or a goal right after expi
   assert.equal(m[1][0].player, 'Y');
   assert.equal(m[1][1][0].kind, 'expiry'); // 12:00 + 2:00 = 14:00; goal at 14:05
 });
+
+test('shot attempts count shots, misses and blocks per team', async () => {
+  const { shotAttempts } = await import('../src/sat.js');
+  const play = (type, owner, shooter) => ({ typeDescKey: type, periodDescriptor: { number: 1, periodType: 'REG' }, timeInPeriod: '01:00', details: { eventOwnerTeamId: owner, shootingPlayerId: shooter, xCoord: 60, yCoord: 5 } });
+  const pbp = {
+    awayTeam: { id: 1 },
+    rosterSpots: [{ playerId: 10, teamId: 1, firstName: { default: 'A' }, lastName: { default: 'A' } }, { playerId: 20, teamId: 2, firstName: { default: 'B' }, lastName: { default: 'B' } }],
+    plays: [play('shot-on-goal', 1, 10), play('missed-shot', 1, 10), play('blocked-shot', 1, 10), play('shot-on-goal', 2, 20)],
+  };
+  assert.deepEqual(shotAttempts(pbp), { away: 3, home: 1 });
+});

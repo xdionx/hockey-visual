@@ -9,6 +9,8 @@ import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getScoreboard, getGameDetailRaw } from './src/nhlApi.js';
 import { normalizeGameDetail } from './src/gameDetail.js';
+import { shotAttempts } from './src/sat.js';
+import { getPlayByPlay } from './src/nhlApi.js';
 import { normalizeScoreboard } from './src/normalize.js';
 
 const PORT = Number(process.env.PORT) || 3000;
@@ -33,6 +35,8 @@ const server = http.createServer(async (req, res) => {
     const g = url.pathname.match(/^\/data\/games\/(\d{10})\.json$/);
     if (g) return sendJson(res, 200, normalizeGameDetail(await getGameDetailRaw(g[1])));
 
+    const sat = url.pathname.match(/^\/data\/sat\/(\d{10})\.json$/);
+    if (sat) return sendJson(res, 200, shotAttempts(await getPlayByPlay(sat[1])));
     const r = url.pathname.match(/^\/data\/raw\/(\d{10})\.json$/);
     if (r) return sendJson(res, 200, await getGameDetailRaw(r[1]));
     if (url.pathname.startsWith('/src/')) { // the shared modules the replay runs in the browser

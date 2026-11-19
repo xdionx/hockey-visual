@@ -14,6 +14,7 @@ import { join } from 'node:path';
 import { getScoreboard, getGameDetailRaw } from '../src/nhlApi.js';
 import { normalizeGameDetail } from '../src/gameDetail.js';
 import { normalizeScoreboard } from '../src/normalize.js';
+import { shotAttempts } from '../src/sat.js';
 
 const args = process.argv.slice(2);
 const outDir = args.find((a) => !a.startsWith('--')) ?? 'data';
@@ -60,6 +61,7 @@ if (await writeIfChanged(join(outDir, 'latest.json'), { date: today })) changed+
 
 // Box scores for every game that has started, up to today.
 await mkdir(join(outDir, 'games'), { recursive: true });
+await mkdir(join(outDir, 'sat'), { recursive: true });
 let boxFetched = 0;
 let boxFailed = 0;
 for (let date = from; date <= today; date = shift(date, 1)) {
@@ -68,11 +70,14 @@ for (let date = from; date <= today; date = shift(date, 1)) {
     if (game.status.state === 'pre' || game.status.state === 'postponed') continue;
     const file = join(outDir, 'games', `${game.id}.json`);
     const saved = JSON.parse(await readFile(file, 'utf8').catch(() => 'null'));
-    if (saved?.status?.state === 'final' && date < refreshFrom) continue;
+    const satFile = join(outDir, 'sat', `${game.id}.json`);
+    if (saved?.status?.state === 'final' && date < refreshFrom && (await exists(satFile))) continue;
     await new Promise((r) => setTimeout(r, 300));
     try {
-      const detail = normalizeGameDetail(await getGameDetailRaw(game.id));
+      const raw = await getGameDetailRaw(game.id);
+      const detail = normalizeGameDetail(raw);
       boxFetched++;
+      if (raw.pbp) await writeIfChanged(satFile, shotAttempts(raw.pbp));
       if (await writeIfChanged(file, detail)) changed++;
     } catch (err) {
       boxFailed++;

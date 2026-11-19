@@ -181,7 +181,7 @@ const SHOT_TYPES = { goal: 'goal', 'shot-on-goal': 'sog', 'missed-shot': 'miss',
  * away team always shoots at the left net and the home team at the right net.
  * x is -100..100 feet, y is -42.5..42.5 feet.
  */
-function shotList(pbp, awayId, roster) {
+export function shotList(pbp, awayId, roster) {
   const out = [];
   for (const e of pbp?.plays ?? []) {
     const kind = SHOT_TYPES[e.typeDescKey];
@@ -216,7 +216,7 @@ function shotList(pbp, awayId, roster) {
   return out;
 }
 
-function rosterMap(pbp) {
+export function rosterMap(pbp) {
   return new Map((pbp?.rosterSpots ?? []).map((r) => [r.playerId, {
     firstName: t(r.firstName), lastName: t(r.lastName), headshot: r.headshot ?? null, teamId: r.teamId,
   }]));
