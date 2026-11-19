@@ -1,7 +1,7 @@
 // The written story of a game: how it unfolded, who controlled play over longer stretches (not just
 // shot attempts), who made the difference (goalies included) and what special teams did.
 import { allSkaters, allGoalies, elapsed, penKind } from './core.js';
-import { decisiveStory } from './d6-penalties.js';
+import { decisiveItems, decisivePenalties } from './d6-penalties.js';
 import { shotSummary } from './d4-analytics.js';
 
 const other = (s) => (s === 'away' ? 'home' : 'away');
@@ -25,81 +25,144 @@ function goalFlow(game) {
   });
 }
 
-/** A game still being played: the scoring so far in plain sentences, then where the game stands. */
-function liveArc(game, goals) {
-  const name = (s) => game[s].commonName;
-  const t = game.linescore.totals;
-  const lead = t.away === t.home ? null : t.away > t.home ? 'away' : 'home';
-  const score = `${Math.max(t.away, t.home)}-${Math.min(t.away, t.home)}`;
-  if (!goals.length) return 'Still scoreless. Nobody has put one past the goalie yet.';
-  // One short sentence per goal, worded by what the goal did.
-  const say = (g, i) => {
-    const who = lastName(g.scorer.fullName);
-    const tm = name(g.side);
-    const at = `${g.time} of the ${ord(g.period === 'OT' ? 3 : Number(g.period) - 1)}`;
-    const before = goals[i - 1]?.lead ?? null;
-    if (i === 0) return `${who} opened the scoring for the ${tm} at ${at}.`;
-    if (g.lead === null) return `${who} tied it for the ${tm} at ${at}.`;
-    if (before === null) return `${who} put the ${tm} ahead at ${at}, ${g.after[g.lead]}-${g.after[other(g.lead)]}.`;
-    if (before !== g.lead) return `${who} took the lead back for the ${tm} at ${at}, ${g.after[g.lead]}-${g.after[other(g.lead)]}.`;
-    if (g.side === g.lead) return `${who} stretched the ${tm} lead to ${g.after[g.lead]}-${g.after[other(g.lead)]} at ${at}.`;
-    return `${who} cut the ${tm} deficit to ${g.after[g.lead]}-${g.after[other(g.lead)]} at ${at}.`;
-  };
-  const shown = goals.length > 4 ? goals.slice(-3) : goals;
-  const parts = [];
-  if (goals.length > 4) parts.push(`${goals.length} goals so far.`);
-  const offset = goals.length - shown.length;
-  shown.forEach((g, i) => parts.push(say(g, i + offset)));
-  // Where it stands.
-  const changes = goals.filter((g, i) => g.lead && goals.slice(0, i).reverse().find((x) => x.lead)?.lead && goals.slice(0, i).reverse().find((x) => x.lead).lead !== g.lead).length;
-  const peakTrail = lead ? Math.max(0, ...goals.map((g) => (g.lead === other(lead) ? g.margin : 0))) : 0;
-  if (lead && peakTrail >= 1) parts.push(`The ${name(lead)} have come back from ${peakTrail} down and now lead ${score}.`);
-  else if (lead) parts.push(t[lead] - t[other(lead)] === 1 ? `It's a one-goal game, ${name(lead)} up ${score}.` : `The ${name(lead)} lead ${score}.`);
-  else parts.push(`It's tied ${score}${changes ? ` after ${changes} lead change${changes === 1 ? '' : 's'}` : ''}.`);
-  // The period in progress.
-  const per = game.linescore.periods.filter((p) => p.away != null).at(-1);
-  if (per && goals.length > 1 && (per.away + per.home) > 0) {
-    parts.push(`This period: ${game.away.abbrev} ${per.away}, ${game.home.abbrev} ${per.home}${per.shotsAway != null ? `, shots ${per.shotsAway}-${per.shotsHome}` : ''}.`);
-  }
-  return parts.join(' ');
-}
+const nth = (n) => ({ 1: '1st', 2: '2nd', 3: '3rd' })[n] ?? `${n}th`;
+const periodTitle = (label, gameType) => {
+  if (label === 'OT') return gameType === 3 ? '1st overtime' : 'Overtime';
+  if (/OT$/.test(label)) return `${nth(Number(label.slice(0, -2)))} overtime`;
+  return `${nth(Number(label))} period`;
+};
+const sameGoal = (a, b) => a.team === b.team && a.period === b.period && a.time === b.time;
+const pen = (x) => `${x.player} (${x.team}) ${String(x.infraction ?? 'penalty').toLowerCase()}`;
+const shortWhen = (x) => `${x.time} of the ${String(x.periodName ?? x.period).toLowerCase().replace(' period', '')}`;
 
-/** How the game unfolded: who struck first, the biggest lead, the comeback, the finish. */
-function arc(game, final) {
+/**
+ * How the game unfolded: key points first (who scored first, how the lead moved, how it ended), then a
+ * period-by-period list of every goal with the running score. Penalties that led to goals are folded into
+ * the goal they produced and also listed on their own.
+ */
+function unfolded(game, final) {
   const goals = goalFlow(game);
-  const name = (s) => game[s].commonName;
-  if (!goals.length) return final ? 'Neither team found the net in regulation.' : 'Still scoreless.';
-  const first = goals[0];
-  const parts = [];
-  if (!final) return liveArc(game, goals);
-  // The biggest lead either team had.
-  const peak = goals.reduce((p, g) => (g.margin > p.margin ? g : p), { margin: 0 });
   const t = game.linescore.totals;
+  const nick = (s) => game[s].commonName;
+  const ab = (s) => game[s].abbrev;
+  const label = final ? 'was' : 'is';
+  const so = final && /\/SO$/.test(game.status.label);
   const winner = final && t.away !== t.home ? (t.away > t.home ? 'away' : 'home') : null;
-  if (peak.margin >= 2) parts.push(`The ${name(peak.lead)} jumped to a ${peak.after[peak.lead]}-${peak.after[other(peak.lead)]} lead by ${when(peak)}.`);
-  else parts.push(`The ${name(first.side)} opened the scoring, ${lastName(first.scorer.fullName)} at ${when(first)}.`);
+  const decisive = decisivePenalties(game);
+  const links = (g) => {
+    for (const [x, why] of decisive) for (const w of why) if (w.goal && sameGoal(w.goal, g)) return { x, w };
+    return null;
+  };
+
+  let gwg = null;
+  if (winner && !so) { let n = 0; const need = t[other(winner)] + 1; gwg = goals.find((g) => g.side === winner && ++n === need) ?? null; }
+
+  // One entry per goal.
+  const goalEvents = goals.map((g, i) => {
+    const before = goals[i - 1]?.lead ?? null;
+    const who = lastName(g.scorer.fullName);
+    let did;
+    if (i === 0) did = 'opened the scoring';
+    else if (g.lead === null) did = 'tied it';
+    else if (before === null) did = goals.slice(0, i).some((x) => x.lead === g.side) ? `retook the lead for the ${nick(g.side)}` : `put the ${nick(g.side)} ahead`;
+    else if (g.side === g.lead) did = `extended the ${nick(g.side)} lead`;
+    else did = 'cut the deficit';
+    let how = '';
+    const link = links(g);
+    if (link?.w.kind === 'pp-goal') how = ` on the power play, after ${pen(link.x)} at ${link.x.period === g.period ? link.x.time : shortWhen(link.x)}`;
+    else if (link?.w.kind === 'expiry') {
+      const secs = link.w.goal.t - (elapsed(link.x.period, link.x.time) + (link.x.minutes ?? 2) * 60);
+      const own = link.x.player === g.scorer.fullName;
+      how = `, ${secs ? `${secs} second${secs === 1 ? '' : 's'} after` : 'the moment'} ${own ? 'his own' : `${pen(link.x)}`} penalty ran out`;
+    }
+    else if (g.tags?.includes('PPG')) how = ' on the power play';
+    else if (g.tags?.includes('SHG')) how = ' shorthanded';
+    if (g.tags?.includes('EN')) how += ' into an empty net';
+    const flag = g === gwg ? 'win' : g.lead === null && i ? 'tie' : g.lead && before !== g.lead && before === null ? 'lead' : '';
+    return {
+      at: elapsed(g.period, g.time), time: g.time, period: g.period, side: g.side, flag, goal: true,
+      text: `${who} (${g.team}) ${did}${how}${g === gwg ? ', the game-winner' : ''}`,
+      score: `${ab('away')} ${g.after.away} – ${g.after.home} ${ab('home')}`,
+    };
+  });
+  // Penalties that started a big swing but did not themselves produce a goal.
+  const penEvents = [];
+  for (const [x, why] of decisive) {
+    if (why.some((w) => w.goal)) continue;
+    const opp = x.team === ab('away') ? 'home' : 'away';
+    penEvents.push({ at: elapsed(x.period, x.time), time: x.time, period: x.period, side: opp, flag: 'pen', text: `${pen(x)} started a big momentum swing for the ${nick(opp)}`, score: '' });
+  }
+
+  // Period blocks.
+  let ra = 0; let rh = 0;
+  const periods = game.linescore.periods.filter((p) => p.label !== 'SO' && (final || p.away != null)).map((p) => {
+    ra += p.away ?? 0; rh += p.home ?? 0;
+    const items = [...goalEvents, ...penEvents].filter((e) => e.period === p.label).sort((x, y) => x.at - y.at);
+    return {
+      title: periodTitle(p.label, game.gameType),
+      score: `${ab('away')} ${ra} – ${rh} ${ab('home')}`,
+      note: p.shotsAway != null ? `Shots ${p.shotsAway}–${p.shotsHome}` : '',
+      items,
+      quiet: !items.some((e) => e.goal) ? 'No goals.' : '',
+    };
+  });
+
+  // Key points.
+  const points = [];
+  if (!goals.length) {
+    points.push(final ? 'Neither team found the net in regulation.' : 'Still scoreless. Nobody has put one past the goalie yet.');
+    return { points, penalty: [], periods };
+  }
+  const first = goals[0];
+  points.push(`The ${nick(first.side)} scored first: ${lastName(first.scorer.fullName)} at ${when(first)}.`);
+  let flips = 0; let prev = null;
+  for (const g of goals) { if (g.lead && prev && g.lead !== prev) flips++; if (g.lead) prev = g.lead; }
+  const ties = goals.filter((g, i) => g.lead === null && i).length;
+  const peak = goals.reduce((p, g) => (g.margin > p.margin ? g : p), { margin: 0 });
+  if (ties + flips >= 2) points.push(`Back and forth: the game ${label} tied ${ties} time${ties === 1 ? '' : 's'}${flips ? ` and the lead changed hands ${flips} time${flips === 1 ? '' : 's'}` : ''}.`);
+  else if (goals.every((g) => g.lead === goals[0].side) && goals.length > 1) points.push(`The ${nick(first.side)} ${final ? 'led from the first goal to the last' : 'have led the whole way'}.`);
+  if (peak.margin >= 2) points.push(`Biggest lead: the ${nick(peak.lead)} went up ${peak.after[peak.lead]}-${peak.after[other(peak.lead)]} by ${when(peak)}.`);
   if (winner) {
     const behind = Math.max(0, ...goals.map((g) => (g.lead === other(winner) ? g.margin : 0)));
-    const last = game.status.label.split('/')[1];
     if (behind >= 1) {
-      const ties = goals.filter((g) => g.lead === null && g.side === winner);
-      const tie = ties.at(-1);
-      parts.push(`The ${name(winner)} fought back from ${behind} down${tie ? `, tying it ${tie.after.away}-${tie.after.home} on ${lastName(tie.scorer.fullName)}'s goal at ${when(tie)}` : ''}${last === 'SO' ? ', then won it in a shootout' : last ? ', then won it in overtime' : ''}.`);
-    } else if (last === 'SO') {
-      parts.push(`It went to a shootout and the ${name(winner)} came out on top.`);
-    } else if (last) {
-      parts.push(`The ${name(winner)} won it in overtime.`);
+      const tie = goals.filter((g) => g.lead === null && g.side === winner).at(-1);
+      points.push(`The ${nick(winner)} fought back from ${behind} down${tie ? `, tying it ${tie.after.away}-${tie.after.home} on ${lastName(tie.scorer.fullName)}'s goal at ${when(tie)}` : ''}.`);
     }
-    if (last === 'SO') {
+    if (so) {
       const d = game.scoring.find((g) => g.period === 'SO');
-      if (d) parts.push(`${d.scorer.fullName} scored the shootout winner.`);
+      points.push(`Settled in a shootout${d ? `: ${d.scorer.fullName} scored the shootout winner` : ''}.`);
     } else {
-      let n = 0; const need = t[other(winner)] + 1;
-      const gwg = goals.find((g) => g.side === winner && ++n === need);
-      if (gwg) parts.push(`${gwg.scorer.fullName} scored the game-winner at ${when(gwg)}.`);
+      // The goal that put the winner ahead for good, and whether they held on.
+      const idx = goals.reduce((k, g, i) => (g.lead === winner && (goals[i - 1]?.lead ?? null) !== winner ? i : k), -1);
+      const decider = goals[idx];
+      if (decider && idx <= 0 && behind === 0) {
+        if (gwg) points.push(`${lastName(gwg.scorer.fullName)} scored the game-winner at ${when(gwg)}.`);
+      } else if (decider) {
+        const after = goals.slice(idx + 1);
+        const oppAfter = after.filter((g) => g.side === other(winner)).length;
+        const inOT = /OT$/.test(decider.period);
+        const tail = inOT ? '' : oppAfter
+          ? ` The ${nick(other(winner))} answered ${oppAfter === 1 ? 'once' : `${oppAfter} times`}, but it was not enough.`
+          : ` The ${nick(other(winner))} never got the equalizer; the ${nick(winner)} held on.`;
+        points.push(`${lastName(decider.scorer.fullName)} put the ${nick(winner)} ahead for good at ${when(decider)}${decider === gwg ? ', the game-winner' : ''}.${tail}`);
+      }
+    }
+  } else {
+    const lead = t.away === t.home ? null : t.away > t.home ? 'away' : 'home';
+    const score = `${Math.max(t.away, t.home)}-${Math.min(t.away, t.home)}`;
+    points.push(lead ? `The ${nick(lead)} lead ${score}.` : `It's tied ${score}.`);
+  }
+  // Penalties that led to goals.
+  const penalty = [];
+  for (const [x, why] of decisive) {
+    for (const w of why) {
+      if (!w.goal) continue;
+      const g = goals.find((q) => sameGoal(w.goal, q));
+      if (!g) continue;
+      penalty.push(`${pen(x)} at ${shortWhen(x)} ${w.kind === 'pp-goal' ? `led to ${lastName(g.scorer.fullName)}'s power-play goal for the ${nick(g.side)}` : `ran out and ${lastName(g.scorer.fullName)} scored for the ${nick(g.side)} moments later`} (${g.after.away}-${g.after.home}).`);
     }
   }
-  return parts.join(' ');
+  return { points, penalty, periods };
 }
 
 /** Who owned play over time. Shot attempts are only part of it: momentum also counts faceoffs, takeaways, power plays and more. */
@@ -112,7 +175,7 @@ function control(game, final) {
   const out = [];
   const shotLead = shots.away.attempts === shots.home.attempts ? null : shots.away.attempts > shots.home.attempts ? 'away' : 'home';
   if (att && shotLead) out.push(`${cap(name(shotLead))} ${final ? 'had' : 'have had'} ${Math.round((100 * shots[shotLead].attempts) / att)}% of the shot attempts${final ? '' : ' so far'} (${shots[shotLead].attempts}-${shots[other(shotLead)].attempts} SAT).`);
-  if (!m?.periods?.length) return out.join(' ');
+  if (!m?.periods?.length) return out;
   const ctl = m.periods.reduce((a, p) => ({ away: a.away + (p.control?.away ?? 0), home: a.home + (p.control?.home ?? 0), even: a.even + (p.control?.even ?? 0) }), { away: 0, home: 0, even: 0 });
   const tot = ctl.away + ctl.home + ctl.even;
   const ctlLead = Math.abs(ctl.away - ctl.home) < tot * 0.06 ? null : ctl.away > ctl.home ? 'away' : 'home';
@@ -141,7 +204,7 @@ function control(game, final) {
       const mine = g.ps.reduce((n, i) => n + (lines[i]?.[g.side] ?? 0), 0);
       const theirs = g.side ? g.ps.reduce((n, i) => n + (lines[i]?.[other(g.side)] ?? 0), 0) : 0;
       const verb = k && groups[k - 1].side && groups[k - 1].side !== g.side ? 'took' : 'owned';
-      return g.side ? `${name(g.side)} ${verb} the ${label}${mine < theirs ? ` despite being outscored ${theirs}-${mine}` : ''}` : `the ${label} was even`;
+      return g.side ? `${name(g.side)} ${verb} the ${label}${mine < theirs ? ` despite being outscored ${theirs}-${mine}` : ''}` : `the ${label} ${g.ps.length > 1 ? 'were' : 'was'} even`;
     });
     out.push(`${cap(phrase.join(', then '))}.`);
   }
@@ -150,7 +213,7 @@ function control(game, final) {
   if (run && run.until - run.t >= 180) {
     out.push(`The longest stretch${final ? '' : ' so far'}: the ${game[run.team].commonName} ${final ? 'held' : 'held'} the momentum for ${mins(run.until - run.t)} from ${clockOf(run.t)}.`);
   }
-  return out.join(' ');
+  return out;
 }
 
 /** The people who made the difference, goalies included. */
@@ -168,7 +231,7 @@ function difference(game, final) {
   if (stand && stand.gsax >= 0.7) out.push(`In net, ${stand.fullName} (${stand.team}) ${final ? 'stopped' : 'has stopped'} ${stand.saves} of ${stand.shotsAgainst}, ${stand.gsax.toFixed(1)} goals better than expected.`);
   if (weak && weak !== stand && weak.gsax <= -0.9) out.push(`${weak.fullName} (${weak.team}) ${final ? 'allowed' : 'has allowed'} ${Math.abs(weak.gsax).toFixed(1)} more goals than expected on ${weak.shotsAgainst} shots.`);
   else if (stand && weak === stand && stand.gsax <= -0.9) out.push(`${stand.fullName} (${stand.team}) ${final ? 'allowed' : 'has allowed'} ${Math.abs(stand.gsax).toFixed(1)} more goals than expected.`);
-  return out.join(' ');
+  return out;
 }
 
 /** What actually decided it: shot quality, goaltending and defense, which momentum alone can miss. */
@@ -180,7 +243,7 @@ function decided(game, final) {
     const w = fo.awayNum > fo.homeNum ? 'away' : 'home';
     faceoff = `The ${game[w].commonName} ${final ? 'dominated' : 'are dominating'} the faceoff circle, winning ${Math.round(fo[`${w}Num`])}% of the draws, which ${final ? 'meant' : 'means'} more time with the puck.`;
   }
-  if (!gl.length) return faceoff;
+  if (!gl.length) return faceoff ? [faceoff] : [];
   const side = (g) => (g.team === game.away.abbrev ? 'away' : 'home');
   const name = (s) => `the ${game[s].commonName}`;
   const cap = (t) => t.charAt(0).toUpperCase() + t.slice(1);
@@ -220,7 +283,7 @@ function decided(game, final) {
   const ctl = (game.momentum?.periods ?? []).reduce((a, p) => ({ away: a.away + (p.control?.away ?? 0), home: a.home + (p.control?.home ?? 0) }), { away: 0, home: 0 });
   const mLead = Math.abs(ctl.away - ctl.home) < 120 ? null : ctl.away > ctl.home ? 'away' : 'home';
   if (lead && mLead && lead !== mLead && (hot || cold)) out.push(`So ${tense('the momentum did not decide this one', 'momentum is not the whole story here')}: goaltending ${tense('did', 'is doing')} a lot of the work.`);
-  return out.join(' ');
+  return out;
 }
 
 /** The story of the penalties: who took them, what the other side did with them, and the severe ones. */
@@ -229,7 +292,7 @@ function penaltyStory(game, final) {
   const real = pens.filter((x) => x.kind !== 'fight');
   const fights = pens.filter((x) => x.kind === 'fight');
   const tense = (a, b) => (final ? a : b);
-  if (!real.length && !fights.length) return final ? 'A clean game: not a single penalty was called.' : 'No penalties yet.';
+  if (!real.length && !fights.length) return [final ? 'A clean game: not a single penalty was called.' : 'No penalties yet.'];
   const name = (s) => `the ${game[s].commonName}`;
   const cap = (t) => t.charAt(0).toUpperCase() + t.slice(1);
   const abbr = { away: game.away.abbrev, home: game.home.abbrev };
@@ -281,9 +344,8 @@ function penaltyStory(game, final) {
     const y = fights[i + 1];
     out.push(`${x.player} (${x.team})${y ? ` and ${y.player} (${y.team})` : ''} ${tense('fought', 'have fought')} at ${x.time} of the ${String(x.periodName ?? '').toLowerCase().replace(' period', '')}.`);
   }
-  const decisive = decisiveStory(game, final);
-  if (decisive) out.push(decisive);
-  return out.join(' ');
+  out.push(...decisiveItems(game, final));
+  return out;
 }
 
 /** Power plays and the penalty that cost the most momentum. */
@@ -299,21 +361,26 @@ function specialTeams(game, final = true) {
   const worst = allSkaters(game).filter((p) => (p.momentumParts?.kinds?.['penalty-taken'] ?? 0) <= -2)
     .sort((x, y) => (x.momentumParts.kinds['penalty-taken']) - (y.momentumParts.kinds['penalty-taken']))[0];
   if (worst) out.push(`${worst.fullName} (${worst.team}) ${final ? 'took' : 'has taken'} the penalty that ${final ? 'cost' : 'has cost'} the most: ${Math.abs(worst.momentumParts.kinds['penalty-taken']).toFixed(1)} momentum handed to the other side.`);
-  return out.join(' ');
+  return out;
 }
 
-/** Labeled paragraphs for the Story section. */
+/**
+ * The Story section as labeled beats. Each has `items` (short points, shown as a list) and the same
+ * words joined as `text`. "How it unfolded" also carries `penalty` (penalties that led to goals) and
+ * `periods` (the period-by-period goal list).
+ */
 export function storyBeats(game) {
   const final = game.status.state === 'final';
+  const un = unfolded(game, final);
   const beats = [
-    [final ? 'How it unfolded' : 'How it stands', arc(game, final)],
-    [final ? 'Who controlled play' : 'Who has the play', control(game, final)],
-    [final ? 'What decided it' : 'Chances and goaltending', decided(game, final)],
-    [final ? 'Penalties' : 'Penalties so far', penaltyStory(game, final)],
-    [final ? 'The difference' : 'Standing out so far', difference(game, final)],
-    [final ? 'Special teams' : 'Special teams so far', specialTeams(game, final)],
+    { label: final ? 'How it unfolded' : 'How it stands', items: un.points, penalty: un.penalty, periods: un.periods },
+    { label: final ? 'Who controlled play' : 'Who has the play', items: control(game, final) },
+    { label: final ? 'What decided it' : 'Chances and goaltending', items: decided(game, final) },
+    { label: final ? 'Penalties' : 'Penalties so far', items: penaltyStory(game, final) },
+    { label: final ? 'The difference' : 'Standing out so far', items: difference(game, final) },
+    { label: final ? 'Special teams' : 'Special teams so far', items: specialTeams(game, final) },
   ];
-  return beats.filter(([, text]) => text).map(([label, text]) => ({ label, text }));
+  return beats.filter((b) => b.items.length).map((b) => ({ ...b, text: b.items.join(' ') }));
 }
 
 export { elapsed };

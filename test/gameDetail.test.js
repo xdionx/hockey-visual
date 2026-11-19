@@ -162,6 +162,7 @@ test('the story narrative tells the arc, momentum control, the difference makers
   const text = Object.fromEntries(beats.map((b) => [b.label, b.text]));
   assert.deepEqual(beats.map((b) => b.label), ['How it unfolded', 'Who controlled play', 'What decided it', 'Penalties', 'The difference', 'Special teams']);
   assert.match(text['How it unfolded'], /fought back from 4 down/);
+  assert.ok(beats.every((b) => b.items.length >= 1), 'every beat has points');
   assert.match(text['Who controlled play'], /shot attempts/);
   assert.match(text['Who controlled play'], /momentum/);
   assert.match(text['The difference'], /Scheifele/);
@@ -266,4 +267,14 @@ test('shot attempts count shots, misses and blocks per team', async () => {
     plays: [play('shot-on-goal', 1, 10), play('missed-shot', 1, 10), play('blocked-shot', 1, 10), play('shot-on-goal', 2, 20)],
   };
   assert.deepEqual(shotAttempts(pbp), { away: 3, home: 1 });
+});
+
+test('How it unfolded lists goals period by period with the running score', async () => {
+  const { storyBeats } = await import('../public/game/d6-narrative.js');
+  const arc = storyBeats(game)[0];
+  assert.ok(arc.periods.length >= 3);
+  const goalRows = arc.periods.flatMap((p) => p.items.filter((e) => e.goal));
+  assert.equal(goalRows.length, game.scoring.filter((g) => g.period !== 'SO').length);
+  assert.match(goalRows[0].text, /opened the scoring/);
+  assert.match(goalRows.at(-1).score, /\d – \d/);
 });
