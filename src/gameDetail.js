@@ -19,8 +19,9 @@ const humanize = (key) => String(key ?? '').replace(/-/g, ' ').replace(/\b\w/, (
 // shift charts, weighted by result; when shifts are missing, on-ice goals use plus/minus.
 export const GAME_SCORE_WEIGHTS = {
   goals: 0.75, primaryAssists: 0.7, secondaryAssists: 0.55, shots: 0.075, blocks: 0.05,
-  penaltiesDrawn: 0.15, penaltiesTaken: -0.15, faceoffWins: 0.01, faceoffLosses: -0.01, plusMinus: 0.15, onIceAttempts: 0.05,
+  penaltiesDrawn: 0.25, penaltiesTaken: -0.25, faceoffWins: 0.01, faceoffLosses: -0.01, plusMinus: 0.15, onIceAttempts: 0.05,
   homePlate: 0.04, // per shot attempt from the home plate area; our addition
+  // Penalties: the public model uses ±0.15; we use ±0.25 so drawing and taking them weigh more.
   momentum: 0.05, // per point of momentum impact (see momentum.js); our addition to the public model
 };
 

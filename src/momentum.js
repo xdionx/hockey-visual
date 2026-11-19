@@ -12,7 +12,9 @@
 //   penalty killed off 1.5 to the shorthanded team
 //
 // Taking a penalty hurts the player who took it: they lose the 1.0 the other team gained, every
-// power-play push the penalty led to, and a further 1.5 if the power play scored.
+// power-play push the penalty led to, and a further 1.5 if the power play scored. Drawing one
+// works the other way: the player who drew it gets the 1.0, every power-play push, and 0.75 more
+// if the power play scored.
 //
 // Each push is credited to the player who made it (goal: scorer 60%, assists 25% / 15%).
 // A push made while that player's team was behind on momentum counts 1.5x and is a "swing play".
@@ -35,7 +37,7 @@ const plateMult = (d) => (inHomePlate(d.xCoord, d.yCoord) ? HOME_PLATE_BONUS : 1
 export const MOMENTUM_WEIGHTS = {
   goal: 3, sog: 1, miss: 0.35, blockedShooter: 0.2, blocker: 0.1,
   faceoff: { O: 0.6, N: 0.35, D: 0.25 }, takeaway: 0.5, giveaway: 0.5, hit: 0.2,
-  penaltyDrawn: 1, powerPlayTick: 0.2, penaltyKilled: 1.5, powerPlayGoalAgainst: 1.5,
+  penaltyDrawn: 1, powerPlayTick: 0.2, penaltyKilled: 1.5, powerPlayGoalAgainst: 1.5, powerPlayGoalDrawn: 0.75,
 };
 const HALF_LIFE = 75; // seconds
 const DECAY = Math.LN2 / HALF_LIFE;
@@ -133,18 +135,22 @@ export function pushes(plays, awayId, rosterTeam) {
       default:
     }
   }
-  const penalties = out.filter((e) => e.kind === 'penalty' && e.debit);
+  const penalties = out.filter((e) => e.kind === 'penalty');
   for (const pp of powerPlays(plays, awayId)) {
     const end = pp.end ?? pp.start;
     // The penalties that started this power play (same moment, taken by the shorthanded team).
-    // When two players went off together, they share the cost.
-    const offenders = [...new Set(penalties.filter((e) => e.team === pp.team && Math.abs(e.t - pp.start) <= 2).map((e) => e.debit))];
-    const split = (t, w, debitW, kind) => {
-      if (!offenders.length) return out.push({ t, team: pp.team, w, kind, credits: [], debit: null });
-      for (const id of offenders) out.push({ t, team: pp.team, w: w / offenders.length, debitW: debitW / offenders.length, kind, credits: [], debit: id });
+    // Players who went off together share the cost; players who drew them share the credit.
+    const started = penalties.filter((e) => e.team === pp.team && Math.abs(e.t - pp.start) <= 2);
+    const offenders = [...new Set(started.map((e) => e.debit).filter(Boolean))];
+    const drawers = [...new Set(started.flatMap((e) => e.credits.map((c) => c.id)).filter(Boolean))];
+    const credits = drawers.map((id) => ({ id, share: 1 / drawers.length }));
+    const split = (t, w, debitW, creditW, kind) => {
+      if (!offenders.length) return out.push({ t, team: pp.team, w, creditW, kind, credits, debit: null });
+      const n = offenders.length;
+      for (const id of offenders) out.push({ t, team: pp.team, w: w / n, debitW: debitW / n, creditW: creditW / n, kind, credits, debit: id });
     };
-    for (let t = pp.start + 10; t < end; t += 10) split(t, W.powerPlayTick, W.powerPlayTick, 'power-play');
-    if (pp.result === 'goal' && offenders.length) split(end, 0, W.powerPlayGoalAgainst, 'pp-goal-against');
+    for (let t = pp.start + 10; t < end; t += 10) split(t, W.powerPlayTick, W.powerPlayTick, W.powerPlayTick, 'power-play');
+    if (pp.result === 'goal' && (offenders.length || drawers.length)) split(end, 0, W.powerPlayGoalAgainst, W.powerPlayGoalDrawn, 'pp-goal-against');
     if (pp.result === 'killed') out.push({ t: end, team: pp.team === 'away' ? 'home' : 'away', w: W.penaltyKilled, kind: 'penalty-kill', credits: [], debit: null });
   }
   return out.sort((a, b) => a.t - b.t);
@@ -186,7 +192,7 @@ export function computeMomentum(pbp, awayId, gameEnd = null) {
       decayTo(e.t);
       const behind = level[e.team] < level[e.team === 'away' ? 'home' : 'away'];
       const mult = behind ? SWING_BONUS : 1;
-      for (const c of e.credits) credit(c.id, e.w * c.share * mult, behind && e.w >= 0.5);
+      for (const c of e.credits) credit(c.id, (e.creditW ?? e.w) * c.share * mult, behind && e.w >= 0.5);
       if (e.debit) credit(e.debit, -(e.debitW ?? e.w), false);
       level[e.team] += e.w;
       totals[e.team] += e.w;
