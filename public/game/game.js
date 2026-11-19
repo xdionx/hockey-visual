@@ -1,13 +1,14 @@
-// Box score page: loads one game's data/games/<id>.json and renders it in one of five designs.
+// Box score page: loads one game's data/games/<id>.json and renders it in the chosen design.
 // Switch designs with the bar at the top, keys 1-5, or ?design=<name> in the URL.
 import { esc, initVideo, makeSortable, makeTabs } from './core.js';
 import classic from './d1-classic.js';
 import broadcast from './d2-broadcast.js';
-import material from './d3-material.js';
 import analytics from './d4-analytics.js';
 import scorecards from './d5-scorecards.js';
+import story from './d6-story.js';
 
-const DESIGNS = [classic, broadcast, material, analytics, scorecards];
+// Game Story is the main design; the others stay for comparison while it settles.
+const DESIGNS = [story, broadcast, analytics, scorecards, classic];
 const params = new URLSearchParams(location.search);
 const gameId = params.get('id');
 const box = document.querySelector('#box');
@@ -15,8 +16,8 @@ const switcher = document.querySelector('#switcher');
 let game = null;
 let timer = null;
 
-const stored = () => { try { return localStorage.getItem('boxDesign'); } catch { return null; } };
-const store = (v) => { try { localStorage.setItem('boxDesign', v); } catch { /* private mode */ } };
+const stored = () => { try { return localStorage.getItem('boxDesign.v2'); } catch { return null; } };
+const store = (v) => { try { localStorage.setItem('boxDesign.v2', v); } catch { /* private mode */ } };
 let design = DESIGNS.find((d) => d.id === params.get('design'))?.id ?? DESIGNS.find((d) => d.id === stored())?.id ?? DESIGNS[0].id;
 
 switcher.innerHTML = DESIGNS.map((d, i) => `<button type="button" data-design="${d.id}" title="${esc(d.inspiration)} (key ${i + 1})"><span class="n">${i + 1}</span>${esc(d.name)}</button>`).join('');
@@ -45,7 +46,7 @@ function render() {
   if (!game) return;
   const d = DESIGNS.find((x) => x.id === design);
   const y = scrollY;
-  box.className = `design d-${d.id}`;
+  box.className = `design d-${d.id} ${d.classes ?? ''}`;
   box.innerHTML = d.render(game);
   makeSortable(box);
   makeTabs(box);

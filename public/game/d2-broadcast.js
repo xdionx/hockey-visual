@@ -2,7 +2,7 @@
 // Inspired by TSN and NHL broadcast score bugs: team-color panels, condensed type, big numbers.
 import { esc, logo, teamColors, statusText, prettyDate, skaters, goaliesOf, pct, signed, videoButton, elapsed, headshot } from './core.js';
 
-function hero(game, c) {
+export function hero(game, c) {
   const ls = game.linescore;
   const panel = (s) => `<div class="b-panel ${s}" style="--team:${s === 'away' ? c.panelAway : c.panelHome}">
     ${logo(game[s], 'b-logo', true)}
@@ -20,7 +20,7 @@ function hero(game, c) {
 }
 
 /** Game flow: goals placed on a horizontal 60+ minute track. */
-function flow(game, c) {
+export function flow(game, c) {
   const reg = game.linescore.periods.filter((p) => p.label !== 'SO');
   const length = reg.length > 3 ? 3 * 1200 + (reg.length - 3) * 300 : 3600; // regular-season OT is 5 minutes
   const pos = (g) => {
@@ -49,7 +49,7 @@ function flow(game, c) {
   </section>`;
 }
 
-function scoringCards(game, c) {
+export function scoringCards(game, c) {
   if (!game.scoring.length) return '';
   return `<section class="b-card"><h2>Scoring plays</h2><div class="b-goals">
     ${game.scoring.map((g) => {
@@ -68,7 +68,7 @@ function scoringCards(game, c) {
   </div></section>`;
 }
 
-function stars(game) {
+export function stars(game) {
   if (!game.threeStars.length) return '';
   const order = [2, 1, 3].map((n) => game.threeStars.find((s) => s.star === n)).filter(Boolean);
   return `<section class="b-card"><h2>Three stars</h2><div class="b-stars">
@@ -76,7 +76,7 @@ function stars(game) {
   </div></section>`;
 }
 
-function statBars(game, c) {
+export function statBars(game, c) {
   if (!game.teamStats.length) return '';
   return `<section class="b-card"><h2>Team stats</h2>
     <div class="b-legend"><span style="--team:${c.away}">${esc(game.away.abbrev)}</span><span style="--team:${c.home}">${esc(game.home.abbrev)}</span></div>
@@ -89,7 +89,7 @@ function statBars(game, c) {
   </section>`;
 }
 
-function roster(game, side, c) {
+export function roster(game, side, c) {
   const list = skaters(game, side);
   const g = goaliesOf(game, side).filter((x) => x.played);
   return `<div data-panel-group="b-team" data-panel="${side}" ${side === 'home' ? 'hidden' : ''} style="--team:${c[side]}">

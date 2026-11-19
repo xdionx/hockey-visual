@@ -11,7 +11,7 @@ function header(game, c) {
   </section>`;
 }
 
-function shotSummary(game) {
+export function shotSummary(game) {
   const by = (side) => {
     const s = game.shots.filter((x) => x.team === side);
     const n = (k) => s.filter((x) => x.kind === k).length;
@@ -21,7 +21,7 @@ function shotSummary(game) {
   return { away: by('away'), home: by('home') };
 }
 
-function kpis(game, c) {
+export function kpis(game, c) {
   const s = shotSummary(game);
   const tot = s.away.attempts + s.home.attempts || 1;
   const cf = (100 * s.away.attempts) / tot;
@@ -40,7 +40,7 @@ function kpis(game, c) {
   </section>`;
 }
 
-function shotMap(game, c) {
+export function shotMap(game, c) {
   return `<section class="a-card a-map"><div class="a-card-head"><h2>Shot map</h2>
       <div class="a-filters" id="a-filters">
         <div class="a-seg" data-filter="team"><button data-v="all" aria-pressed="true">Both</button><button data-v="away" aria-pressed="false">${esc(game.away.abbrev)}</button><button data-v="home" aria-pressed="false">${esc(game.home.abbrev)}</button></div>
@@ -53,7 +53,7 @@ function shotMap(game, c) {
 }
 
 /** Cumulative shot attempts over game time, with goal markers. */
-function flowChart(game, c) {
+export function flowChart(game, c) {
   const reg = game.linescore.periods.filter((p) => p.label !== 'SO').length;
   const end = reg > 3 ? 3600 + (reg - 3) * 300 : 3600;
   const W = 600; const H = 200; const P = { l: 30, r: 10, t: 10, b: 24 };
@@ -95,7 +95,7 @@ const HEAT_COLS = [
   ['plusMinus', '+/-', (p) => signed(p.plusMinus)], ['hits', 'HIT'], ['blocks', 'BLK'], ['takeaways', 'TK'], ['giveaways', 'GV'], ['toiSeconds', 'TOI', (p) => p.toi],
 ];
 
-function heatTable(game, c) {
+export function heatTable(game, c) {
   const list = allSkaters(game).sort((a, b) => b.gameScore - a.gameScore);
   const range = Object.fromEntries(HEAT_COLS.map(([k]) => [k, [Math.min(...list.map((p) => p[k])), Math.max(...list.map((p) => p[k]))]]));
   const heat = (k, v) => {
@@ -118,7 +118,7 @@ function heatTable(game, c) {
   </section>`;
 }
 
-function goalies(game, c) {
+export function goalies(game, c) {
   const list = allGoalies(game);
   if (!list.length) return '';
   return `<section class="a-card"><h2>Goaltending</h2><div class="a-goalies">${list.map((g) => {
@@ -132,18 +132,8 @@ function goalies(game, c) {
   }).join('')}</div></section>`;
 }
 
-export default {
-  id: 'analytics',
-  name: 'Analytics',
-  inspiration: 'Shot map, shot-attempt flow and heat-mapped stats, inspired by HockeyStats and NHL EDGE',
-  render(game) {
-    const c = teamColors(game, { dark: true });
-    return `<div class="a-wrap">${header(game, c)}${kpis(game, c)}
-      <div class="a-cols">${shotMap(game, c)}${flowChart(game, c)}</div>
-      ${goalies(game, c)}${heatTable(game, c)}</div>`;
-  },
-  mount(root, game) {
-    const c = teamColors(game, { dark: true });
+/** Draws the shot map dots and wires its team/period filters. */
+export function mountShotMap(root, game, c) {
     const state = { team: 'all', period: 'all' };
     const draw = () => {
       const shots = game.shots.filter((s) => (state.team === 'all' || s.team === state.team) && (state.period === 'all' || s.period === state.period));
@@ -160,5 +150,19 @@ export default {
       draw();
     });
     draw();
+}
+
+export default {
+  id: 'analytics',
+  name: 'Analytics',
+  inspiration: 'Shot map, shot-attempt flow and heat-mapped stats, inspired by HockeyStats and NHL EDGE',
+  render(game) {
+    const c = teamColors(game, { dark: true });
+    return `<div class="a-wrap">${header(game, c)}${kpis(game, c)}
+      <div class="a-cols">${shotMap(game, c)}${flowChart(game, c)}</div>
+      ${goalies(game, c)}${heatTable(game, c)}</div>`;
+  },
+  mount(root, game) {
+    mountShotMap(root, game, teamColors(game, { dark: true }));
   },
 };
