@@ -728,3 +728,13 @@ main { padding: 0 0 48px; }
 .st-lede p { max-width: 70ch; }
 .st-beat { display: block; margin: 0 0 2px; font: 800 13px "Barlow Condensed", sans-serif; letter-spacing: .1em; text-transform: uppercase; color: #94a3b8; }
 .st-lede p + p { margin-top: 14px; }
+
+/* Momentum runs inside Turning points: collapsed by default, chips show the numbers at a glance */
+.st-tp-more { margin-top: 4px; }
+.st-tp-more summary { cursor: pointer; list-style: none; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font: 700 12px "Barlow Condensed", sans-serif; letter-spacing: .08em; text-transform: uppercase; color: #94a3b8; }
+.st-tp-more summary::-webkit-details-marker { display: none; }
+.st-tp-more summary::before { content: "\25B8"; color: var(--team); transition: transform .15s; }
+.st-tp-more[open] summary::before { transform: rotate(90deg); }
+.st-tp-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.st-tp-chips i { font: 600 11px Inter, sans-serif; font-style: normal; letter-spacing: 0; text-transform: none; color: #cbd5e1; background: #1e293b; border-radius: 999px; padding: 1px 8px; }
+.st-tp-more p { margin: 6px 0 0; font-size: 13px; color: #cbd5e1; }
