@@ -59,7 +59,7 @@ export function teamColors(game, { dark = false } = {}) {
 export function logo(team, cls = 'logo', dark = false) {
   const src = dark && team.darkLogo ? team.darkLogo : team.logo;
   if (!src) return `<span class="${cls} logo-fallback">${esc(team.abbrev)}</span>`;
-  return `<img class="${cls}" src="${esc(src)}" alt="${esc(team.abbrev)}" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'${cls} logo-fallback',textContent:'${esc(team.abbrev)}'}))">`;
+  return `<img class="${cls}" src="${esc(src)}" alt="${esc(team.abbrev)}" loading="lazy" onerror="const s=Object.assign(document.createElement('span'),{className:'${cls} logo-fallback',textContent:'${esc(team.abbrev)}'});s.dataset.imgSrc=this.getAttribute('src');this.replaceWith(s)">`;
 }
 
 const initials = (name) => String(name ?? '').split(/\s+/).map((w) => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
@@ -67,7 +67,9 @@ const initials = (name) => String(name ?? '').split(/\s+/).map((w) => w[0]).filt
 export function headshot(p, cls = 'mug') {
   const fallback = `<span class="${cls} mug-fallback">${esc(initials(p.fullName ?? p.name))}</span>`;
   if (!p.headshot) return fallback;
-  return `<img class="${cls}" src="${esc(p.headshot)}" alt="" loading="lazy" onerror="this.outerHTML=this.dataset.fb" data-fb="${esc(fallback)}">`;
+  // The fallback remembers which image failed, so live refreshes keep it instead of retrying.
+  const failed = `<span class="${cls} mug-fallback" data-img-src="${esc(p.headshot)}">${esc(initials(p.fullName ?? p.name))}</span>`;
+  return `<img class="${cls}" src="${esc(p.headshot)}" alt="" loading="lazy" onerror="this.outerHTML=this.dataset.fb" data-fb="${esc(failed)}">`;
 }
 
 export const signed = (n) => (n > 0 ? `+${n}` : String(n));
@@ -176,6 +178,8 @@ export function initVideo(root) {
 
 /** Rink outline as SVG markup in rink feet: x -100..100, y -42.5..42.5. Use viewBox "-100 -42.5 200 85". */
 let rinkId = 0;
+/** Start rink ids over for each render so a live refresh produces the same ids. */
+export function resetRinkIds() { rinkId = 0; }
 export function rinkMarkup() {
   const id = `rink-clip-${++rinkId}`;
   const circles = [-69, 69].flatMap((x) => [-22, 22].map((y) => `<circle class="circle" cx="${x}" cy="${y}" r="15"/><circle class="dot" cx="${x}" cy="${y}" r="1"/>`)).join('');
@@ -236,8 +240,8 @@ export function makeSortable(root) {
         });
         rows.forEach((r) => body.appendChild(r));
       };
-      th.addEventListener('click', sort);
-      th.addEventListener('keydown', (e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), sort()));
+      on(th, 'click', sort);
+      on(th, 'keydown', (e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), sort()));
     });
   });
 }
@@ -247,7 +251,7 @@ export function makeTabs(root) {
   root.querySelectorAll('[data-tabs]').forEach((group) => {
     const scope = group.closest('[data-tab-scope]') ?? root;
     const name = group.dataset.tabs;
-    group.addEventListener('click', (e) => {
+    on(group, 'click', (e) => {
       const btn = e.target.closest('[data-tab]');
       if (!btn) return;
       group.querySelectorAll('[data-tab]').forEach((b) => b.setAttribute('aria-selected', String(b === btn)));
@@ -315,3 +319,59 @@ export function upgradeShots(game) {
 }
 
 export const zoneName = (key) => ZONES.find((z) => z[0] === key)?.[1] ?? key;
+
+// ---- Live updates without flicker ----------------------------------------------------------
+// Listeners added while mounting a design go through on(), tied to the current render, so a
+// live refresh can drop them all at once instead of piling up a copy every 5 seconds.
+let mountSignal;
+export function setMountSignal(signal) { mountSignal = signal; }
+export function on(target, type, fn, opts = {}) {
+  target?.addEventListener(type, fn, { ...opts, signal: mountSignal });
+}
+
+const SVG_NS = 'http://www.w3.org/2000/svg';
+function parse(html, svg) {
+  const t = document.createElement('template');
+  if (!svg) { t.innerHTML = html; return t.content; }
+  t.innerHTML = `<svg xmlns="${SVG_NS}">${html}</svg>`;
+  const frag = document.createDocumentFragment();
+  frag.append(...t.content.firstChild.childNodes);
+  return frag;
+}
+
+function same(a, b) {
+  if (a.nodeType !== b.nodeType) return false;
+  if (a.nodeType !== 1) return true;
+  return a.tagName === b.tagName && (a.id || '') === (b.id || '');
+}
+
+function syncAttrs(from, to) {
+  for (const { name } of [...from.attributes]) if (!to.hasAttribute(name)) from.removeAttribute(name);
+  for (const { name, value } of [...to.attributes]) if (from.getAttribute(name) !== value) from.setAttribute(name, value);
+}
+
+function morphChildren(from, to) {
+  const next = [...to.childNodes];
+  next.forEach((b, i) => {
+    const a = from.childNodes[i];
+    if (!a) from.appendChild(b);
+    else if (b.nodeName === 'IMG' && a.dataset?.imgSrc && a.dataset.imgSrc === b.getAttribute('src')) return; // image already failed: keep its fallback
+    else if (!same(a, b)) from.replaceChild(b, a);
+    else if (a.nodeType === 1) morphNode(a, b);
+    else if (a.nodeValue !== b.nodeValue) a.nodeValue = b.nodeValue;
+  });
+  while (from.childNodes.length > next.length) from.lastChild.remove();
+}
+
+function morphNode(from, to) {
+  syncAttrs(from, to);
+  // Containers a design draws itself after mounting (data-js) keep their children; the
+  // design's own draw step updates them.
+  if (from.hasAttribute('data-js')) return;
+  morphChildren(from, to);
+}
+
+/** Update el's contents to match html, changing only what differs (no reloads or flashes). */
+export function morphInner(el, html) {
+  morphChildren(el, parse(html, el.namespaceURI === SVG_NS && el.tagName.toLowerCase() !== 'foreignobject'));
+}
