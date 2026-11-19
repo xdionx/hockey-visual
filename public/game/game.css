@@ -663,3 +663,6 @@ main { padding: 0 0 48px; }
 .st-ms-zero { stroke: rgba(255,255,255,.25); stroke-width: 1; vector-effect: non-scaling-stroke; }
 .st-ms-div { stroke: rgba(255,255,255,.18); stroke-width: 1; stroke-dasharray: 2 3; vector-effect: non-scaling-stroke; }
 @media (max-width: 640px) { .st-ms { padding: 3px 8px 1px; } .st-ms svg { height: 24px; } }
+/* Mirror the home team's stats so both sides read outward from the clock */
+.st-mini-t:last-child .b-shots, .b-panel.home .b-shots { flex-direction: row-reverse; }
+.b-shots > span { display: inline-flex; align-items: baseline; gap: 3px; }
