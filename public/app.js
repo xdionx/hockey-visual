@@ -1,5 +1,5 @@
 import { getData, LIVE_REFRESH_MS } from './data.js';
-import { teamColors, strengthBadge } from './game/core.js';
+import { teamColors, strengthBadge, contrastRatio } from './game/core.js';
 import { hornToggles, watchGoals } from './horn.js';
 
 const $ = (s) => document.querySelector(s);
@@ -32,48 +32,73 @@ function statusText(game) {
   return game.status.label;
 }
 
-function teamRow(game, side) {
-  const team = game[side];
-  const ls = game.linescore;
-  const other = side === 'away' ? 'home' : 'away';
-  const loser = game.status.state === 'final' && ls.totals[side] < ls.totals[other];
-  const started = game.status.state !== 'pre' && game.status.state !== 'postponed';
-  const periodCells = ls.periods.map((p) => `<td>${started ? p[side] : ''}</td>`).join('');
-  const color = teamColors(game, { dark: true })[side];
-  return `<tr class="${side} ${loser ? 'loser' : ''}" style="--team:${color}">
-    <td class="team"><div class="team-cell">
-      <img src="${esc(team.logo.replace('_light.', '_dark.'))}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">
-      <div><span class="abbr">${esc(team.abbrev)}</span>${team.record ? `<span class="rec">${esc(team.record)}</span>` : ''}<div class="name">${esc(team.name)}</div></div>
-    </div></td>
-    ${periodCells}
-    <td class="tot">${started ? ls.totals[side] : ''}</td>
-    <td class="sog">${started && ls.shots[side] != null ? ls.shots[side] : ''}</td>
-  </tr>`;
+const started = (game) => game.status.state !== 'pre' && game.status.state !== 'postponed';
+const sideOf = (game, abbrev) => (abbrev === game.away.abbrev ? 'away' : 'home');
+/** Text color that reads on a team color. */
+const onColor = (c) => (contrastRatio(c, '#ffffff') >= 3 ? '#fff' : '#0a0e17');
+const initials = (g) => `${(g.scorer.firstName || g.scorer.name || '?')[0]}${(g.scorer.lastName || '')[0] ?? ''}`.toUpperCase();
+
+// Shot attempts per game come from a small separate feed (the scoreboard doesn't have them).
+const satById = new Map();
+async function loadSat(games) {
+  let changed = false;
+  await Promise.all(games.filter((g) => started(g) && (g.status.state === 'live' || !satById.has(g.id))).map(async (g) => {
+    try {
+      const sat = await getData(`sat/${g.id}.json`);
+      if (sat && JSON.stringify(sat) !== JSON.stringify(satById.get(g.id))) { satById.set(g.id, sat); changed = true; }
+    } catch { /* SAT is a bonus: the scores still show without it */ }
+  }));
+  return changed;
 }
 
-function goalsHtml(game) {
-  if (!game.goals.length) {
-    return game.status.state === 'pre' || game.status.state === 'postponed' ? '' : '<p class="no-goals">No goals yet.</p>';
-  }
-  let html = '';
-  let lastPeriod = null;
-  for (const g of game.goals) {
-    if (g.period !== lastPeriod) {
-      html += `<h3>${esc(g.periodName)}</h3>`;
-      lastPeriod = g.period;
-    }
-    const assists = g.period === 'SO' ? '' : g.assists.length ? g.assists.map((a) => `${esc(a.name)}${a.assistsToDate != null ? ` (${a.assistsToDate})` : ''}`).join(', ') : 'Unassisted';
-    const tags = g.tags.map((t) => `<span class="tag">${esc(t)}</span>`).join('');
-    const count = g.scorer.goalsToDate != null ? ` (${g.scorer.goalsToDate})` : '';
-    const meta = g.period === 'SO' ? 'Deciding goal' : `${esc(g.time)} · ${g.score.away}-${g.score.home}`;
-    html += `<div class="goal">
-      <span class="tm" style="color:${teamColors(game, { dark: true })[g.team === game.away.abbrev ? 'away' : 'home']}">${esc(g.team)}</span>
-      <div class="who"><strong>${esc(g.scorer.name)}</strong>${count}${tags}${assists ? `<div class="ast">${assists}</div>` : ''}</div>
-      <span class="meta">${meta}</span>
-      ${g.highlight ? videoLink(g.highlight, g.highlightId, `${g.team} · ${g.scorer.name} (${g.period === 'SO' ? 'SO' : `${g.time} ${g.periodName}`})`, '', 'play', `Watch ${g.scorer.name}'s goal`) : '<span></span>'}
-    </div>`;
-  }
-  return `<div class="goals">${html}</div>${videoLinksHtml(game)}`;
+/** SOG and SAT as two thin split bars, one above the other. */
+function statLines(game, tc) {
+  if (!started(game)) return '';
+  const row = (label, a, b) => {
+    if (a == null || b == null) return '';
+    const pa = a + b ? Math.round((100 * a) / (a + b)) : 50;
+    return `<div class="sx"><b>${a}</b><span class="bar"><i style="width:${pa}%;background:${tc.away}"></i><i style="flex:1;background:${tc.home}"></i></span><b>${b}</b><em>${label}</em></div>`;
+  };
+  const sat = satById.get(game.id);
+  const ls = game.linescore.shots;
+  return `<div class="sxs">${row('SOG', ls.away, ls.home)}${row('SAT', sat?.away, sat?.home)}</div>`;
+}
+
+const playIcon = '<svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 1.5v9l8-4.5z" fill="currentColor"/></svg>';
+
+/** Link attributes that open a goal in the video lightbox (same as the other video links). */
+function goalAttrs(game, g) {
+  const title = `${g.team} · ${g.scorer.name} (${g.period === 'SO' ? 'SO' : `${g.time} ${g.periodName}`})`;
+  return g.highlight
+    ? `href="${esc(g.highlight)}"${g.highlightId ? ` data-video-id="${esc(g.highlightId)}" data-video-title="${esc(title)}"` : ' target="_blank" rel="noopener"'} aria-label="Watch ${esc(g.scorer.name)}'s goal"`
+    : '';
+}
+
+/** One line of play pills, one per goal (compact view). */
+function goalPills(game, tc) {
+  return game.goals.map((g) => {
+    const attrs = goalAttrs(game, g);
+    const color = tc[sideOf(game, g.team)];
+    const when = g.period === 'SO' ? 'SO' : `${g.period} ${g.time}`;
+    return `<${attrs ? 'a' : 'span'} class="gp"${attrs ? ` ${attrs}` : ''} style="--team:${color}">${attrs ? playIcon : ''}<span>${esc(g.scorer.lastName || g.scorer.name)}</span><small>${esc(when)}</small></${attrs ? 'a' : 'span'}>`;
+  }).join('');
+}
+
+/** A goal tile: who, assists, the running score and a play button. */
+function goalTile(game, g, tc) {
+  const side = sideOf(game, g.team);
+  const attrs = goalAttrs(game, g);
+  const so = g.period === 'SO';
+  const assists = so ? '' : g.assists.length ? g.assists.map((a) => esc(a.name)).join(', ') : 'Unassisted';
+  const count = g.scorer.goalsToDate != null ? ` <small>(${g.scorer.goalsToDate})</small>` : '';
+  const tags = g.tags.map((t) => `<i class="tag">${esc(t)}</i>`).join('');
+  const meta = so ? 'Deciding shootout goal' : `${esc(game.away.abbrev)} ${g.score.away} – ${esc(game.home.abbrev)} ${g.score.home} · ${esc(g.period)} ${esc(g.time)}`;
+  const mug = g.scorer.mugshot ? `<img src="${esc(g.scorer.mugshot)}" alt="" loading="lazy" onerror="this.remove()">` : '';
+  return `<${attrs ? 'a' : 'div'} class="gt"${attrs ? ` ${attrs}` : ''} style="--team:${tc[side]};--on:${onColor(tc[side])}">
+    <span class="gt-mug">${mug}<b>${esc(initials(g))}</b></span>
+    <span class="gt-who"><strong>${esc(g.scorer.name)}${count}${tags}</strong>${assists ? `<em>${assists}</em>` : ''}<small>${meta}</small></span>
+    ${attrs ? `<span class="gt-play">${playIcon}</span>` : ''}
+  </${attrs ? 'a' : 'div'}>`;
 }
 
 // Videos play in a lightbox using NHL's public Brightcove embed player.
@@ -114,71 +139,59 @@ function videoLinksHtml(game) {
   return links.length ? `<div class="videos">${links.join('')}</div>` : '';
 }
 
-function gameHtml(game) {
-  const ls = game.linescore;
-  const hasBox = game.status.state === 'live' || game.status.state === 'final';
-  const head = ls.periods.map((p) => `<th>${esc(p.label)}</th>`).join('');
-  const tc = teamColors(game, { dark: true });
-  return `<article class="game" style="--away:${tc.away};--home:${tc.home}">
-    <div class="status ${game.status.state}"><span class="label">${esc(statusText(game))}${strengthBadge(game, tc)}</span><span class="venue">${esc(game.venue)}</span></div>
-    <table class="ls">
-      <thead><tr><th></th>${head}<th>T</th><th>SOG</th></tr></thead>
-      <tbody>${teamRow(game, 'away')}${teamRow(game, 'home')}</tbody>
-    </table>
-    ${goalsHtml(game)}
-    ${hasBox ? `<a class="box-btn" href="game.html?id=${game.id}" aria-label="Box score: ${esc(game.away.abbrev)} at ${esc(game.home.abbrev)}">Box score &#8250;</a>` : ''}
-  </article>`;
-}
-
-/** "N. Suzuki" -> "Suzuki" */
-const lastName = (n) => String(n ?? '').replace(/^(?:[A-Z]\.\s*)+/, '');
-
-/** One line of scorers per team: "Peterka, Zacha PP 2, Pastrnak". */
-function scorerLine(game, side) {
-  const abbrev = game[side].abbrev;
-  const mine = game.goals.filter((g) => g.team === abbrev);
-  if (!mine.length) return '';
-  const by = new Map();
-  for (const g of mine) {
-    const key = g.scorer.name;
-    const e = by.get(key) ?? { name: lastName(key), n: 0, tags: new Set() };
-    e.n++;
-    if (g.period === 'SO') e.tags.add('SO');
-    for (const t of g.tags) e.tags.add(t === 'PPG' ? 'PP' : t === 'SHG' ? 'SH' : t);
-    by.set(key, e);
-  }
-  return [...by.values()].map((e) => `<span class="sc">${esc(e.name)}${e.n > 1 ? `<b>${e.n}</b>` : ''}${[...e.tags].map((t) => `<i>${esc(t)}</i>`).join('')}</span>`).join('');
-}
-
-function compactTeam(game, side, tc) {
+function teamBlock(game, side, tc, big) {
   const team = game[side];
   const ls = game.linescore;
   const other = side === 'away' ? 'home' : 'away';
-  const started = game.status.state !== 'pre' && game.status.state !== 'postponed';
   const loser = game.status.state === 'final' && ls.totals[side] < ls.totals[other];
-  return `<div class="ct ${side}${loser ? ' loser' : ''}" style="--team:${tc[side]}">
+  return `<div class="tb ${side}${loser ? ' loser' : ''}${big ? ' big' : ''}" style="--team:${tc[side]}">
     <img src="${esc(team.logo.replace('_light.', '_dark.'))}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">
-    <span class="abbr">${esc(team.abbrev)}</span><b class="tot">${started ? ls.totals[side] : ''}</b>
+    <span class="nm">${esc(team.name || team.abbrev)}${team.record && big ? `<small>${esc(team.record)}</small>` : ''}</span>
+    <b class="tot">${started(game) ? ls.totals[side] : ''}</b>
   </div>`;
+}
+
+const horns = (game) => (game.status.state === 'final' ? '' : hornToggles(game));
+
+function gameHtml(game) {
+  const tc = teamColors(game, { dark: true });
+  const hasBox = game.status.state === 'live' || game.status.state === 'final';
+  const goals = started(game)
+    ? (game.goals.length ? `<div class="gts"><h3>Goals</h3>${game.goals.map((g) => goalTile(game, g, tc)).join('')}</div>` : '<p class="no-goals">No goals yet.</p>')
+    : '';
+  const links = [
+    game.video?.recap ? videoLink(game.video.recap, game.video.recapId, `${game.away.abbrev} @ ${game.home.abbrev} · Recap`, 'Recap') : '',
+    game.video?.condensed ? videoLink(game.video.condensed, game.video.condensedId, `${game.away.abbrev} @ ${game.home.abbrev} · Condensed game`, 'Condensed') : '',
+  ].join('');
+  return `<article class="game cd" style="--away:${tc.away};--home:${tc.home}">
+    <div class="status ${game.status.state}"><span class="label">${esc(statusText(game))}${strengthBadge(game, tc)}</span><span class="venue">${esc(game.venue)}</span></div>
+    <div class="tbs">${teamBlock(game, 'away', tc, true)}${teamBlock(game, 'home', tc, true)}</div>
+    ${statLines(game, tc)}
+    ${goals}
+    <div class="cd-foot"><span class="videos">${links}</span>${hasBox ? `<a class="cg-box" href="game.html?id=${game.id}" aria-label="Box score: ${esc(game.away.abbrev)} at ${esc(game.home.abbrev)}">Box score ›</a>` : ''}${horns(game)}</div>
+  </article>`;
 }
 
 function compactHtml(game) {
   const tc = teamColors(game, { dark: true });
   const hasBox = game.status.state === 'live' || game.status.state === 'final';
-  const started = game.status.state !== 'pre' && game.status.state !== 'postponed';
   const open = openGames.has(game.id);
-  const lines = ['away', 'home'].map((side) => {
-    const sc = scorerLine(game, side);
-    return sc ? `<div class="sl" style="--team:${tc[side]}"><span class="tm">${esc(game[side].abbrev)}</span><div>${sc}</div></div>` : '';
-  }).join('');
+  const links = open ? videoLinksHtml(game) : '';
+  let goals = '';
+  if (started(game) && game.goals.length) {
+    goals = open
+      ? `<div class="gts two">${game.goals.map((g) => goalTile(game, g, tc)).join('')}</div>${links}`
+      : `<div class="gps">${goalPills(game, tc)}</div>`;
+  }
   return `<article class="game cg${open ? ' open' : ''}" data-id="${game.id}" style="--away:${tc.away};--home:${tc.home}">
     <div class="cg-head">
       <div class="status ${game.status.state}"><span class="label">${esc(statusText(game))}${strengthBadge(game, tc)}</span></div>
-      <div class="cg-score">${compactTeam(game, 'away', tc)}<span class="dash">–</span>${compactTeam(game, 'home', tc)}</div>
-      <div class="cg-act">${hornToggles(game)}${started && game.goals.length ? `<button type="button" class="more" aria-expanded="${open}" aria-label="Show all goals">${open ? '▴' : '▾'}</button>` : ''}${hasBox ? `<a class="cg-box" href="game.html?id=${game.id}" aria-label="Box score: ${esc(game.away.abbrev)} at ${esc(game.home.abbrev)}">Box ›</a>` : ''}</div>
+      <div class="cg-teams">${teamBlock(game, 'away', tc, false)}<span class="dash">–</span>${teamBlock(game, 'home', tc, false)}</div>
+      ${statLines(game, tc)}
+      <div class="cg-act">${started(game) && game.goals.length ? `<button type="button" class="more" aria-expanded="${open}" aria-label="Show goals">${open ? '▴' : '▾'}</button>` : ''}${hasBox ? `<a class="cg-box" href="game.html?id=${game.id}" aria-label="Box score: ${esc(game.away.abbrev)} at ${esc(game.home.abbrev)}">Box ›</a>` : ''}</div>
     </div>
-    ${started ? `<div class="cg-scorers">${lines || '<span class="none">No goals yet</span>'}</div>` : ''}
-    ${open ? `<div class="cg-more">${goalsHtml(game)}</div>` : ''}
+    ${goals ? `<div class="cg-goals">${goals}</div>` : ''}
+    ${horns(game) ? `<div class="cg-foot">${horns(game)}</div>` : ''}
   </article>`;
 }
 
@@ -238,6 +251,7 @@ async function load(date, { quiet = false } = {}) {
     const text = JSON.stringify(data);
     if (text !== lastText) render(data); // only redraw when something changed
     lastText = text;
+    loadSat(data.games).then((changed) => { if (changed && current === data) render(data); });
     // Keep live games fresh: every few seconds while a game is on, every minute before puck drop.
     const states = data.games.map((g) => g.status.state);
     if (states.includes('live')) refreshTimer = setTimeout(() => load(data.date, { quiet: true }), LIVE_REFRESH_MS);
