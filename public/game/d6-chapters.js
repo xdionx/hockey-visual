@@ -100,6 +100,69 @@ function chapters(game, c, events, changes) {
   }).join('');
 }
 
+/**
+ * Where momentum really turned over: a run for one team that follows a stretch for the other.
+ * Each flip is explained as either one big bump (a goal or penalty that flipped it at once) or a series of
+ * smaller bumps (shot pressure that built up over a couple of minutes).
+ */
+function momentumFlips(game, events) {
+  const m = game.momentum;
+  if (!m?.series?.length || !m.swings?.length) return [];
+  const series = m.series;
+  const at = (t) => { let best = series[0]; for (const pt of series) { if (pt[0] <= t) best = pt; else break; } return best[1]; };
+  const out = [];
+  const sw = m.swings;
+  for (let k = 1; k < sw.length; k++) {
+    const run = sw[k];
+    const prev = sw[k - 1];
+    if (run.team === prev.team || run.until - run.t < 180) continue;
+    const dir = run.team === 'home' ? 1 : -1;
+    const from = Math.max(0, run.t - 150);
+    const before = Math.min(...series.filter(([t]) => t >= from && t <= run.t).map(([, v]) => v * dir));
+    const peak = Math.max(...series.filter(([t]) => t >= run.t && t <= run.until).map(([, v]) => v * dir));
+    const size = peak - before;
+    if (size < 4) continue;
+    const mine = run.team;
+    const abbr = game[mine].abbrev;
+    const name = game[mine].commonName;
+    const mins = (sec) => { const n = Math.max(1, Math.round(sec / 60)); return `${n} minute${n === 1 ? '' : 's'}`; };
+    const held = mins(run.until - run.t);
+    const prevHeld = mins(prev.until - prev.t);
+    // One big bump: a goal or penalty in the lead-up that moved the needle a lot all by itself.
+    const step = (x) => (at(x + 20) - at(x - 10)) * dir;
+    const lo = run.t - 90; const hi = run.t + 40;
+    const goal = events.filter((g) => g.side === mine && g.t >= lo && g.t <= hi).sort((x, y) => step(y.t) - step(x.t))[0];
+    const pen = (game.penalties ?? []).map((x) => ({ ...x, t: elapsed(x.period, x.time) }))
+      .filter((x) => x.team !== game[mine].abbrev && x.t >= lo && x.t <= hi).sort((x, y) => step(y.t) - step(x.t))[0];
+    const gs = goal ? step(goal.t) : 0;
+    const ps = pen ? step(pen.t) : 0;
+    let tag; let text; let t = run.t; let person = null;
+    if (Math.max(gs, ps) >= 2.5) {
+      if (gs >= ps) {
+        tag = 'A goal flipped it';
+        person = goal.scorer; t = goal.t;
+        text = `${goal.scorer.fullName} scored${goal.pp ? ' on the power play' : ''} and the momentum went from ${game[prev.team].abbrev} to ${abbr} on the spot. ${name} kept it for ${held}.`;
+      } else {
+        tag = 'A penalty flipped it';
+        t = pen.t;
+        text = `${pen.player} (${pen.team}) took a ${String(pen.infraction).toLowerCase()} penalty and the momentum went from ${game[prev.team].abbrev} to ${abbr} on the spot. ${name} kept it for ${held}.`;
+      }
+    } else {
+      // A series of bumps: shots and other small plays that add up over a couple of minutes.
+      const win = (game.shots ?? []).filter((x) => x.elapsed >= from && x.elapsed <= run.t + 60);
+      const mineShots = win.filter((x) => x.team === mine);
+      const theirs = win.length - mineShots.length;
+      const sog = mineShots.filter((x) => x.kind === 'sog' || x.kind === 'goal').length;
+      const lopsided = mineShots.length >= 4 && mineShots.length >= theirs * 1.5;
+      tag = 'A run of small bumps';
+      text = `${game[prev.team].abbrev} had the momentum for ${prevHeld}. Then ${abbr} ${lopsided ? `piled up ${mineShots.length} shot attempts to ${theirs}${sog ? ` (${sog} on goal)` : ''} and` : 'strung together faceoff wins, takeaways, hits and chances, and'} took it over. ${name} kept it for ${held}.`;
+    }
+    out.push({ t, side: mine, tag, person, text, size });
+  }
+  // Keep the flips that mattered most, then show them in time order.
+  return out.sort((x, y) => y.size - x.size).slice(0, 4);
+}
+
 /** Key moments in time order: goals that changed the game, goalie changes, swings and the decider. */
 function turningPoints(game, c, events, changes) {
   const pts = [];
@@ -126,14 +189,10 @@ function turningPoints(game, c, events, changes) {
   for (const ch of changes) {
     pts.push({ t: ch.t, label: ch.t % 1200 === 0 ? `After P${ch.t / 1200}` : null, side: ch.side, tag: 'Goalie change', person: ch.relief, text: `${ch.relief.fullName} replaces ${ch.starter.fullName} in the ${game[ch.side].commonName} net.` });
   }
-  // The longest momentum runs, with what sparked them.
-  const swings = [...(game.momentum?.swings ?? [])].sort((x, y) => (y.until - y.t) - (x.until - x.t)).slice(0, 2);
-  for (const sw of swings) {
-    const mins = Math.round((sw.until - sw.t) / 60);
-    if (mins < 3) continue;
-    const by = sw.cause?.player ? ` sparked by ${sw.cause.player}` : '';
-    pts.push({ t: sw.t, side: sw.team, tag: 'Momentum run', text: `The ${game[sw.team].commonName} take over for ${mins} minutes${by}.` });
-  }
+  // A goal that also flipped the momentum is told once, in the richer flip entry.
+  const flips = momentumFlips(game, events);
+  for (let i = pts.length - 1; i >= 0; i--) if (flips.some((f) => f.person && f.t === pts[i].t && f.side === pts[i].side)) pts.splice(i, 1);
+  for (const f of flips) pts.push(f);
   if (game.status.label.includes('SO')) {
     const so = game.scoring.find((g) => g.period === 'SO');
     if (so) pts.push({ t: 99999, side: sideOf(game, so.team), tag: 'Shootout', person: so.scorer, text: `${so.scorer.fullName} scores the shootout winner.` });
