@@ -1,6 +1,6 @@
 // Design 5 "Scorecards": one card per player with a game rating and what drove it.
 // A modern take on HockeyStats-style player game cards; the start of the per-player scorecard.
-import { esc, logo, teamColors, statusText, prettyDate, allSkaters, allGoalies, pct, signed, rinkMarkup, shotMark, headshot, ratingColor, GS_PARTS, on, morphInner, goalieXg, fold } from './core.js';
+import { esc, logo, teamColors, statusText, prettyDate, allSkaters, allGoalies, pct, signed, rinkMarkup, shotMark, headshot, ratingColor, GS_PARTS, on, morphInner, goalieXg, fold, penKind, elapsed } from './core.js';
 
 export const PART_COLORS = { scoring: '#6366f1', momentum: '#22c55e', shooting: '#0ea5e9', onIce: '#14b8a6', defense: '#a3a3a3', discipline: '#f59e0b', faceoffs: '#ec4899' };
 
@@ -57,14 +57,28 @@ export function momentumBar(p, scale = 15) {
 }
 
 /** Fights, majors and misconducts, only for players who had one. Shows what each did to momentum and score. */
-export function disciplineChips(p) {
-  const list = p.discipline ?? [];
+export function disciplineChips(game, p) {
+  // Games stored before discipline was tracked: rebuild it from the penalty list by player name.
+  const list = p.discipline ?? (game.penalties ?? []).filter((x) => x.player === p.fullName && x.team === p.team && !['minor', 'bench', 'penalty-shot'].includes(penKind(x)))
+    .map((x) => ({ kind: penKind(x), infraction: x.infraction, minutes: x.minutes, period: x.period, time: x.time }));
   if (!list.length) return '';
   const k = p.momentumParts?.kinds ?? {};
   const sgn = (n) => `${n > 0 ? '+' : ''}${n.toFixed(1)}`;
   const chip = (d) => {
     const when = `P${String(d.period).replace('P', '')} ${d.time}`;
-    if (d.kind === 'fight') return `<span class="s-disc fight" title="Fighting is not a penalty against the player. It earns a small credit and can spark a team that is behind."><b>Fight</b> ${esc(when)}${k.fight ? ` · ${sgn(k.fight)} momentum` : ''}</span>`;
+    if (d.kind === 'fight') {
+      // What the fight did for the team: momentum two minutes later, from that team's side.
+      const series = game.momentum?.series;
+      let team = '';
+      if (series?.length) {
+        const t = elapsed(String(d.period).replace('P', ''), d.time);
+        const at = (x) => { let b = series[0]; for (const pt of series) { if (pt[0] <= x) b = pt; else break; } return b[1]; };
+        const dir = p.side === 'home' ? 1 : -1;
+        const gain = (at(t + 120) - at(t)) * dir;
+        team = ` · team ${sgn(gain)} over the next 2 min`;
+      }
+      return `<span class="s-disc fight" title="Fighting is a 5 minute major but not a penalty against the player. It earns a small credit and can spark a team that is behind."><b>Fight</b> ${esc(when)}${k.fight ? ` · credit ${sgn(k.fight)}` : ''}${team}</span>`;
+    }
     if (d.kind === 'major' || d.kind === 'match') return `<span class="s-disc major" title="A 5 minute major: the team plays short for the full time."><b>${d.kind === 'match' ? 'Match penalty' : 'Major'}</b> ${esc(d.infraction)} · ${esc(when)}</span>`;
     if (d.kind === 'game-misconduct') return `<span class="s-disc major" title="Ejected from the game."><b>Game misconduct</b> ${esc(when)}${k['game-misconduct'] ? ` · ${sgn(k['game-misconduct'])} momentum` : ''}</span>`;
     if (d.kind === 'misconduct') return `<span class="s-disc misc" title="10 minutes in the box, but the team does not play short."><b>Misconduct</b> ${esc(when)}${k.misconduct ? ` · ${sgn(k.misconduct)} momentum` : ''}</span>`;
@@ -81,7 +95,7 @@ export function skaterCard(game, p, c, scale) {
     </div>
     <div class="s-line"><span><b>${p.goals}</b>G</span><span><b>${p.assists}</b>A</span><span><b>${p.sog}</b>SOG</span><span><b>${signed(p.plusMinus)}</b>+/-</span><span title="Momentum impact: weighted plays that pushed momentum toward the player's team (swing plays count 1.5x)"><b>${p.momentum != null ? (p.momentum > 0 ? '+' : '') + p.momentum.toFixed(1) : '-'}</b>MOM</span><span><b>${esc(p.toi)}</b>TOI</span></div>
     ${p.onIce ? `<div class="s-onice" title="Shot attempts while on the ice, weighted: on goal 1, missed 0.5, blocked 0.35"><span>On-ice shots</span><b>${p.onIce.cf.toFixed(1)}</b><div class="s-oi-bar"><i style="width:${p.onIce.pct ?? 50}%"></i></div><b>${p.onIce.ca.toFixed(1)}</b><em>${p.onIce.pct != null ? `${Math.round(p.onIce.pct)}%` : ''}</em></div>` : ''}
-    ${disciplineChips(p)}
+    ${disciplineChips(game, p)}
     ${p.swingPlays ? `<div class="s-swing">&#8635; ${p.swingPlays} swing play${p.swingPlays > 1 ? 's' : ''}</div>` : ''}
     <div class="s-body">
       <div class="s-bd"><div class="s-bd-h"><span>Game score</span><b>${p.gameScore > 0 ? '+' : ''}${p.gameScore.toFixed(2)}</b></div>${breakdownBar(p, scale)}${momentumBar(p)}</div>

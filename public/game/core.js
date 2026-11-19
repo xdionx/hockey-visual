@@ -395,6 +395,21 @@ function morphNode(from, to) {
   morphChildren(from, to);
 }
 
+/** Penalty kind for a game.penalties entry. Older stored games have no kind, so work it out from the type and name. */
+export function penKind(x) {
+  if (x.kind) return x.kind;
+  const key = String(x.infraction ?? '').toLowerCase();
+  const type = String(x.type ?? '').toUpperCase();
+  if (key.startsWith('fighting')) return 'fight';
+  if (type === 'MAT' || key.includes('match')) return 'match';
+  if (type === 'GAM' || type === 'GMIS' || key.includes('game misconduct')) return 'game-misconduct';
+  if (type === 'MIS' || key === 'misconduct') return 'misconduct';
+  if (type === 'MAJ' || (x.minutes === 5 && type !== 'BEN')) return 'major';
+  if (type === 'BEN') return 'bench';
+  if (type === 'PS') return 'penalty-shot';
+  return 'minor';
+}
+
 /** A folded explanation: a short title that opens to the full description. */
 export function fold(title, html, { cls = '', attrs = '' } = {}) {
   return `<details class="fold ${cls}"${attrs ? ` ${attrs}` : ''}><summary>${title}</summary><div class="fold-body">${html}</div></details>`;

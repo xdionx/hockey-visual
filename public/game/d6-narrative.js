@@ -1,6 +1,6 @@
 // The written story of a game: how it unfolded, who controlled play over longer stretches (not just
 // shot attempts), who made the difference (goalies included) and what special teams did.
-import { allSkaters, allGoalies, elapsed } from './core.js';
+import { allSkaters, allGoalies, elapsed, penKind } from './core.js';
 import { shotSummary } from './d4-analytics.js';
 
 const other = (s) => (s === 'away' ? 'home' : 'away');
@@ -224,7 +224,7 @@ function decided(game, final) {
 
 /** The story of the penalties: who took them, what the other side did with them, and the severe ones. */
 function penaltyStory(game, final) {
-  const pens = (game.penalties ?? []).filter((x) => !['bench', 'penalty-shot'].includes(x.kind));
+  const pens = (game.penalties ?? []).map((x) => ({ ...x, kind: penKind(x) })).filter((x) => !['bench', 'penalty-shot'].includes(x.kind));
   const real = pens.filter((x) => x.kind !== 'fight');
   const fights = pens.filter((x) => x.kind === 'fight');
   const tense = (a, b) => (final ? a : b);

@@ -1,6 +1,6 @@
 // "The story" in more depth: a chapter per period, the turning points in order, and the
 // numbers that explain the result. Everything is worked out from the box score data.
-import { esc, allSkaters, elapsed, headshot, logo } from './core.js';
+import { esc, allSkaters, elapsed, headshot, logo, penKind } from './core.js';
 import { shotSummary } from './d4-analytics.js';
 
 const sideOf = (game, abbrev) => (abbrev === game.away.abbrev ? 'away' : 'home');
@@ -351,7 +351,7 @@ const PEN_BADGE = { fight: 'Fighting major', major: 'Major', match: 'Match', 'ga
 
 /** Every penalty in the game, with what the other side did with it. */
 function penaltySummary(game, c) {
-  const pens = (game.penalties ?? []).filter((x) => x.kind !== 'penalty-shot');
+  const pens = (game.penalties ?? []).map((x) => ({ ...x, kind: penKind(x) })).filter((x) => x.kind !== 'penalty-shot');
   if (!pens.length) return `<div class="b-card st-pen"><h2>Penalties</h2><p class="st-pen-none">No penalties were called.</p></div>`;
   const pps = game.momentum?.powerPlays ?? [];
   const side = (x) => (x.team === game.away.abbrev ? 'away' : 'home');
