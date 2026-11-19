@@ -85,7 +85,13 @@ export function decisiveItems(game, final) {
       if (w.kind === 'pp-goal') return `led directly to ${w.goal.scorer.name}'s power-play goal`;
       if (w.kind === 'swing') return 'started a big momentum swing';
       const secs = w.goal.t - (elapsed(x.period, x.time) + (x.minutes ?? 2) * 60);
-      return `ran out ${secs ? `${secs} second${secs === 1 ? '' : 's'}` : 'the moment'} before ${w.goal.scorer.name} (${w.goal.team}) scored`;
+      const gap = secs ? `${secs} second${secs === 1 ? '' : 's'}` : 'the moment';
+      if (w.goal.team === x.team) {
+        return w.goal.scorer.fullName === x.player
+          ? `was killed off, and ${x.player} scored ${gap} after stepping out of the box, catching the power play off guard`
+          : `was killed off, and ${w.goal.scorer.name} scored ${gap} after it ended, catching the power play off guard`;
+      }
+      return `ran out ${gap} before ${w.goal.scorer.name} (${w.goal.team}) scored`;
     });
     const at = `${x.time} of the ${String(x.periodName ?? x.period).toLowerCase().replace(' period', '')}`;
     out.push(`${x.player} (${x.team})'s ${String(x.infraction).toLowerCase()} at ${at} ${parts.join(' and ')}.`);
