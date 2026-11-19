@@ -13,14 +13,13 @@ BG, RED, PINK = '#0a0e17', '#e11d48', '#fb7185'
 
 ART = f'''
 <g>
-  <!-- momentum streaks: three skewed bars, longest on top, fading as they trail the puck -->
-  <path d="M62 150 H238 L212 208 H36 Z" fill="{RED}"/>
-  <path d="M100 228 H252 L228 282 H76 Z" fill="{RED}" opacity=".85"/>
-  <path d="M150 302 H262 L242 346 H130 Z" fill="{PINK}" opacity=".7"/>
-  <!-- puck: side wall, then top face -->
-  <path d="M244 214 V312 A118 54 0 0 0 480 312 V214 Z" fill="#94a3b8"/>
-  <ellipse cx="362" cy="214" rx="118" ry="54" fill="#f8fafc"/>
-  <ellipse cx="362" cy="214" rx="82" ry="34" fill="none" stroke="#cbd5e1" stroke-width="6"/>
+  <!-- momentum streaks: three rounded bars trailing the puck, longest in the middle, fading out -->
+  <rect x="40" y="218" width="190" height="26" rx="13" fill="{RED}"/>
+  <rect x="86" y="258" width="150" height="26" rx="13" fill="{RED}" opacity=".85"/>
+  <rect x="132" y="298" width="104" height="26" rx="13" fill="{PINK}" opacity=".7"/>
+  <!-- puck: slim side wall, then flat top face (no inner ring) -->
+  <path d="M244 250 V290 A122 40 0 0 0 488 290 V250 Z" fill="#94a3b8"/>
+  <ellipse cx="366" cy="250" rx="122" ry="40" fill="#f8fafc"/>
 </g>'''
 
 def svg(kind):
@@ -33,13 +32,13 @@ def svg(kind):
         art = f'<g transform="translate(-6 0)">{ART}</g>'
     else:  # maskable: keep everything inside the central 80% circle
         bg = f'<rect width="512" height="512" fill="{BG}"/>'
-        art = f'<g transform="translate(256 256) scale(.66) translate(-256 -262)">{ART}</g>'
+        art = f'<g transform="translate(256 256) scale(.66) translate(-256 -270)">{ART}</g>'
     return f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">{bg}{art}</svg>\n'
 
 # The small favicon drops detail: just the puck and two bold streaks so it reads at 16px.
 FAV = f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="{BG}"/>
-<path d="M5 17 H29 L26 26 H2 Z" fill="{RED}"/><path d="M10 31 H31 L28 40 H7 Z" fill="{RED}" opacity=".85"/>
-<path d="M26 28 V42 A17 9 0 0 0 60 42 V28 Z" fill="#94a3b8"/><ellipse cx="43" cy="28" rx="17" ry="9" fill="#f8fafc"/></svg>
+<rect x="3" y="21" width="24" height="6" rx="3" fill="{RED}"/><rect x="9" y="30" width="19" height="6" rx="3" fill="{RED}" opacity=".85"/><rect x="15" y="39" width="13" height="6" rx="3" fill="{PINK}" opacity=".7"/>
+<path d="M26 30 V37 A18 7 0 0 0 62 37 V30 Z" fill="#94a3b8"/><ellipse cx="44" cy="30" rx="18" ry="7" fill="#f8fafc"/></svg>
 '''
 
 files = {'icon.svg': svg('any'), 'icon-full.svg': svg('full'), 'icon-maskable.svg': svg('maskable'), 'favicon.svg': FAV}
