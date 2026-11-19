@@ -28,9 +28,9 @@ function lift(h, minL = 0.5) {
   let s = d === 0 ? 0 : d / (1 - Math.abs(2 * l - 1));
   let hue = 0;
   if (d) hue = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
-  hue *= 60;
+  hue = (hue * 60 + 360) % 360;
   l = Math.max(l, minL);
-  s = d === 0 ? 0 : Math.max(s, 0.55);
+  s = d === 0 ? 0 : Math.max(s, 0.45);
   const c = (1 - Math.abs(2 * l - 1)) * s;
   const x = c * (1 - Math.abs(((hue / 60) % 2) - 1));
   const m = l - c / 2;
@@ -57,18 +57,24 @@ export function readable(color, bg = '#111827', min = 4.5) {
  * { away, home } accent colors that are distinguishable from each other.
  * With { dark: true }, very dark colors (navy, black) are lifted so they show on a dark page.
  */
+const chromatic = (h) => Math.max(...hex(h)) - Math.min(...hex(h)) >= 60;
+
 export function teamColors(game, { dark = false } = {}) {
   const a = TEAM_COLORS[game.away.abbrev] ?? ['#4b5563', '#9ca3af'];
   const h = TEAM_COLORS[game.home.abbrev] ?? ['#1f2937', '#6b7280'];
+  // When the two primaries look alike, switch one team to its second color, but only a real color:
+  // never a black, grey or white that would read as an arbitrary grey.
   let away = a[0];
-  let home = dist(a[0], h[0]) < 90 ? h[1] : h[0];
-  if (dark) {
-    const up = (c) => readable(c);
-    away = up(away);
-    home = up(home);
-    if (dist(away, home) < 90) home = up(h[1]);
+  let home = h[0];
+  if (dist(a[0], h[0]) < 90) {
+    if (chromatic(h[1])) home = h[1];
+    else if (chromatic(a[1])) away = a[1];
   }
-  return { away, home, awayAlt: a[1], homeAlt: h[1], awayBase: a[0], homeBase: dist(a[0], h[0]) < 90 ? h[1] : h[0] };
+  if (dark) {
+    away = readable(away);
+    home = readable(home);
+  }
+  return { away, home, awayAlt: a[1], homeAlt: h[1], awayBase: away, homeBase: home };
 }
 
 export function logo(team, cls = 'logo', dark = false) {
