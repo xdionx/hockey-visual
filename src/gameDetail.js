@@ -182,6 +182,7 @@ function shotList(pbp, awayId, roster) {
       time: clockTime(e.timeInPeriod),
       elapsed: (e.periodDescriptor.number - 1) * 1200 + toSeconds(e.timeInPeriod),
       shooterId,
+      ...(kind === 'goal' ? { assistIds: [d.assist1PlayerId, d.assist2PlayerId].filter(Boolean), goalieId: d.goalieInNetId ?? null } : {}),
       shotType: d.shotType ?? null,
       zone: shotZone(shooterTeam, x, y),
     });
@@ -289,6 +290,12 @@ function strengthTags(goal) {
   return tags;
 }
 
+/** ".../sprites/20262027/2026020312/ev76.json" -> "https://www.nhl.com/ppt-replay/goal/2026020312/76" */
+function visualizerUrl(gameId, ppt) {
+  const m = /\/ev(\d+)\.json/.exec(ppt ?? '');
+  return m && gameId ? `https://www.nhl.com/ppt-replay/goal/${gameId}/${m[1]}` : null;
+}
+
 function scoring(landing) {
   const out = [];
   for (const p of landing?.summary?.scoring ?? []) {
@@ -305,6 +312,8 @@ function scoring(landing) {
         score: { away: g.awayScore, home: g.homeScore },
         highlight: nhlVideoUrl(g.highlightClipSharingUrl),
         highlightId: videoId(g.highlightClip, g.highlightClipSharingUrl),
+        // NHL.com's goal visualizer (puck and player tracking replay), when tracking exists.
+        visualizer: visualizerUrl(landing.id, g.pptReplayUrl),
       });
     }
   }
