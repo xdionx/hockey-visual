@@ -724,3 +724,7 @@ main { padding: 0 0 48px; }
 .g-xg .up b { color: #4ade80; }
 .g-xg .down b { color: #f87171; }
 .a-g .g-xg { margin-top: 8px; max-width: 420px; }
+
+.st-lede p { max-width: 70ch; }
+.st-beat { display: block; margin: 0 0 2px; font: 800 13px "Barlow Condensed", sans-serif; letter-spacing: .1em; text-transform: uppercase; color: #94a3b8; }
+.st-lede p + p { margin-top: 14px; }

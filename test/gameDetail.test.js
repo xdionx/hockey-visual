@@ -52,7 +52,7 @@ test('game story headline finds the comeback and the shootout winner', async () 
   const { storyline } = await import('../public/game/d6-story.js');
   const s = storyline(game);
   assert.equal(s.headline, 'Jets storm back from 4 down to beat the Blackhawks in a shootout');
-  assert.match(s.dek[0], /Kyle Connor scored the shootout winner/);
+  assert.match(s.dek[0].text, /Kyle Connor scored the shootout winner/);
 });
 
 test('on-ice weighted shot attempts from shift charts', async () => {
@@ -154,4 +154,15 @@ test('goalie scorecard data includes expected save percentage and GSAx', () => {
   assert.ok(g.xga > 0 && g.expectedSavePct > 0.8 && g.expectedSavePct < 1);
   assert.equal(g.gsax, Math.round((g.xga - g.goalsAgainst) * 100) / 100);
   assert.ok(Math.abs(g.savePctAboveExpected - (g.saves / g.shotsAgainst - g.expectedSavePct)) < 0.002);
+});
+
+test('the story narrative tells the arc, momentum control, the difference makers and special teams', async () => {
+  const { storyBeats } = await import('../public/game/d6-narrative.js');
+  const beats = storyBeats(game);
+  const text = Object.fromEntries(beats.map((b) => [b.label, b.text]));
+  assert.deepEqual(beats.map((b) => b.label), ['How it unfolded', 'Who controlled play', 'The difference', 'Special teams']);
+  assert.match(text['How it unfolded'], /fought back from 4 down/);
+  assert.match(text['Who controlled play'], /shot attempts/);
+  assert.match(text['Who controlled play'], /momentum/);
+  assert.match(text['The difference'], /Scheifele/);
 });

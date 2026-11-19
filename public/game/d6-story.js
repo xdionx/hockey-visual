@@ -6,6 +6,7 @@ import { hero, scoringCards, stars, statBars, shotLine } from './d2-broadcast.js
 import { kpis, shotMap, heatTable, goalies, shotSummary, mountShotMap } from './d4-analytics.js';
 import { spotlight, scorecardControls, scorecardKey, mountScorecards } from './d5-scorecards.js';
 import { storyChapters } from './d6-chapters.js';
+import { storyBeats } from './d6-narrative.js';
 
 const SECTIONS = [
   ['story', 'Story'], ['momentum', 'Momentum'], ['shots', 'Shots'], ['players', 'Players'], ['box', 'Box score'],
@@ -55,6 +56,8 @@ export function storyline(game) {
 
   if (state === 'live') {
     const headline = lead ? `${game[lead].commonName} lead ${Math.max(t.away, t.home)}-${Math.min(t.away, t.home)}` : `Tied ${t.away}-${t.home}`;
+    const live = storyBeats(game);
+    if (live.length) return { headline, dek: [{ label: game.status.label, text: live[0].text }, ...live.slice(1)] };
     dek.push(`${game.status.label}.`);
     if (att) dek.push(`${away.abbrev} has ${Math.round((100 * shots.away.attempts) / att)}% of shot attempts so far (${shots.away.attempts}-${shots.home.attempts}).`);
     if (best) dek.push(`${best.fullName} (${best.team}) has been the best player on the ice so far: ${statLine(best)}.`);
@@ -63,6 +66,7 @@ export function storyline(game) {
 
   const w = lead ?? 'home';
   const l = other(w);
+  const beats = storyBeats(game);
   const W = game[w].commonName;
   const L = game[l].commonName;
   const last = game.status.label.split('/')[1];
@@ -77,6 +81,7 @@ export function storyline(game) {
   else if (suffix) headline = `${W} edge the ${L}${suffix}`;
   else headline = `${W} beat the ${L} ${score}`;
 
+  if (beats.length) return { headline, dek: beats };
   // The deciding goal: the winner's goal that put them ahead for good.
   if (last === 'SO') {
     const decider = game.scoring.find((g) => g.period === 'SO');
@@ -360,7 +365,7 @@ export default {
 
       <section class="st-sec" id="st-story">
         ${header(1, 'story', 'The story')}
-        <div class="st-lede"><h1>${esc(story.headline)}</h1>${story.dek.map((d) => `<p>${esc(d)}</p>`).join('')}</div>
+        <div class="st-lede"><h1>${esc(story.headline)}</h1>${story.dek.map((d) => (typeof d === 'string' ? `<p>${esc(d)}</p>` : `<p><b class="st-beat">${esc(d.label)}</b> ${esc(d.text)}</p>`)).join('')}</div>
         ${storyChapters(game, c)}
         ${started ? `<div class="b-cols st-cols"><div>${scoringCards(game, c)}</div><div>${stars(game)}${statBars(game, c)}</div></div>` : ''}
       </section>
