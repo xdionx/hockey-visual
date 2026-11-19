@@ -234,3 +234,25 @@ test('a major costs far more than a minor, a game misconduct more again, and a m
   const calm = computeMomentum({ rosterSpots: roster, plays: pen('MIS', 'misconduct', 10) }, 52, 900).players[1];
   assert.ok(mis.neg < calm.neg, 'costs more for a player who was driving the game');
 });
+
+test('decisive penalties: a power-play goal, a swing, or a goal right after expiry', async () => {
+  const { decisivePenalties } = await import('../public/game/d6-penalties.js');
+  const game = {
+    away: { abbrev: 'AAA', commonName: 'Aa' }, home: { abbrev: 'BBB', commonName: 'Bb' },
+    penalties: [
+      { team: 'AAA', period: '1', time: '5:00', player: 'X', infraction: 'Tripping', minutes: 2, kind: 'minor' },
+      { team: 'AAA', period: '1', time: '12:00', player: 'Y', infraction: 'Hooking', minutes: 2, kind: 'minor' },
+      { team: 'BBB', period: '2', time: '1:00', player: 'Z', infraction: 'Slashing', minutes: 2, kind: 'minor' },
+    ],
+    scoring: [
+      { team: 'BBB', period: '1', time: '6:10', scorer: { name: 'S' }, periodName: '1st period' },
+      { team: 'AAA', period: '1', time: '14:05', scorer: { name: 'T' }, periodName: '1st period' },
+    ],
+    momentum: { powerPlays: [{ team: 'home', start: 300, end: 370, result: 'goal' }, { team: 'home', start: 720, end: 840, result: 'killed' }], swings: [], series: [], max: 1 },
+  };
+  const m = [...decisivePenalties(game)];
+  assert.equal(m.length, 2);
+  assert.equal(m[0][1][0].kind, 'pp-goal');
+  assert.equal(m[1][0].player, 'Y');
+  assert.equal(m[1][1][0].kind, 'expiry'); // 12:00 + 2:00 = 14:00; goal at 14:05
+});

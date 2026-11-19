@@ -2,6 +2,7 @@
 // numbers that explain the result. Everything is worked out from the box score data.
 import { esc, allSkaters, elapsed, headshot, logo, penKind } from './core.js';
 import { shotSummary } from './d4-analytics.js';
+import { decisivePenalties } from './d6-penalties.js';
 
 const sideOf = (game, abbrev) => (abbrev === game.away.abbrev ? 'away' : 'home');
 const other = (s) => (s === 'away' ? 'home' : 'away');
@@ -365,18 +366,21 @@ function penaltySummary(game, c) {
     if (pp.result === 'ongoing') return ['Power play on', ''];
     return ['Penalty killed', 'good'];
   };
+  const key = decisivePenalties(game);
   const rows = pens.map((x) => {
     const [res, cls] = outcome(x);
+    const keyWhy = [...key].find(([k]) => k.period === x.period && k.time === x.time && k.player === x.player)?.[1] ?? [];
     const badge = PEN_BADGE[x.kind] ? `<em class="st-pen-b ${x.kind}">${PEN_BADGE[x.kind]}</em>` : '';
-    return `<tr style="--team:${c[side(x)]}"><td class="st-pen-t">P${esc(String(x.period).replace('P', ''))} ${esc(x.time)}</td>
+    return `<tr class="${keyWhy.length ? 'st-pen-key' : ''}" style="--team:${c[side(x)]}"><td class="st-pen-t">P${esc(String(x.period).replace('P', ''))} ${esc(x.time)}</td>
       <td><span class="st-ch-tm" style="--team:${c[side(x)]}">${esc(x.team)}</span></td>
       <td class="st-pen-w"><b>${esc(x.player)}</b><small>${esc(x.infraction)}${x.drawnBy ? ` · drawn by ${esc(x.drawnBy)}` : ''}</small></td>
       <td>${badge}<span class="st-pen-m">${x.minutes ?? ''}${x.minutes ? ' min' : ''}</span></td>
-      <td class="st-pen-r ${cls}">${esc(res)}</td></tr>`;
+      <td class="st-pen-r ${cls}">${esc(res)}${keyWhy.map((w) => `<span class="st-pen-why ${w.kind}">${esc(w.text)}</span>`).join('')}</td></tr>`;
   });
   const sum = (sd) => pens.filter((x) => side(x) === sd && !['bench', 'misconduct', 'game-misconduct'].includes(x.kind));
+  const nKey = key.size;
   const head = ['away', 'home'].map((sd) => `<span style="--team:${c[sd]}"><b>${esc(game[sd].abbrev)}</b> ${sum(sd).length} penalties · ${sum(sd).reduce((n, x) => n + (x.minutes ?? 2), 0)} min</span>`).join('');
-  return `<div class="b-card st-pen"><h2>Penalties</h2><div class="st-pen-head">${head}</div>
+  return `<div class="b-card st-pen"><h2>Penalties</h2><div class="st-pen-head">${head}${nKey ? `<span class="st-pen-keycount">★ ${nKey} decisive</span>` : ''}</div>
     <table class="st-pen-table"><thead><tr><th>Time</th><th></th><th class="l">Player</th><th>Type</th><th class="l">What happened</th></tr></thead><tbody>${rows.join('')}</tbody></table></div>`;
 }
 
