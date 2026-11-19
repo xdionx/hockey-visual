@@ -1,6 +1,6 @@
 // "The story" in more depth: a chapter per period, the turning points in order, and the
 // numbers that explain the result. Everything is worked out from the box score data.
-import { esc, allSkaters, elapsed, headshot } from './core.js';
+import { esc, allSkaters, elapsed, headshot, logo } from './core.js';
 import { shotSummary } from './d4-analytics.js';
 
 const sideOf = (game, abbrev) => (abbrev === game.away.abbrev ? 'away' : 'home');
@@ -45,59 +45,57 @@ function goalieChanges(game) {
   return out;
 }
 
-/** One paragraph per period. */
+const EFFECT = { first: 'Opens scoring', tie: 'Ties it', lead: 'Go-ahead', cut: 'Cuts the lead', extend: 'Extends lead' };
+
+/** One chapter per period: a headline, quick stats, then each goal and goalie change on its own line. */
 function chapters(game, c, events, changes) {
   const periods = game.linescore.periods.filter((p) => p.label !== 'SO');
   const shareOf = game.momentum?.periods ?? [];
   const pps = game.momentum?.powerPlays ?? [];
+  const tag = (side) => `<span class="st-ch-tm" style="--team:${c[side]}">${esc(game[side].abbrev)}</span>`;
   return periods.map((p, i) => {
     const start = i * 1200;
     const end = i < 3 ? start + 1200 : Infinity;
     const goals = events.filter((g) => g.t >= start && g.t < end || (i === 3 && g.period === 'OT'));
-    const sentences = [];
-    const name = i < 3 ? `${ordinal[i]} period` : 'overtime';
-    if (!goals.length) sentences.push(`No goals in the ${name}.`);
-    for (const [j, g] of goals.entries()) {
-      const who = `${g.scorer.fullName}${g.pp ? ' on the power play' : g.sh ? ' shorthanded' : g.en ? ' into an empty net' : ''}`;
-      const score = `${g.after.away}-${g.after.home}`;
-      const team = game[g.side].commonName;
-      const assist = g.assists.length ? ` from ${list(g.assists.map((x) => last(x.name)))}` : '';
-      if (g.effect === 'first') sentences.push(`${who} opened the scoring for the ${team} at ${g.time}${assist}.`);
-      else if (g.effect === 'tie') sentences.push(`${who} tied it ${score} at ${g.time}${assist}.`);
-      else if (g.effect === 'lead') sentences.push(`${who} put the ${team} ahead ${score} at ${g.time}${assist}.`);
-      else if (g.effect === 'cut') sentences.push(`${who} cut the lead to ${Math.abs(g.after.away - g.after.home)} at ${g.time} (${score})${assist}.`);
-      else sentences.push(`${j && goals[j - 1].side === g.side ? 'Then ' : ''}${who} made it ${score} at ${g.time}${assist}.`);
-      if (i === 3 && g.period === 'OT') sentences.push('That ended it.');
-    }
+    const rows = goals.map((g) => {
+      const kind = g.pp ? '<em class="st-ch-k">PP</em>' : g.sh ? '<em class="st-ch-k">SH</em>' : g.en ? '<em class="st-ch-k">EN</em>' : '';
+      const effect = i === 3 && g.period === 'OT' ? 'Wins it' : EFFECT[g.effect];
+      const assists = g.assists.length ? `<small>from ${esc(list(g.assists.map((x) => last(x.name))))}</small>` : '<small>unassisted</small>';
+      return `<li><span class="st-ch-t">${esc(g.time)}</span>${tag(g.side)}<span class="st-ch-who"><b>${esc(g.scorer.fullName)}</b>${kind}${assists}</span>
+        <span class="st-ch-fx ${g.effect}">${effect}<b>${g.after.away}-${g.after.home}</b></span></li>`;
+    });
     // A change right at an intermission (starter's time is a whole number of periods) belongs to the period before.
     for (const ch of changes.filter((x) => (x.t % 1200 === 0 ? x.t - 1 : x.t) >= start && (x.t % 1200 === 0 ? x.t - 1 : x.t) < end)) {
-      const when = ch.t % 1200 === 0 ? ` after the ${ordinal[ch.t / 1200 - 1] ?? 'third'} period` : '';
-      sentences.push(`The ${game[ch.side].commonName} pulled ${ch.starter.fullName}${when} (${ch.starter.goalsAgainst} goals on ${ch.starter.shotsAgainst} shots); ${ch.relief.fullName} stopped ${ch.relief.saves} of ${ch.relief.shotsAgainst} the rest of the way.`);
+      const when = ch.t % 1200 === 0 ? 'Int.' : `${Math.floor((ch.t % 1200) / 60)}:${String(ch.t % 60).padStart(2, '0')}`;
+      rows.push(`<li class="st-ch-g"><span class="st-ch-t">${when}</span>${tag(ch.side)}<span class="st-ch-who"><b>Goalie change</b><small>${esc(last(ch.starter.fullName))} out (${ch.starter.goalsAgainst} GA on ${ch.starter.shotsAgainst}) · ${esc(last(ch.relief.fullName))} in, ${ch.relief.saves}/${ch.relief.shotsAgainst} after</small></span></li>`);
     }
+    if (!goals.length) rows.unshift('<li class="st-ch-none">No goals</li>');
+    // Headline: who drove the period, in plain words.
+    const share = shareOf[i];
+    let head = '';
+    if (share) {
+      const top = share.away >= share.home ? 'away' : 'home';
+      const ctl = share.control;
+      const mins = ctl ? Math.round(ctl[top] / 60) : null;
+      if (share[top] >= 60) head = `${tag(top)} drove the period${mins ? `, in control for about ${mins} min` : ''}`;
+      else if (share[top] >= 54) head = `${tag(top)} had a slight edge`;
+      else head = 'Momentum was even';
+    }
+    const chips = [];
+    chips.push(`<span>Shots <b>${p.shotsAway ?? 0}-${p.shotsHome ?? 0}</b></span>`);
+    if (share) chips.push(`<span>Momentum <b>${share.away}-${share.home}%</b></span>`);
     const myPP = pps.filter((pp) => pp.start >= start && pp.start < end);
     for (const side of ['away', 'home']) {
       const mine = myPP.filter((pp) => pp.team === side);
-      if (!mine.length) continue;
-      const scored = mine.filter((pp) => pp.result === 'goal').length;
-      sentences.push(`${game[side].abbrev} went ${scored} for ${mine.length} on the power play.`);
-    }
-    const share = shareOf[i];
-    if (share) {
-      const top = share.away >= share.home ? 'away' : 'home';
-      const shots = `${p.shotsAway ?? 0}-${p.shotsHome ?? 0}`;
-      const ctl = share.control;
-      const held = ctl ? (ctl.away >= ctl.home ? 'away' : 'home') : top;
-      const mins = ctl ? Math.round(ctl[held] / 60) : null;
-      const hold = ctl && mins ? ` and had control for about ${mins} minute${mins === 1 ? '' : 's'}` : '';
-      if (share[top] >= 60) sentences.push(`The ${game[top].commonName} drove it, creating ${share[top]}% of the momentum${held === top ? hold : ''} (shots ${shots}).`);
-      else if (share[top] >= 54) sentences.push(`The ${game[top].commonName} had the edge, ${share[top]}% of the momentum created (shots ${shots}).`);
-      else sentences.push(`Momentum was even, ${share.away}%-${share.home}% (shots ${shots}).`);
+      if (mine.length) chips.push(`<span>${esc(game[side].abbrev)} PP <b>${mine.filter((pp) => pp.result === 'goal').length}/${mine.length}</b></span>`);
     }
     const won = p.away === p.home ? null : p.away > p.home ? 'away' : 'home';
     return `<article class="st-ch" style="--team:${won ? c[won] : '#475569'}">
       <header><span class="st-ch-p">${i < 3 ? `${['1st', '2nd', '3rd'][i]} period` : 'Overtime'}</span>
         <span class="st-ch-s"><b style="color:${c.away}">${esc(game.away.abbrev)} ${p.away ?? 0}</b> – <b style="color:${c.home}">${p.home ?? 0} ${esc(game.home.abbrev)}</b></span></header>
-      <p>${sentences.map(esc).join(' ')}</p>
+      ${head ? `<div class="st-ch-head">${head}</div>` : ''}
+      <div class="st-ch-chips">${chips.join('')}</div>
+      <ul class="st-ch-list">${rows.join('')}</ul>
     </article>`;
   }).join('');
 }
@@ -149,10 +147,46 @@ function turningPoints(game, c, events, changes) {
   </li>`).join('')}</ol></div>`;
 }
 
+/** True when two numbers are close enough that calling a "winner" would mislead. */
+export function isClose(a, b, { pct = false } = {}) {
+  if (pct) return Math.abs(a - b) < 6;
+  const hi = Math.max(a, b);
+  return Math.abs(a - b) <= 2 || (hi > 0 && Math.abs(a - b) / hi < 0.15);
+}
+
+const teamTag = (game, side) => `<span class="st-tm">${logo(game[side], 'st-tm-logo', true)}<em>${esc(game[side].abbrev)}</em></span>`;
+
+/** A head-to-head tile: both teams' numbers, a split bar, and a line on what it means. */
+function compareTile(game, c, label, away, home, awayNum, homeNum, note, better = 'more') {
+  const tot = awayNum + homeNum;
+  const aw = tot ? (100 * awayNum) / tot : 50;
+  const lead = awayNum === homeNum ? null : (awayNum > homeNum) === (better === 'more') ? 'away' : 'home';
+  const close = note.close;
+  return `<div class="st-num st-cmp${close ? ' close' : ''}">
+    <span class="st-lbl">${esc(label)}</span>
+    <div class="st-cmp-row">${teamTag(game, 'away')}<b class="${!close && lead === 'away' ? 'lead' : ''}">${esc(away)}</b><b class="${!close && lead === 'home' ? 'lead' : ''}">${esc(home)}</b>${teamTag(game, 'home')}</div>
+    <div class="st-cmp-bar"><i style="width:${aw}%;background:${c.away}"></i><i style="width:${100 - aw}%;background:${c.home}"></i></div>
+    <small>${close ? '<span class="st-even">Close</span> ' : ''}${esc(note.text)}</small>
+  </div>`;
+}
+
+/** Top three momentum drivers for each team, side by side. */
+function topDrivers(game, c) {
+  const sk = allSkaters(game).filter((p) => p.momentum != null);
+  if (!sk.length) return '';
+  const col = (side) => {
+    const top = sk.filter((p) => p.side === side).sort((x, y) => y.momentum - x.momentum).slice(0, 3);
+    return `<div class="st-td" style="--team:${c[side]}"><div class="st-td-h">${teamTag(game, side)}</div>${top.map((p, i) => `<div class="st-td-p">
+      <span class="st-td-n">${i + 1}</span>${headshot(p, 'st-td-mug')}<span class="st-td-name">${esc(p.fullName)}</span><b>${p.momentum > 0 ? '+' : ''}${p.momentum.toFixed(1)}</b></div>`).join('')}</div>`;
+  };
+  return `<div class="st-num st-drivers"><span class="st-lbl">Top momentum drivers</span><div class="st-td-cols">${col('away')}${col('home')}</div></div>`;
+}
+
 /** A handful of numbers that explain the result. */
 function byTheNumbers(game, c, events) {
   const shots = shotSummary(game);
   const stat = (k) => game.teamStats.find((s) => s.key === k);
+  const ab = (side) => game[side].abbrev;
   let a = 0; let h = 0; let leader = null; let changes = 0; let biggest = 0;
   for (const g of events) {
     if (g.side === 'away') a++; else h++;
@@ -169,25 +203,34 @@ function byTheNumbers(game, c, events) {
   const t = game.linescore.totals;
   const winner = t.away === t.home ? null : t.away > t.home ? 'away' : 'home';
   const tiles = [];
-  if (winner && deficits[winner] >= 2) tiles.push([`${deficits[winner]}`, 'goal comeback', `${game[winner].abbrev} trailed by ${deficits[winner]}`, winner]);
-  tiles.push([`${changes}`, changes === 1 ? 'lead change' : 'lead changes', `Biggest lead: ${biggest}`, null]);
-  const plate = shots.away.plate + shots.home.plate;
-  if (plate) {
-    const top = shots.away.plate >= shots.home.plate ? 'away' : 'home';
-    tiles.push([`${shots[top].plate}-${shots[other(top)].plate}`, 'home plate attempts', `${game[top].abbrev} · ${shots.away.plateGoals + shots.home.plateGoals} of ${shots.away.goals + shots.home.goals} goals came from there`, top]);
+  const single = (big, label, sub, side) => `<div class="st-num"${side ? ` style="--team:${c[side]}"` : ''}><span class="st-lbl">${esc(label)}</span><b>${esc(big)}</b><small>${side ? `${teamTag(game, side)} ` : ''}${esc(sub)}</small></div>`;
+  if (winner && deficits[winner] >= 2) tiles.push(single(`${deficits[winner]}`, 'goal comeback', `trailed by ${deficits[winner]} and won`, winner));
+  tiles.push(single(`${changes}`, changes === 1 ? 'lead change' : 'lead changes', `Biggest lead: ${biggest} goal${biggest === 1 ? '' : 's'}`, null));
+  // Hockey stat tiles: name the leader only when the gap is real, otherwise call it close.
+  const cmp = (label, s, better, words) => {
+    if (!s) return;
+    const close = isClose(s.awayNum, s.homeNum, { pct: s.key === 'faceoffWinningPctg' });
+    const top = (s.awayNum >= s.homeNum) === (better === 'more') ? 'away' : 'home';
+    const raw = s.awayNum >= s.homeNum ? 'away' : 'home';
+    tiles.push(compareTile(game, c, label, s.away, s.home, s.awayNum, s.homeNum, { close, text: close ? words.close : words.win(top, raw) }, better));
+  };
+  const plateGoals = shots.away.plateGoals + shots.home.plateGoals;
+  const allGoals = shots.away.goals + shots.home.goals;
+  if (shots.away.plate + shots.home.plate) {
+    cmp('Home plate attempts', { key: 'plate', away: String(shots.away.plate), home: String(shots.home.plate), awayNum: shots.away.plate, homeNum: shots.home.plate }, 'more', {
+      close: `Even in the danger area · ${plateGoals} of ${allGoals} goals came from there`,
+      win: (s) => `${ab(s)} got to the net more · ${plateGoals} of ${allGoals} goals came from there`,
+    });
   }
   const pp = stat('powerPlay');
-  if (pp) tiles.push([`${pp.away} · ${pp.home}`, 'power play', `${game.away.abbrev} · ${game.home.abbrev}`, null]);
-  const fo = stat('faceoffWinningPctg');
-  if (fo) { const top = fo.awayNum >= fo.homeNum ? 'away' : 'home'; tiles.push([fo[top], 'faceoffs won', game[top].abbrev, top]); }
-  const hits = stat('hits');
-  if (hits) { const top = hits.awayNum >= hits.homeNum ? 'away' : 'home'; tiles.push([`${hits[top]}-${hits[other(top)]}`, 'hits', `${game[top].abbrev} more physical`, top]); }
-  const gvs = stat('giveaways');
-  if (gvs) { const top = gvs.awayNum >= gvs.homeNum ? 'away' : 'home'; tiles.push([gvs[top], 'giveaways', `${game[top].abbrev} gave it away more`, other(top)]); }
-  // Best skater not already the star of the lede: the top momentum driver.
-  const driver = allSkaters(game).filter((p) => p.momentum != null).sort((x, y) => y.momentum - x.momentum)[0];
-  if (driver) tiles.push([`+${driver.momentum.toFixed(1)}`, 'top momentum driver', driver.fullName, driver.side]);
-  return `<div class="st-nums">${tiles.map(([big, label, sub, side]) => `<div class="st-num"${side ? ` style="--team:${c[side]}"` : ''}><b>${esc(big)}</b><span>${esc(label)}</span><small>${esc(sub)}</small></div>`).join('')}</div>`;
+  if (pp) {
+    const ppText = pp.awayNum === pp.homeNum ? (pp.awayNum ? 'Both power plays scored the same' : 'No power play goals') : `${ab(pp.awayNum > pp.homeNum ? 'away' : 'home')} won the special teams battle`;
+    tiles.push(compareTile(game, c, 'Power play', pp.away, pp.home, pp.awayNum, pp.homeNum, { close: false, text: ppText }));
+  }
+  cmp('Faceoffs won', stat('faceoffWinningPctg'), 'more', { close: 'Neither team owned the dot', win: (s) => `${ab(s)} won the dot` });
+  cmp('Hits', stat('hits'), 'more', { close: 'Both teams played about as physical', win: (s) => `${ab(s)} out-hit ${ab(other(s))}` });
+  cmp('Giveaways', stat('giveaways'), 'fewer', { close: 'Both teams gave it away about as often', win: (s, raw) => `${ab(raw)} coughed it up more` });
+  return `<div class="st-nums">${tiles.join('')}${topDrivers(game, c)}</div>`;
 }
 
 export function storyChapters(game, c) {
