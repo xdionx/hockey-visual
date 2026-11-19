@@ -21,12 +21,10 @@ function shiftDate(iso, days) {
   return d.toISOString().slice(0, 10);
 }
 
-/** Page heading and browser tab title both carry the date being shown. */
+/** The browser tab title carries the date being shown. */
 function setTitle(iso) {
   const short = new Date(`${iso}T12:00:00Z`).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
   document.title = `NHL Scores · ${short}`;
-  const h = document.querySelector('header h1, h1');
-  if (h) h.innerHTML = `NHL Scores <span class="h1-date">· ${esc(short)}</span>`;
 }
 
 function prettyDate(iso) {
