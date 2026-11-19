@@ -778,3 +778,11 @@ main { padding: 0 0 48px; }
 .s-disc.fight { background: #78350f; color: #fde68a; }
 .s-disc.major { background: #7f1d1d; color: #fecaca; }
 .s-disc.misc { background: #3f3f46; }
+
+/* Goal horn toggles + red flash */
+.horn-toggles { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+.horn-btn { font: 600 12px Inter, sans-serif; padding: 4px 9px; border-radius: 999px; border: 1px solid var(--line, #3334); background: transparent; color: inherit; cursor: pointer; opacity: .75; }
+.horn-btn.on { background: #c8102e; border-color: #c8102e; color: #fff; opacity: 1; }
+#goal-flash { position: fixed; inset: 0; z-index: 9999; pointer-events: none; background: #e11; animation: goalflash .8s ease-in-out infinite; }
+@keyframes goalflash { 0%, 100% { opacity: 0; } 50% { opacity: .38; } }
+@media (prefers-reduced-motion: reduce) { #goal-flash { animation: none; opacity: .25; } }

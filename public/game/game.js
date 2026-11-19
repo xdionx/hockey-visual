@@ -1,5 +1,6 @@
 // Box score page: loads one game's data/games/<id>.json and renders it in the chosen design.
 // Switch designs with the bar at the top, keys 1-5, or ?design=<name> in the URL.
+import { hornToggles, watchGoals } from '../horn.js';
 import { esc, initVideo, makeSortable, makeTabs, upgradeShots, morphInner, setMountSignal, resetRinkIds } from './core.js';
 import { getData, LIVE_REFRESH_MS } from '../data.js';
 import classic from './d1-classic.js';
@@ -119,11 +120,13 @@ async function load(quiet = false) {
       return;
     }
     const text = JSON.stringify(data);
+    watchGoals([data]);
     if (text !== lastText) {
       game = upgradeShots(data);
       lastText = text;
       document.title = `${game.away.abbrev} @ ${game.home.abbrev} ${shortDate(game.gameDate)}`;
       document.querySelector('#back').href = `./?date=${game.gameDate}`;
+      document.querySelector('#horns').innerHTML = hornToggles(game);
       render();
     }
     if (game.status.state === 'live') timer = setTimeout(() => load(true), LIVE_REFRESH_MS);
