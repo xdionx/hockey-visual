@@ -158,7 +158,7 @@ function zoneLayer(shots, team, color) {
     const cy = (ys[0] + ys[1]) / 2;
     out.rects += `<rect class="a-zone" x="${xs[0]}" y="${ys[0]}" width="${xs[1] - xs[0]}" height="${ys[1] - ys[0]}" fill="${color}" fill-opacity="${op.toFixed(2)}" stroke="rgba(255,255,255,.25)" stroke-width=".4"><title>${esc(`${label}: ${n.att} attempts, ${n.goals} goals`)}</title></rect>`;
     // Labels sit above the goal dots so the counts stay readable.
-    if (n.att) out.labels += `<text x="${cx}" y="${cy}" text-anchor="middle" dominant-baseline="middle" class="a-zone-n">${n.att}${n.goals ? `<tspan class="a-zone-g"> · ${n.goals}G</tspan>` : ''}</text>`;
+    out.labels += `<text x="${cx}" y="${cy}" text-anchor="middle" dominant-baseline="middle" class="a-zone-n${n.att ? '' : ' zero'}">${n.att}${n.goals ? `<tspan class="a-zone-g"> · ${n.goals}G</tspan>` : ''}</text>`;
   }
   return out;
 }
@@ -171,10 +171,10 @@ function zoneTable(game, shots, c, teams) {
       const sog = z.filter((s) => s.kind === 'sog' || s.kind === 'goal').length;
       const g = z.filter((s) => s.kind === 'goal').length;
       return { label, att: z.length, sog, g };
-    }).filter((r) => r.att).sort((a, b) => b.att - a.att);
+    }).sort((a, b) => b.att - a.att);
     return `<table class="a-table a-zt"><caption style="color:${c[team]}">${esc(game[team].abbrev)} shot attempts by zone</caption>
       <thead><tr><th class="l">Zone</th><th>Att</th><th>On goal</th><th>Goals</th><th>Sh%</th></tr></thead>
-      <tbody>${rows.map((r) => `<tr><td class="l">${esc(r.label)}</td><td>${r.att}</td><td>${r.sog}</td><td>${r.g || ''}</td><td>${r.sog ? `${Math.round((100 * r.g) / r.sog)}%` : '-'}</td></tr>`).join('')}</tbody></table>`;
+      <tbody>${rows.map((r) => `<tr><td class="l">${esc(r.label)}</td><td>${r.att}</td><td>${r.sog}</td><td>${r.g}</td><td>${r.sog ? `${Math.round((100 * r.g) / r.sog)}%` : '-'}</td></tr>`).join('')}</tbody></table>`;
   }).join('')}</div>`;
 }
 
