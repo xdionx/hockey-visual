@@ -154,7 +154,10 @@ export function isClose(a, b, { pct = false } = {}) {
   return Math.abs(a - b) <= 2 || (hi > 0 && Math.abs(a - b) / hi < 0.15);
 }
 
-const teamTag = (game, side) => `<span class="st-tm">${logo(game[side], 'st-tm-logo', true)}<em>${esc(game[side].abbrev)}</em></span>`;
+// On cards that show both teams, the home team's logo goes on the right to mirror the scoreboard.
+const teamTag = (game, side, mirror = false) => (mirror && side === 'home'
+  ? `<span class="st-tm home"><em>${esc(game[side].abbrev)}</em>${logo(game[side], 'st-tm-logo', true)}</span>`
+  : `<span class="st-tm">${logo(game[side], 'st-tm-logo', true)}<em>${esc(game[side].abbrev)}</em></span>`);
 
 /** A head-to-head tile: both teams' numbers, a split bar, and a line on what it means. */
 function compareTile(game, c, label, away, home, awayNum, homeNum, note, better = 'more') {
@@ -164,7 +167,7 @@ function compareTile(game, c, label, away, home, awayNum, homeNum, note, better 
   const close = note.close;
   return `<div class="st-num st-cmp${close ? ' close' : ''}">
     <span class="st-lbl">${esc(label)}</span>
-    <div class="st-cmp-row">${teamTag(game, 'away')}<b class="${!close && lead === 'away' ? 'lead' : ''}">${esc(away)}</b><b class="${!close && lead === 'home' ? 'lead' : ''}">${esc(home)}</b>${teamTag(game, 'home')}</div>
+    <div class="st-cmp-row">${teamTag(game, 'away', true)}<b class="${!close && lead === 'away' ? 'lead' : ''}">${esc(away)}</b><b class="${!close && lead === 'home' ? 'lead' : ''}">${esc(home)}</b>${teamTag(game, 'home', true)}</div>
     <div class="st-cmp-bar"><i style="width:${aw}%;background:${c.away}"></i><i style="width:${100 - aw}%;background:${c.home}"></i></div>
     <small>${close ? '<span class="st-even">Close</span> ' : ''}${esc(note.text)}</small>
   </div>`;
@@ -176,7 +179,7 @@ function topDrivers(game, c) {
   if (!sk.length) return '';
   const col = (side) => {
     const top = sk.filter((p) => p.side === side).sort((x, y) => y.momentum - x.momentum).slice(0, 3);
-    return `<div class="st-td" style="--team:${c[side]}"><div class="st-td-h">${teamTag(game, side)}</div>${top.map((p, i) => `<div class="st-td-p">
+    return `<div class="st-td ${side}" style="--team:${c[side]}"><div class="st-td-h">${teamTag(game, side, true)}</div>${top.map((p, i) => `<div class="st-td-p">
       <span class="st-td-n">${i + 1}</span>${headshot(p, 'st-td-mug')}<span class="st-td-name">${esc(p.fullName)}</span><b>${p.momentum > 0 ? '+' : ''}${p.momentum.toFixed(1)}</b></div>`).join('')}</div>`;
   };
   return `<div class="st-num st-drivers"><span class="st-lbl">Top momentum drivers</span><div class="st-td-cols">${col('away')}${col('home')}</div></div>`;

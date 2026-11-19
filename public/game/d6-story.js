@@ -2,7 +2,7 @@
 // ordered to tell the game's story: what happened, how momentum swung, where the
 // shots came from, who drove it, then the full box score.
 import { esc, teamColors, allSkaters, allGoalies, elapsed, logo, statusText, strengthBadge, headshot } from './core.js';
-import { hero, scoringCards, stars, statBars } from './d2-broadcast.js';
+import { hero, scoringCards, stars, statBars, shotLine } from './d2-broadcast.js';
 import { kpis, shotMap, heatTable, goalies, shotSummary, mountShotMap } from './d4-analytics.js';
 import { spotlight, scorecardControls, scorecardKey, mountScorecards } from './d5-scorecards.js';
 import { storyChapters } from './d6-chapters.js';
@@ -103,7 +103,7 @@ function header(n, id, title, sub = '') {
 /** Compact score and clock that slides into the sticky bar once the big scoreboard scrolls away. */
 function miniScore(game, c) {
   const pre = game.status.state === 'pre';
-  const team = (side) => `<span class="st-mini-t" style="--team:${c[side]}">${logo(game[side], 'st-mini-logo', true)}<b>${esc(game[side].abbrev)}</b><strong>${pre ? '' : game.linescore.totals[side]}</strong></span>`;
+  const team = (side) => `<span class="st-mini-t" style="--team:${c[side]}">${logo(game[side], 'st-mini-logo', true)}<b>${esc(game[side].abbrev)}</b><strong data-sog="${pre ? '' : `${game.linescore.shots?.[side] ?? 0} SOG`}">${pre ? '' : game.linescore.totals[side]}</strong>${shotLine(game, side)}</span>`;
   return `<div class="st-mini" aria-hidden="true">${team('away')}<span class="st-mini-s ${game.status.state}">${esc(statusText(game))}${strengthBadge(game, c)}</span>${team('home')}</div>`;
 }
 
@@ -302,6 +302,17 @@ function periodWins(game, c) {
   }).join('')}</div>`;
 }
 
+/** Goals by period plus shots on goal and attempts, one row per team. */
+function lineScore(game, c) {
+  const ls = game.linescore;
+  const s = shotSummary(game);
+  const row = (side) => `<tr style="--team:${c[side]}"><td class="l"><span class="st-ls-t">${logo(game[side], 'st-ls-logo', true)}${esc(game[side].abbrev)}</span></td>
+    ${ls.periods.map((p) => `<td>${p[side] ?? '-'}</td>`).join('')}<td class="tot">${ls.totals[side]}</td><td>${ls.shots?.[side] ?? '-'}</td><td>${s[side].attempts}</td></tr>`;
+  return `<div class="b-card st-ls"><h2>Line score</h2><div class="a-scroll"><table class="a-table st-ls-t-table">
+    <thead><tr><th class="l">Team</th>${ls.periods.map((p) => `<th>${esc(p.label)}</th>`).join('')}<th class="tot">T</th><th>SOG</th><th>ATT</th></tr></thead>
+    <tbody>${row('away')}${row('home')}</tbody></table></div></div>`;
+}
+
 export default {
   id: 'story',
   name: 'Game Story',
@@ -315,7 +326,7 @@ export default {
     const scale = Math.max(1.5, ...sk.map((p) => Object.values(p.gameScoreParts).reduce((s, v) => s + Math.max(0, v), 0))) * 1.05;
     const started = game.status.state === 'live' || game.status.state === 'final';
     return `<div class="b-wrap st-wrap">
-      ${hero(game, c)}
+      ${hero(game, c, { strip: false, shots: true })}
       <div class="st-bar">
         ${miniScore(game, c)}
         <nav class="st-nav" aria-label="Sections">${SECTIONS.map(([id, label], i) => `<a href="#st-${id}" data-sec="${id}"><span>${String(i + 1).padStart(2, '0')}</span>${esc(label)}</a>`).join('')}</nav>
@@ -352,6 +363,7 @@ export default {
 
       <section class="st-sec" id="st-box">
         ${header(5, 'box', 'Box score')}
+        ${lineScore(game, c)}
         ${goalies(game, c)}
         ${heatTable(game, c)}
       </section>` : ''}
