@@ -148,8 +148,10 @@ export function shotZone(team, x, y) {
   const ay = Math.abs(y);
   if (dx < 0) return 'behind-net';
   if (dx > 64) return 'outside';
-  if (dx > 40) return ay <= 9 ? 'point-center' : `point-${side}`;
-  if (ay <= 9) return dx <= 20 ? 'low-slot' : 'high-slot';
+  // Home plate is its own sector: goal posts to the faceoff dots to the top of the circles.
+  if (inHomePlate(89 - dx, y)) return 'home-plate';
+  if (dx > 35 && ay <= 9) return 'point-center';
+  if (dx > 40) return `point-${side}`;
   if (ay <= 28) return `circle-${side}`;
   return `boards-${side}`;
 }
