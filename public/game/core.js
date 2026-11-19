@@ -80,6 +80,20 @@ export function statusText(game) {
   return game.status.label;
 }
 
+/**
+ * Live strength-of-play chip: "5v5", "WPG power play 5v4 · 1:45", "CHI empty net 6v5".
+ * game.strength comes from src/strength.js and is only set while the game is live.
+ */
+export function strengthBadge(game, colors = null, cls = 'strength') {
+  const st = game.strength;
+  if (!st) return '';
+  const side = st.emptyNet ?? st.pp;
+  const color = side && colors ? colors[side] : null;
+  const what = st.kind === 'pp' ? 'power play' : st.kind === 'empty-net' ? 'empty net' : 'even strength';
+  const text = side ? `${game[side].abbrev} ${what}` : what;
+  return `<span class="${cls} ${st.kind}"${color ? ` style="--team:${color}"` : ''} title="${esc(`${text} ${st.label}`)}"><b>${esc(st.label)}</b>${esc(text)}${st.remaining ? ` <i>${esc(st.remaining)}</i>` : ''}</span>`;
+}
+
 export function prettyDate(iso, opts = { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }) {
   return new Date(`${iso}T12:00:00Z`).toLocaleDateString(undefined, { ...opts, timeZone: 'UTC' });
 }

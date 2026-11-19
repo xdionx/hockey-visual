@@ -74,3 +74,14 @@ test('video ids come from the id field or the URL tail, digits only', () => {
   assert.equal(videoId(null, '/video/x-recap-6408478745112'), '6408478745112');
   assert.equal(videoId('6408"><script>', '/video/nope'), null);
 });
+
+test('strength of play', async () => {
+  const { strengthOf } = await import('../src/strength.js');
+  assert.equal(strengthOf({ period: '2' }).label, '5v5');
+  assert.equal(strengthOf({ period: 'OT', gameType: 2 }).label, '3v3');
+  const pp = strengthOf({ period: '1', situation: { situationCode: '1451', timeRemaining: '01:45' } });
+  assert.deepEqual([pp.label, pp.kind, pp.pp, pp.remaining], ['4v5', 'pp', 'home', '1:45']);
+  const en = strengthOf({ period: '3', code: '0651' });
+  assert.deepEqual([en.label, en.kind, en.emptyNet], ['6v5', 'empty-net', 'away']);
+  assert.equal(strengthOf({ period: '2', intermission: true }), null);
+});

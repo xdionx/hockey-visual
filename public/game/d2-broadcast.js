@@ -1,6 +1,6 @@
 // Design 2 "Broadcast": a dark, bold, on-air graphics look.
 // Inspired by TSN and NHL broadcast score bugs: team-color panels, condensed type, big numbers.
-import { esc, logo, teamColors, statusText, prettyDate, skaters, goaliesOf, pct, signed, videoButton, visualizerButton, elapsed, headshot } from './core.js';
+import { esc, logo, teamColors, statusText, prettyDate, skaters, goaliesOf, pct, signed, videoButton, visualizerButton, elapsed, headshot, strengthBadge } from './core.js';
 
 export function hero(game, c) {
   const ls = game.linescore;
@@ -11,7 +11,7 @@ export function hero(game, c) {
   </div>`;
   return `<section class="b-hero">
     ${panel('away')}
-    <div class="b-mid"><span class="b-state ${game.status.state}">${esc(statusText(game))}</span><span class="b-date">${esc(prettyDate(game.gameDate))}</span><span class="b-venue">${esc(game.venue)}</span></div>
+    <div class="b-mid"><span class="b-state ${game.status.state}">${esc(statusText(game))}</span>${strengthBadge(game, c)}<span class="b-date">${esc(prettyDate(game.gameDate))}</span><span class="b-venue">${esc(game.venue)}</span></div>
     ${panel('home')}
   </section>
   <div class="b-strip">${ls.periods.map((p) => `<div class="b-per"><span>${esc(p.label)}</span><b>${p.away ?? '-'}</b><b>${p.home ?? '-'}</b></div>`).join('')}
