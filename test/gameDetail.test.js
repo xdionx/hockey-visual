@@ -118,7 +118,8 @@ test('drawing a penalty earns the power play it created', async () => {
   assert.ok(earned > 1.2, `earned ${earned}`);
 });
 
-test('shorthanded goals swing momentum 1.5x more than other goals', () => {
+test('shorthanded goals swing momentum 1.5x more than other goals', async () => {
+  const { pushes } = await import('../src/momentum.js');
   const goal = (code, owner) => ({ typeDescKey: 'goal', situationCode: code, timeInPeriod: '05:00', periodDescriptor: { number: 1, periodType: 'REG' }, details: { eventOwnerTeamId: owner, scoringPlayerId: 1 } });
   const [sh] = pushes([goal('1451', 52)], 52, new Map());
   const [pp] = pushes([goal('1541', 52)], 52, new Map());
