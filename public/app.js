@@ -1,5 +1,5 @@
 import { getData, LIVE_REFRESH_MS } from './data.js';
-import { teamColors } from './game/core.js';
+import { teamColors, strengthBadge } from './game/core.js';
 
 const $ = (s) => document.querySelector(s);
 const dateInput = $('#date');
@@ -114,7 +114,7 @@ function gameHtml(game) {
   const head = ls.periods.map((p) => `<th>${esc(p.label)}</th>`).join('');
   const tc = teamColors(game, { dark: true });
   return `<article class="game" style="--away:${tc.away};--home:${tc.home}">
-    <div class="status ${game.status.state}"><span class="label">${esc(statusText(game))}</span><span class="venue">${esc(game.venue)}</span></div>
+    <div class="status ${game.status.state}"><span class="label">${esc(statusText(game))}${strengthBadge(game, tc)}</span><span class="venue">${esc(game.venue)}</span></div>
     <table class="ls">
       <thead><tr><th></th>${head}<th>T</th><th>SOG</th></tr></thead>
       <tbody>${teamRow(game, 'away')}${teamRow(game, 'home')}</tbody>

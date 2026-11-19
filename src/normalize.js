@@ -1,3 +1,4 @@
+import { strengthOf } from './strength.js';
 // Turns raw NHL API game objects into a small, stable shape the UI (and future
 // scorecard code) can rely on. Pure functions only: easy to test, no fetching.
 
@@ -148,6 +149,7 @@ function normalizeTeam(team) {
 }
 
 export function normalizeGame(g) {
+  const status = gameStatus(g);
   return {
     id: g.id,
     season: g.season,
@@ -155,7 +157,10 @@ export function normalizeGame(g) {
     gameDate: g.gameDate,
     startTimeUTC: g.startTimeUTC,
     venue: t(g.venue),
-    status: gameStatus(g),
+    status,
+    strength: status.state === 'live'
+      ? strengthOf({ situation: g.situation, period: periodLabel(g.periodDescriptor), gameType: g.gameType, intermission: g.clock?.inIntermission })
+      : null,
     away: normalizeTeam(g.awayTeam),
     home: normalizeTeam(g.homeTeam),
     linescore: buildLinescore(g),

@@ -490,3 +490,23 @@ main { padding: 0 0 48px; }
 /* Home plate (most dangerous scoring area) */
 .rink .plate { fill: rgba(250, 204, 21, .05); stroke: #facc15; stroke-width: .5; stroke-dasharray: 1.6 1.2; opacity: .7; }
 .a-kv small { font-size: .55em; margin-left: 3px; opacity: .75; }
+
+/* Live strength of play */
+.strength { display: inline-flex; align-items: center; gap: 6px; margin-left: 8px; padding: 2px 8px 2px 2px; border-radius: 3px; background: #1e293b; color: #cbd5e1; font: 700 12px "Barlow Condensed", Inter, sans-serif; letter-spacing: .06em; text-transform: uppercase; white-space: nowrap; vertical-align: middle; transform: none; }
+.strength b { padding: 1px 6px; border-radius: 2px; background: #334155; color: #fff; font-weight: 800; }
+.strength i { font-style: normal; color: #fff; }
+.strength.pp, .strength.empty-net { background: color-mix(in srgb, var(--team) 25%, #0a0e17); color: #fff; box-shadow: inset 3px 0 0 var(--team); }
+.strength.pp b, .strength.empty-net b { background: var(--team); }
+.strength.pp { animation: strength-pulse 1.6s ease-in-out infinite; }
+@keyframes strength-pulse { 50% { box-shadow: inset 3px 0 0 var(--team), 0 0 0 3px color-mix(in srgb, var(--team) 35%, transparent); } }
+@media (prefers-reduced-motion: reduce) { .strength.pp { animation: none; } }
+.b-mid .strength { margin: 4px 0 0; }
+.st-mini-s .strength { margin-left: 8px; }
+@media (max-width: 640px) { .st-mini-s .strength { display: none; } .st-mini-s .strength.pp, .st-mini-s .strength.empty-net { display: inline-flex; font-size: 10px; } }
+@media (max-width: 640px) {
+  .b-mid { flex-wrap: wrap; justify-content: center; gap: 6px 10px; }
+  .b-state { white-space: nowrap; font-size: 16px; }
+  .b-mid .strength { margin: 0; }
+}
+.st-mini-s { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.st-mini-s .strength { margin-left: 0; }

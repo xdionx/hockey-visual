@@ -4,6 +4,7 @@
 // Output feeds the box score page designs and, later, per-player scorecards.
 import { gameStatus, periodLabel, periodName, nhlVideoUrl, videoId } from './normalize.js';
 import { computeMomentum, onIceAttempts, inHomePlate } from './momentum.js';
+import { strengthOf } from './strength.js';
 
 const t = (v) => (v && typeof v === 'object' ? v.default : v) ?? '';
 const clockTime = (s) => (s ?? '').replace(/^0(?=\d:)/, '');
@@ -404,6 +405,17 @@ export function normalizeGameDetail({ box, landing = null, rightRail = null, pbp
   const info = rightRail?.gameInfo ?? {};
   const video = rightRail?.gameVideo ?? {};
   const series = rightRail?.seasonSeriesWins;
+  const status = gameStatus(box);
+  const lastPlay = (pbp?.plays ?? []).at(-1);
+  const strength = status.state === 'live'
+    ? strengthOf({
+      situation: landing?.situation ?? pbp?.situation ?? box.situation,
+      code: lastPlay?.situationCode,
+      period: periodLabel(box.periodDescriptor),
+      gameType: box.gameType,
+      intermission: box.clock?.inIntermission,
+    })
+    : null;
   return {
     id: box.id,
     season: box.season,
@@ -413,7 +425,8 @@ export function normalizeGameDetail({ box, landing = null, rightRail = null, pbp
     venue: t(box.venue),
     venueLocation: t(box.venueLocation),
     broadcasts: (box.tvBroadcasts ?? []).map((b) => `${b.network}${b.countryCode ? ` (${b.countryCode})` : ''}`),
-    status: gameStatus(box),
+    status,
+    strength,
     away: team(box.awayTeam, info.awayTeam),
     home: team(box.homeTeam, info.homeTeam),
     linescore: linescore(box, rightRail),
