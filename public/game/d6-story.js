@@ -157,7 +157,7 @@ function momentumChart(game, c) {
       <line x1="${P.l}" x2="${W - P.r}" y1="${mid}" y2="${mid}" class="st-mc-zero"/>
       ${goals}${swings}${labels}
     </svg>
-    <p class="st-note">Momentum weighs every play: goals 3, shots on goal 1, missed shots 0.35, blocked attempts 0.2, faceoff wins 0.25 to 0.6 (more in the offensive zone), takeaways and opponents' giveaways 0.5, hits 0.2, drawing a penalty 1 plus steady pressure through the power play, and 1.5 for killing a penalty. Each push fades with a 75-second half-life. Shaded bands are power plays; numbered circles are momentum swings.</p>
+    <p class="st-note">Momentum weighs every play: goals 3, shots on goal 1, missed shots 0.35, blocked attempts 0.2, faceoff wins 0.25 to 0.6 (more in the offensive zone), takeaways and opponents' giveaways 0.5, hits 0.2, drawing a penalty 1 plus steady pressure through the power play, and 1.5 for killing a penalty. The player who took the penalty is charged for all of it, plus 1.5 more if the power play scores. Each push fades with a 75-second half-life. Shaded bands are power plays; numbered circles are momentum swings.</p>
   </div>`;
 }
 
@@ -179,7 +179,19 @@ function drivers(game, c) {
     <span class="st-drv-n">${esc(p.fullName)} <small>${esc(p.team)}</small></span>
     <div class="st-drv-bar"><i style="width:${(100 * Math.max(0, p.momentum)) / max}%"></i></div>
     <b>+${p.momentum.toFixed(1)}</b><span class="st-drv-s">${p.swingPlays ? `&#8635; ${p.swingPlays}` : ''}</span>
-  </div>`).join('')}<p class="st-note">&#8635; = swing plays: pushes made while their team was behind on momentum.</p></div>`;
+  </div>`).join('')}${killers(game, c)}<p class="st-note">&#8635; = swing plays: pushes made while their team was behind on momentum.</p></div>`;
+}
+
+/** Players who cost their team momentum, mostly through penalties and giveaways. */
+function killers(game, c) {
+  const list = allSkaters(game).filter((p) => p.momentum < 0).sort((a, b) => a.momentum - b.momentum).slice(0, 3);
+  if (!list.length) return '';
+  const max = Math.max(...list.map((p) => -p.momentum), 1);
+  return `<h3 class="st-drv-h">Momentum killers</h3>${list.map((p) => `<div class="st-drv neg" style="--team:${c[p.side]}">
+    <span class="st-drv-n">${esc(p.fullName)} <small>${esc(p.team)}</small></span>
+    <div class="st-drv-bar"><i style="width:${(100 * -p.momentum) / max}%"></i></div>
+    <b>${p.momentum.toFixed(1)}</b><span class="st-drv-s">${p.penaltiesTaken ? `${p.penaltiesTaken} pen` : ''}</span>
+  </div>`).join('')}`;
 }
 
 /** Goals per period as a small strip under the momentum chart: who won each period. */

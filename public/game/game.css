@@ -429,3 +429,8 @@ main { padding: 0 0 48px; }
 .s-onice em { font-style: normal; font-weight: 700; color: var(--s-ink); }
 .s-oi-bar { height: 6px; border-radius: 3px; background: color-mix(in srgb, #ef4444 55%, transparent); overflow: hidden; }
 .s-oi-bar i { display: block; height: 100%; background: #22c55e; }
+
+.st-drv-h { margin: 14px 0 6px; font: 700 13px "Barlow Condensed", sans-serif; letter-spacing: .08em; text-transform: uppercase; color: #94a3b8; }
+.st-drv.neg b { color: #f87171; }
+.st-drv.neg .st-drv-s { color: #f87171; font-size: 11px; }
+.st-drv.neg .st-drv-bar i { opacity: .55; }
