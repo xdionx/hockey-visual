@@ -128,3 +128,30 @@ test('shorthanded goals swing momentum 1.5x more than other goals', async () => 
   assert.equal(pp.w, 3);
   assert.equal(ev.w, 3);
 });
+
+test('expected goals: close shots are worth more than long ones, and goalies get GSAx', async () => {
+  const { shotXg, goalieExpected } = await import('../src/xg.js');
+  const close = shotXg({ x: 82, y: 3, shotType: 'wrist' });
+  const far = shotXg({ x: 45, y: 10, shotType: 'wrist' });
+  const sharp = shotXg({ x: 82, y: 30, shotType: 'wrist' });
+  assert.ok(close > 0.15 && close < 0.4, `close ${close}`);
+  assert.ok(far < 0.06, `far ${far}`);
+  assert.ok(sharp < close);
+  assert.ok(shotXg({ x: 85, y: 2, shotType: 'tip-in' }) > shotXg({ x: 85, y: 2, shotType: 'wrist' }));
+  const exp = goalieExpected([
+    { kind: 'sog', x: 80, y: 0, shotType: 'wrist', goalieId: 7 },
+    { kind: 'goal', x: 60, y: 5, shotType: 'snap', goalieId: 7 },
+    { kind: 'goal', x: 70, y: 0, goalieId: null }, // empty net: no goalie, not counted
+    { kind: 'miss', x: 80, y: 0, goalieId: 7 },
+  ]);
+  assert.equal(exp.get(7).shots, 2);
+  assert.equal(exp.get(7).goals, 1);
+  assert.equal(exp.size, 1);
+});
+
+test('goalie scorecard data includes expected save percentage and GSAx', () => {
+  const g = [...game.players.away.goalies, ...game.players.home.goalies].find((x) => x.shotsAgainst >= 20);
+  assert.ok(g.xga > 0 && g.expectedSavePct > 0.8 && g.expectedSavePct < 1);
+  assert.equal(g.gsax, Math.round((g.xga - g.goalsAgainst) * 100) / 100);
+  assert.ok(Math.abs(g.savePctAboveExpected - (g.saves / g.shotsAgainst - g.expectedSavePct)) < 0.002);
+});

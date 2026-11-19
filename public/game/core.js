@@ -391,3 +391,18 @@ function morphNode(from, to) {
 export function morphInner(el, html) {
   morphChildren(el, parse(html, el.namespaceURI === SVG_NS && el.tagName.toLowerCase() !== 'foreignobject'));
 }
+
+/** Expected-goals line for a goalie: expected SV%, actual SV%, the difference and goals saved above expected. */
+export function goalieXg(g) {
+  if (g.gsax == null || g.expectedSavePct == null) return '';
+  const sv3 = (n) => n.toFixed(3).replace(/^0/, '');
+  const sign = (n, d = 1) => `${n > 0 ? '+' : n < 0 ? '\u2212' : ''}${Math.abs(n).toFixed(d)}`;
+  const cls = (n) => (n > 0.0001 ? 'up' : n < -0.0001 ? 'down' : '');
+  const actual = g.shotsAgainst ? g.saves / g.shotsAgainst : null;
+  return `<div class="g-xg" title="Expected goals are our own estimate from shot distance, angle and type. Not an official NHL stat.">
+    <span><b>${sv3(g.expectedSavePct)}</b>xSV%</span>
+    <span><b>${actual != null ? sv3(actual) : '-'}</b>SV%</span>
+    <span class="${cls(g.savePctAboveExpected)}"><b>${g.savePctAboveExpected != null ? sign(g.savePctAboveExpected * 100) + '%' : '-'}</b>SV% above exp.</span>
+    <span class="${cls(g.gsax)}"><b>${sign(g.gsax, 2)}</b>GSAx</span>
+  </div>`;
+}

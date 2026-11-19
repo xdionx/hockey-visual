@@ -1,6 +1,6 @@
 // Design 4 "Analytics": shot map, shot-attempt flow and heat-mapped player stats.
 // Inspired by HockeyStats and NHL EDGE style analytics pages.
-import { ZONES, esc, logo, teamColors, statusText, prettyDate, allSkaters, allGoalies, pct, signed, rinkMarkup, shotMark, elapsed, headshot, on, morphInner } from './core.js';
+import { ZONES, esc, logo, teamColors, statusText, prettyDate, allSkaters, allGoalies, pct, signed, rinkMarkup, shotMark, elapsed, headshot, on, morphInner, goalieXg } from './core.js';
 
 function header(game, c) {
   const ls = game.linescore;
@@ -132,7 +132,7 @@ export function goalies(game, c) {
       <svg viewBox="0 0 36 36" class="a-ring"><circle cx="18" cy="18" r="15.9" class="bgc"/><circle cx="18" cy="18" r="15.9" class="fg" stroke-dasharray="${(sv * 100).toFixed(1)} 100"/></svg>
       <div><strong>${esc(g.fullName)}</strong> <span class="a-muted">${esc(g.team)}${g.decision ? ` · ${esc(g.decision)}` : ''}</span>
         <div class="a-big">${pct(g.savePct)}</div>
-        <div class="a-muted">${g.saves}/${g.shotsAgainst} saves · EV ${esc(g.evenStrength)} · PP ${esc(g.powerPlay)} · SH ${esc(g.shorthanded)} · GS ${g.gameScore.toFixed(2)}</div></div>
+        <div class="a-muted">${g.saves}/${g.shotsAgainst} saves · EV ${esc(g.evenStrength)} · PP ${esc(g.powerPlay)} · SH ${esc(g.shorthanded)} · GS ${g.gameScore.toFixed(2)}</div>${goalieXg(g)}</div>
     </div>`;
   }).join('')}</div></section>`;
 }
