@@ -20,7 +20,7 @@ function colors(game) {
 }
 
 const statLine = (p) => (p.position === 'G'
-  ? `${p.saves} saves on ${p.shotsAgainst} shots`
+  ? `${p.saves} saves on ${p.shotsAgainst} shots${p.gsax != null ? `, ${p.gsax > 0 ? '+' : ''}${p.gsax.toFixed(1)} goals saved above expected, ${p.savePctAboveExpected > 0 ? '+' : ''}${(p.savePctAboveExpected * 100).toFixed(1)}% save % above expected` : ''}`
   : [p.goals && `${p.goals} G`, p.assists && `${p.assists} A`, `${p.sog} SOG`].filter(Boolean).join(', '));
 
 /** A headline and a few sentences, worked out from the score sequence and stats. */
