@@ -234,7 +234,7 @@ function penaltyStory(game, final) {
   const abbr = { away: game.away.abbrev, home: game.home.abbrev };
   const count = { away: 0, home: 0 };
   const mins = { away: 0, home: 0 };
-  for (const x of real) {
+  for (const x of [...real, ...fights]) {
     const side = x.team === abbr.away ? 'away' : 'home';
     if (x.kind === 'misconduct' || x.kind === 'game-misconduct') continue; // no skater lost: not part of the count
     count[side]++; mins[side] += x.minutes ?? 2;
