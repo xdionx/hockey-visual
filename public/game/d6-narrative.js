@@ -1,6 +1,7 @@
 // The written story of a game: how it unfolded, who controlled play over longer stretches (not just
 // shot attempts), who made the difference (goalies included) and what special teams did.
 import { allSkaters, allGoalies, elapsed, penKind } from './core.js';
+import { decisiveStory } from './d6-penalties.js';
 import { shotSummary } from './d4-analytics.js';
 
 const other = (s) => (s === 'away' ? 'home' : 'away');
@@ -280,6 +281,8 @@ function penaltyStory(game, final) {
     const y = fights[i + 1];
     out.push(`${x.player} (${x.team})${y ? ` and ${y.player} (${y.team})` : ''} ${tense('fought', 'have fought')} at ${x.time} of the ${String(x.periodName ?? '').toLowerCase().replace(' period', '')}.`);
   }
+  const decisive = decisiveStory(game, final);
+  if (decisive) out.push(decisive);
   return out.join(' ');
 }
 

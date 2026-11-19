@@ -795,3 +795,10 @@ main { padding: 0 0 48px; }
 .simbar select option { color: #000; }
 .simbar input[type=range] { flex: 1 1 160px; min-width: 120px; }
 .simbar .sim-clock { min-width: 64px; font-variant-numeric: tabular-nums; }
+
+/* Decisive penalties */
+.st-pen-table tr.st-pen-key td { background: color-mix(in srgb, var(--team) 14%, transparent); }
+.st-pen-table tr.st-pen-key td:first-child { box-shadow: inset 3px 0 0 var(--team); }
+.st-pen-why { display: block; margin-top: 4px; font: 600 12px Inter, sans-serif; color: #fde68a; }
+.st-pen-why::before { content: "★ "; }
+.st-pen-keycount { border-left: 0 !important; color: #fde68a; }
