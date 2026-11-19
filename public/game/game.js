@@ -130,6 +130,7 @@ async function load(quiet = false) {
   if (params.has('sim')) {
     if (simStarted) return;
     simStarted = true;
+    box.innerHTML = '<p class="msg">Loading the replay… the first load of a game can take a few seconds.</p>';
     try {
       await startSim({
         id: gameId,

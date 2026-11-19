@@ -16,7 +16,11 @@ const clockLabel = (t) => {
 
 /** Starts the simulation; `show(gameData)` draws each frame. Returns false when the raw data isn't available. */
 export async function startSim({ id, speed, bar, show, onMissing }) {
-  const raw = await getData(`raw/${id}.json`);
+  // Never just spin: give the data service 30 seconds, then say so.
+  const raw = await Promise.race([
+    getData(`raw/${id}.json`),
+    new Promise((_, reject) => setTimeout(() => reject(new Error('the replay data took too long to load')), 30_000)),
+  ]);
   if (!raw?.pbp?.plays?.length) { onMissing(); return; }
   const dur = replayDuration(raw);
   let t = 0;
