@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Game simulator</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="top">
+    <h1>Game simulator</h1>
+    <nav class="datebar" aria-label="Choose date">
+      <button id="prev" type="button" aria-label="Previous day">&#8249;</button>
+      <input id="date" type="date" aria-label="Game date">
+      <button id="next" type="button" aria-label="Next day">&#8250;</button>
+    </nav>
+    <p class="date-label">Pick any finished game and watch it unfold as if it were live, goal horns included. <a href="./">Back to scores</a></p>
+  </header>
+  <main id="games"></main>
+  <script type="module" src="sim/picker.js"></script>
+</body>
+</html>

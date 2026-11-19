@@ -9,7 +9,8 @@
 //   finished, from yesterday or today .............. 1 hour
 //   finished, 2 or more days old ................... 30 days (never changes)
 //
-// Routes: /latest.json, /scores/<YYYY-MM-DD>.json, /games/<gameId>.json
+// Routes: /latest.json, /scores/<YYYY-MM-DD>.json, /games/<gameId>.json, /raw/<gameId>.json (the raw
+// NHL responses, for the replay simulator)
 import { normalizeScoreboard } from '../src/normalize.js';
 import { normalizeGameDetail } from '../src/gameDetail.js';
 
@@ -78,15 +79,20 @@ async function build(path) {
     const board = normalizeScoreboard(raw);
     return { body: board, ttl: scoreboardTtl(board, today) };
   }
-  m = path.match(/^\/games\/(\d{10})\.json$/);
+  m = path.match(/^\/(games|raw)\/(\d{10})\.json$/);
   if (m) {
-    const id = m[1];
+    const id = m[2];
     const [box, landing, rightRail, pbp, shifts] = await Promise.all([
       nhl(`gamecenter/${id}/boxscore`), nhl(`gamecenter/${id}/landing`), nhl(`gamecenter/${id}/right-rail`), nhl(`gamecenter/${id}/play-by-play`),
       // Shifts (for on-ice shot attempts) live on the stats API; the box score works without them.
       fetch(`https://api.nhle.com/stats/rest/en/shiftcharts?cayenneExp=gameId=${id}`, { headers: { accept: 'application/json', 'user-agent': 'hockey-visual-live/1.0' } })
         .then((r) => (r.ok ? r.json() : null)).catch(() => null),
     ]);
+    if (m[1] === 'raw') {
+      // Only finished games can be replayed; they never change, so they cache for a long time.
+      if (!['OFF', 'FINAL'].includes(box.gameState)) throw Object.assign(new Error('Game not finished'), { status: 404 });
+      return { body: { box, landing, rightRail, pbp }, ttl: 30 * DAY };
+    }
     const game = normalizeGameDetail({ box, landing, rightRail, pbp, shifts });
     const today = new Date(Date.now() - 10 * HOUR * 1000).toISOString().slice(0, 10); // close enough to the NHL day for ageing
     return { body: game, ttl: ttlFor(game.status.state, game.gameDate, today) };

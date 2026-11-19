@@ -287,7 +287,7 @@ export function computeMomentum(pbp, awayId, gameEnd = null) {
   // team was in control (the line on its side, past a small dead zone).
   const nPeriods = Math.max(1, Math.ceil(Math.max(end, 1) / 1200));
   const periods = Array.from({ length: nPeriods }, () => ({ away: 0, home: 0, ctrlAway: 0, ctrlHome: 0, ctrlEven: 0 }));
-  const idx = (t) => Math.min(periods.length - 1, Math.floor(Math.min(t, end - 1) / 1200));
+  const idx = (t) => Math.max(0, Math.min(periods.length - 1, Math.floor(Math.min(t, end - 1) / 1200)));
   for (const e of list) if (e.w > 0) periods[idx(e.t)][e.team] += e.w;
   for (const [t, v] of series) {
     const p = periods[idx(t)];

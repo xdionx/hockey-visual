@@ -12,7 +12,8 @@ import { normalizeGameDetail } from './src/gameDetail.js';
 import { normalizeScoreboard } from './src/normalize.js';
 
 const PORT = Number(process.env.PORT) || 3000;
-const PUBLIC = join(fileURLToPath(new URL('.', import.meta.url)), 'public');
+const ROOT = fileURLToPath(new URL('.', import.meta.url));
+const PUBLIC = join(ROOT, 'public');
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png' };
 
 function sendJson(res, status, body) {
@@ -31,6 +32,15 @@ const server = http.createServer(async (req, res) => {
     if (m) return sendJson(res, 200, normalizeScoreboard(await getScoreboard(m[1])));
     const g = url.pathname.match(/^\/data\/games\/(\d{10})\.json$/);
     if (g) return sendJson(res, 200, normalizeGameDetail(await getGameDetailRaw(g[1])));
+
+    const r = url.pathname.match(/^\/data\/raw\/(\d{10})\.json$/);
+    if (r) return sendJson(res, 200, await getGameDetailRaw(r[1]));
+    if (url.pathname.startsWith('/src/')) { // the shared modules the replay runs in the browser
+      const f = normalize(join(ROOT, url.pathname.slice(1)));
+      if (!f.startsWith(join(ROOT, 'src'))) return sendJson(res, 403, { error: 'forbidden' });
+      res.writeHead(200, { 'content-type': 'text/javascript' });
+      return res.end(await readFile(f));
+    }
 
     const rel = url.pathname === '/' ? 'index.html' : url.pathname.slice(1);
     const file = normalize(join(PUBLIC, rel));

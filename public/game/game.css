@@ -786,3 +786,12 @@ main { padding: 0 0 48px; }
 #goal-flash { position: fixed; inset: 0; z-index: 9999; pointer-events: none; background: #e11; animation: goalflash .8s ease-in-out infinite; }
 @keyframes goalflash { 0%, 100% { opacity: 0; } 50% { opacity: .38; } }
 @media (prefers-reduced-motion: reduce) { #goal-flash { animation: none; opacity: .25; } }
+
+/* Simulation bar */
+.simbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 8px 16px; background: #3b1a1a; color: #fff; font: 600 13px Inter, sans-serif; position: sticky; top: 49px; z-index: 19; }
+.simbar[hidden] { display: none; }
+.simbar .sim-tag { background: #c8102e; border-radius: 4px; padding: 2px 8px; font-size: 11px; letter-spacing: .08em; }
+.simbar button, .simbar select { font: inherit; background: #fff2; color: #fff; border: 1px solid #fff4; border-radius: 6px; padding: 3px 9px; cursor: pointer; }
+.simbar select option { color: #000; }
+.simbar input[type=range] { flex: 1 1 160px; min-width: 120px; }
+.simbar .sim-clock { min-width: 64px; font-variant-numeric: tabular-nums; }
