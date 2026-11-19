@@ -1,3 +1,5 @@
+import { getData, LIVE_REFRESH_MS } from './data.js';
+
 const $ = (s) => document.querySelector(s);
 const dateInput = $('#date');
 const gamesEl = $('#games');
@@ -126,23 +128,23 @@ function render(data) {
     : '<p class="msg">No games scheduled on this date.</p>';
 }
 
-async function getJson(path) {
-  const res = await fetch(path, { cache: 'no-store' });
-  if (res.status === 404) return null;
-  if (!res.ok) throw new Error(res.statusText);
-  return res.json();
-}
+let lastText = '';
 
-// Scores are static files: data/scores/<date>.json, refreshed by a GitHub Action
-// (or served live by server.js when running locally).
+// Scores come from the live Worker when configured, else the static data/scores/<date>.json
+// files a GitHub Action saves (server.js serves those live when running locally).
 async function load(date, { quiet = false } = {}) {
   clearTimeout(refreshTimer);
-  if (!quiet) gamesEl.innerHTML = '<p class="msg">Loading…</p>';
+  // Don't spend requests on a hidden tab; check again shortly.
+  if (quiet && document.hidden) {
+    refreshTimer = setTimeout(() => load(date, { quiet: true }), LIVE_REFRESH_MS);
+    return;
+  }
+  if (!quiet) { gamesEl.innerHTML = '<p class="msg">Loading…</p>'; lastText = ''; }
   try {
-    if (!date) date = (await getJson('data/latest.json'))?.date ?? new Date().toISOString().slice(0, 10);
+    if (!date) date = (await getData('latest.json'))?.date ?? new Date().toISOString().slice(0, 10);
     dateInput.value = date;
     history.replaceState(null, '', `?date=${date}`);
-    const data = await getJson(`data/scores/${date}.json`);
+    const data = await getData(`scores/${date}.json`);
     if (!data) {
       current = { date };
       $('#dateLabel').textContent = prettyDate(date);
@@ -150,11 +152,13 @@ async function load(date, { quiet = false } = {}) {
       return;
     }
     current = data;
-    render(data);
-    // Keep live games fresh.
-    if (data.games.some((g) => g.status.state === 'live' || g.status.state === 'pre')) {
-      refreshTimer = setTimeout(() => load(data.date, { quiet: true }), 60_000);
-    }
+    const text = JSON.stringify(data);
+    if (text !== lastText) render(data); // only redraw when something changed
+    lastText = text;
+    // Keep live games fresh: every few seconds while a game is on, every minute before puck drop.
+    const states = data.games.map((g) => g.status.state);
+    if (states.includes('live')) refreshTimer = setTimeout(() => load(data.date, { quiet: true }), LIVE_REFRESH_MS);
+    else if (states.includes('pre')) refreshTimer = setTimeout(() => load(data.date, { quiet: true }), 60_000);
   } catch (err) {
     if (!quiet) gamesEl.innerHTML = `<p class="msg">Couldn't load scores: ${esc(err.message)}</p>`;
   }

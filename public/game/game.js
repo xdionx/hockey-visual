@@ -1,6 +1,7 @@
 // Box score page: loads one game's data/games/<id>.json and renders it in the chosen design.
 // Switch designs with the bar at the top, keys 1-5, or ?design=<name> in the URL.
 import { esc, initVideo, makeSortable, makeTabs } from './core.js';
+import { getData, LIVE_REFRESH_MS } from '../data.js';
 import classic from './d1-classic.js';
 import broadcast from './d2-broadcast.js';
 import analytics from './d4-analytics.js';
@@ -54,26 +55,37 @@ function render() {
   scrollTo(0, y);
 }
 
+let lastText = '';
+
 async function load(quiet = false) {
   clearTimeout(timer);
   if (!gameId || !/^\d{10}$/.test(gameId)) {
     box.innerHTML = '<p class="msg">No game selected. <a href="./">Back to scores</a></p>';
     return;
   }
+  if (quiet && document.hidden) { // don't spend requests on a hidden tab
+    timer = setTimeout(() => load(true), LIVE_REFRESH_MS);
+    return;
+  }
   try {
-    const res = await fetch(`data/games/${gameId}.json`, { cache: 'no-store' });
-    if (res.status === 404) {
-      box.innerHTML = '<p class="msg">This box score isn\'t ready yet. Box scores appear once a game starts (the hosted site refreshes about every 10 minutes).</p>';
+    const data = await getData(`games/${gameId}.json`);
+    if (!data) {
+      box.innerHTML = '<p class="msg">This box score isn\'t ready yet. Box scores appear once a game starts.</p>';
       return;
     }
-    if (!res.ok) throw new Error(res.statusText);
-    game = await res.json();
-    document.title = `${game.away.abbrev} ${game.linescore.totals.away}, ${game.home.abbrev} ${game.linescore.totals.home} · Box score`;
-    document.querySelector('#back').href = `./?date=${game.gameDate}`;
-    render();
-    if (game.status.state === 'live') timer = setTimeout(() => load(true), 60_000);
+    const text = JSON.stringify(data);
+    if (text !== lastText) {
+      game = data;
+      lastText = text;
+      document.title = `${game.away.abbrev} ${game.linescore.totals.away}, ${game.home.abbrev} ${game.linescore.totals.home} · Box score`;
+      document.querySelector('#back').href = `./?date=${game.gameDate}`;
+      render();
+    }
+    if (game.status.state === 'live') timer = setTimeout(() => load(true), LIVE_REFRESH_MS);
+    else if (game.status.state === 'pre') timer = setTimeout(() => load(true), 60_000);
   } catch (err) {
     if (!quiet) box.innerHTML = `<p class="msg">Couldn't load this box score: ${esc(err.message)}</p>`;
+    else timer = setTimeout(() => load(true), LIVE_REFRESH_MS);
   }
 }
 

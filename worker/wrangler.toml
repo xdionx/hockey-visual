@@ -1,0 +1,5 @@
+# Live data Worker for xdionx.github.io/hockey-visual. Deployed by .github/workflows/worker.yml.
+name = "hockey-visual-live"
+main = "index.js"
+compatibility_date = "2026-11-01"
+workers_dev = true

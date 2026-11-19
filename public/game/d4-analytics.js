@@ -133,8 +133,16 @@ export function goalies(game, c) {
 }
 
 /** Draws the shot map dots and wires its team/period filters. */
+// Kept outside the render so live refreshes don't reset the filters.
+const shotFilter = { team: 'all', period: 'all' };
+
 export function mountShotMap(root, game, c) {
-    const state = { team: 'all', period: 'all' };
+    const state = shotFilter;
+    root.querySelectorAll('#a-filters [data-filter]').forEach((seg) => {
+      const want = seg.querySelector(`button[data-v="${state[seg.dataset.filter]}"]`) ? state[seg.dataset.filter] : 'all';
+      state[seg.dataset.filter] = want;
+      seg.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x.dataset.v === want)));
+    });
     const draw = () => {
       const shots = game.shots.filter((s) => (state.team === 'all' || s.team === state.team) && (state.period === 'all' || s.period === state.period));
       // Draw goals last so they sit on top.
