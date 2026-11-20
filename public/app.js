@@ -93,6 +93,10 @@ function nthInGame(game, g) {
 }
 const nthLabel = (n) => (n === 3 ? 'Hat trick' : `${n}${{ 2: 'nd', 4: 'th', 5: 'th' }[n] ?? 'th'} goal`);
 
+/** Strength tags as PP / SH / EN (even-strength goals get none). */
+const STRENGTH = { PPG: 'PP', SHG: 'SH', EN: 'EN' };
+const strengthTags = (g) => g.tags.map((t) => STRENGTH[t]).filter(Boolean);
+
 /** A goal chip for the scrolling strip: scorer, when, assists; opens the clip. */
 function goalChip(game, g, tc) {
   const attrs = goalAttrs(game, g);
@@ -102,7 +106,7 @@ function goalChip(game, g, tc) {
   const when = so ? 'SO' : `${ordPeriod(g.period)} ${g.time}`;
   const assists = so ? 'Shootout' : g.assists.length ? g.assists.map(assistText).join(', ') : 'Unassisted';
   const tag = attrs ? 'a' : 'div';
-  return `<${tag} class="gc"${attrs ? ` ${attrs}` : ''} style="--team:${color}"><b>${attrs ? playIcon : ''}${esc(g.scorer.lastName || g.scorer.name)}${g.scorer.goalsToDate != null ? ` <span class="cnt">(${g.scorer.goalsToDate})</span>` : ''}</b><small>${esc(when)}${nth ? ` · <em class="nth">${nthLabel(nth)}</em>` : ''}</small><small>${assists}</small></${tag}>`;
+  return `<${tag} class="gc"${attrs ? ` ${attrs}` : ''} style="--team:${color}"><b>${attrs ? playIcon : ''}${esc(g.scorer.lastName || g.scorer.name)}${g.scorer.goalsToDate != null ? ` <span class="cnt">(${g.scorer.goalsToDate})</span>` : ''}</b><small>${esc(when)}${strengthTags(g).map((t) => ` · <em class="st">${t}</em>`).join('')}${nth ? ` · <em class="nth">${nthLabel(nth)}</em>` : ''}</small><small>${assists}</small></${tag}>`;
 }
 
 /** A goal tile: who, assists, the running score and a play button. */
@@ -113,7 +117,7 @@ function goalTile(game, g, tc) {
   const assists = so ? '' : g.assists.length ? g.assists.map(assistText).join(', ') : 'Unassisted';
   const count = g.scorer.goalsToDate != null ? ` <small>(${g.scorer.goalsToDate})</small>` : '';
   const nth = nthInGame(game, g);
-  const tags = (nth ? [nthLabel(nth)] : []).concat(g.tags).map((t) => `<i class="tag">${esc(t)}</i>`).join('');
+  const tags = (nth ? [nthLabel(nth)] : []).concat(strengthTags(g), g.tags.filter((t) => !STRENGTH[t])).map((t) => `<i class="tag">${esc(t)}</i>`).join('');
   const meta = so ? 'Deciding shootout goal' : `${esc(game.away.abbrev)} ${g.score.away} – ${esc(game.home.abbrev)} ${g.score.home} · ${esc(ordPeriod(g.period))} ${esc(g.time)}`;
   const mug = g.scorer.mugshot ? `<img src="${esc(g.scorer.mugshot)}" alt="" loading="lazy" onerror="this.remove()">` : '';
   return `<${attrs ? 'a' : 'div'} class="gt"${attrs ? ` ${attrs}` : ''} style="--team:${tc[side]};--on:${onColor(tc[side])}">
