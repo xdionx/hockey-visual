@@ -44,6 +44,7 @@ function phase(game) {
   if (st !== 'live') return 'idle';
   const label = game.status.label || '';
   if (/OT|Shootout|SO\b/i.test(label)) return 'late';
+  if (/^3rd Intermission/i.test(label)) return 'late'; // a live game after the 3rd is heading to OT
   const m = label.match(/^3rd\s+(\d+):(\d+)$/);
   if (m && Number(m[1]) * 60 + Number(m[2]) <= 300) return 'late';
   return 'live';
