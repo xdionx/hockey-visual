@@ -277,3 +277,10 @@ a.gc:hover { background: #2a3850; }
 .gstrip.dragging { cursor: grabbing; scroll-snap-type: none; user-select: none; }
 .gstrip.dragging * { pointer-events: none; }
 .gstrip { overscroll-behavior-x: contain; }
+/* Scores page: lift the cards off the page background (they were dark on dark) */
+#games .game.cd { background: #182236; border-color: #34466a; box-shadow: 0 2px 14px rgba(0, 0, 0, .55), inset 0 1px 0 rgba(255, 255, 255, .05); }
+#games .cd .tb { background: linear-gradient(90deg, color-mix(in srgb, var(--team) 34%, #1b2740), #1b2740 88%); }
+#games .gc { background: #243249; }
+a.gc:hover { background: #2f4260; }
+#games .cd .more { color: #c3cddd; }
+#games .cd-foot .videos a { background: #243249; }
