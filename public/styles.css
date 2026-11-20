@@ -284,3 +284,9 @@ a.gc:hover { background: #2a3850; }
 a.gc:hover { background: #2f4260; }
 #games .cd .more { color: #c3cddd; }
 #games .cd-foot .videos a { background: #243249; }
+/* Top bar shows the game's state */
+#games .game.cd::before { background: var(--bar, #6b7280); }
+#games .ph-idle { --bar: #6b7280; }
+#games .ph-live { --bar: #3b82f6; }
+#games .ph-late { --bar: #f59e0b; }
+#games .ph-final { --bar: #e11d48; }

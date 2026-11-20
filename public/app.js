@@ -37,6 +37,18 @@ function statusText(game) {
   return game.status.label;
 }
 
+/** Bar color by game state: grey = not live, blue = live, orange = last 5 min of the 3rd or any OT/SO, red = final. */
+function phase(game) {
+  const st = game.status.state;
+  if (st === 'final') return 'final';
+  if (st !== 'live') return 'idle';
+  const label = game.status.label || '';
+  if (/OT|Shootout|SO\b/i.test(label)) return 'late';
+  const m = label.match(/^3rd\s+(\d+):(\d+)$/);
+  if (m && Number(m[1]) * 60 + Number(m[2]) <= 300) return 'late';
+  return 'live';
+}
+
 const started = (game) => game.status.state !== 'pre' && game.status.state !== 'postponed';
 const sideOf = (game, abbrev) => (abbrev === game.away.abbrev ? 'away' : 'home');
 /** Text color that reads on a team color. */
@@ -185,7 +197,7 @@ function gameHtml(game) {
     game.video?.recap ? videoLink(game.video.recap, game.video.recapId, `${game.away.abbrev} @ ${game.home.abbrev} · Recap`, 'Recap') : '',
     game.video?.condensed ? videoLink(game.video.condensed, game.video.condensedId, `${game.away.abbrev} @ ${game.home.abbrev} · Condensed game`, 'Condensed') : '',
   ].join('');
-  return `<article class="game cd" data-id="${game.id}" style="--away:${tc.away};--home:${tc.home}">
+  return `<article class="game cd ph-${phase(game)}" data-id="${game.id}" style="--away:${tc.away};--home:${tc.home}">
     <div class="status ${game.status.state}"><span class="label">${esc(statusText(game))}${strengthBadge(game, tc)}</span><span class="venue">${esc(game.venue)}</span></div>
     <div class="tbs">${teamBlock(game, 'away', tc, true)}${teamBlock(game, 'home', tc, true)}</div>
     ${statLines(game, tc)}
