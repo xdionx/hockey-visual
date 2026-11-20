@@ -79,15 +79,21 @@ function goalAttrs(game, g) {
     : '';
 }
 
+/** Period as 1st / 2nd / 3rd (OT and SO stay as they are). */
+const ordPeriod = (p) => ({ 1: '1st', 2: '2nd', 3: '3rd' })[p] ?? p;
+
+/** An assist with the player's season assist total, e.g. "W. Nylander (12)". */
+const assistText = (a) => `${esc(a.name)}${a.assistsToDate != null ? ` (${a.assistsToDate})` : ''}`;
+
 /** A goal chip for the scrolling strip: scorer, when, assists; opens the clip. */
 function goalChip(game, g, tc) {
   const attrs = goalAttrs(game, g);
   const color = tc[sideOf(game, g.team)];
   const so = g.period === 'SO';
-  const when = so ? 'SO' : `${g.period} ${g.time}`;
-  const assists = so ? 'Shootout' : g.assists.length ? g.assists.map((a) => esc(a.lastName || a.name)).join(', ') : 'Unassisted';
+  const when = so ? 'SO' : `${ordPeriod(g.period)} ${g.time}`;
+  const assists = so ? 'Shootout' : g.assists.length ? g.assists.map(assistText).join(', ') : 'Unassisted';
   const tag = attrs ? 'a' : 'div';
-  return `<${tag} class="gc"${attrs ? ` ${attrs}` : ''} style="--team:${color}"><b>${attrs ? playIcon : ''}${esc(g.scorer.lastName || g.scorer.name)}</b><small>${esc(when)}</small><small>${assists}</small></${tag}>`;
+  return `<${tag} class="gc"${attrs ? ` ${attrs}` : ''} style="--team:${color}"><b>${attrs ? playIcon : ''}${esc(g.scorer.lastName || g.scorer.name)}${g.scorer.goalsToDate != null ? ` <span class="cnt">(${g.scorer.goalsToDate})</span>` : ''}</b><small>${esc(when)}</small><small>${assists}</small></${tag}>`;
 }
 
 /** A goal tile: who, assists, the running score and a play button. */
@@ -95,10 +101,10 @@ function goalTile(game, g, tc) {
   const side = sideOf(game, g.team);
   const attrs = goalAttrs(game, g);
   const so = g.period === 'SO';
-  const assists = so ? '' : g.assists.length ? g.assists.map((a) => esc(a.name)).join(', ') : 'Unassisted';
+  const assists = so ? '' : g.assists.length ? g.assists.map(assistText).join(', ') : 'Unassisted';
   const count = g.scorer.goalsToDate != null ? ` <small>(${g.scorer.goalsToDate})</small>` : '';
   const tags = g.tags.map((t) => `<i class="tag">${esc(t)}</i>`).join('');
-  const meta = so ? 'Deciding shootout goal' : `${esc(game.away.abbrev)} ${g.score.away} – ${esc(game.home.abbrev)} ${g.score.home} · ${esc(g.period)} ${esc(g.time)}`;
+  const meta = so ? 'Deciding shootout goal' : `${esc(game.away.abbrev)} ${g.score.away} – ${esc(game.home.abbrev)} ${g.score.home} · ${esc(ordPeriod(g.period))} ${esc(g.time)}`;
   const mug = g.scorer.mugshot ? `<img src="${esc(g.scorer.mugshot)}" alt="" loading="lazy" onerror="this.remove()">` : '';
   return `<${attrs ? 'a' : 'div'} class="gt"${attrs ? ` ${attrs}` : ''} style="--team:${tc[side]};--on:${onColor(tc[side])}">
     <span class="gt-mug">${mug}<b>${esc(initials(g))}</b></span>

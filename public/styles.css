@@ -263,3 +263,7 @@ main.compact { grid-template-columns: repeat(auto-fill, minmax(min(100%, 640px),
 a.gc:hover { background: #2a3850; }
 .cd .more { display: block; width: 100%; margin-top: 6px; padding: 6px; border: 0; border-radius: 4px; background: transparent; color: #aab4c5; font: 600 11px Inter, sans-serif; cursor: pointer; }
 .cd .more:hover { color: #fff; background: var(--chip); }
+.gc .cnt { color: #aab4c5; font-weight: 500; }
+.gc { flex-basis: 170px; }
+.gc small:last-child { white-space: normal; }
+.gc { min-height: 64px; align-content: start; }
