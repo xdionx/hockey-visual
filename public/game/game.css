@@ -889,3 +889,11 @@ main { padding: 0 0 48px; }
 .ss-kv { display: grid; grid-template-columns: 1fr auto; gap: 2px 14px; font-size: 12px; margin-top: 10px; } .ss-kv span { color: #aab4c5; } .ss-kv b { text-align: right; }
 .ss-panel p { margin: 0; font-size: 12px; line-height: 1.55; color: #dbe2ee; } .ss-note { margin-top: 6px !important; font-size: 11px !important; color: #aab4c5 !important; }
 @media (max-width: 900px) { .ss-cards { grid-template-columns: 1fr; } .ss-panel { grid-template-columns: 1fr; gap: 16px; } }
+
+/* More breathing room around the top of the box score */
+.bar { padding: 12px 20px; }
+.st-nav { padding: 0 12px; }
+@media (max-width: 860px) {
+  .b-panel { padding: 18px 20px; }
+  .b-mid { padding: 10px 20px; }
+}
