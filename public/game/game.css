@@ -853,3 +853,39 @@ main { padding: 0 0 48px; }
 .s-spot-sub .s-spot-mug { width: 64px; height: 64px; }
 .s-spot-sub h2 { font-size: 24px; }
 .d-story .s-spot-sub h2 { font-size: 30px; }
+
+/* Three stars row (final games), under the scoreboard */
+.ss-row { margin: 18px 0 8px; }
+.ss-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; align-items: start; }
+.ss-card { position: relative; padding: 14px 12px 10px; margin-top: 8px; background: #182236; border: 2px solid var(--medal); border-radius: 12px; box-shadow: 0 0 14px color-mix(in srgb, var(--medal) 25%, transparent); }
+.ss-card.gold { --medal: #fbbf24; } .ss-card.silver { --medal: #cbd5e1; } .ss-card.bronze { --medal: #cd7f32; }
+.ss-medal { position: absolute; top: -11px; left: 14px; padding: 2px 9px; border-radius: 99px; background: var(--medal); color: #0a0e17; font: 700 10px Inter, sans-serif; letter-spacing: .12em; text-transform: uppercase; }
+.ss-top { display: flex; gap: 10px; align-items: center; margin-top: 4px; }
+.ss-mug { width: 50px; height: 50px; border-radius: 50%; object-fit: cover; flex: none; background: var(--team); border: 2px solid #0a0e17; box-shadow: 0 0 0 2px var(--team); display: grid; place-items: center; font: 700 16px Inter, sans-serif; color: #0a0e17; }
+.ss-who { min-width: 0; } .ss-who strong { display: block; font: 700 22px/1.05 "Barlow Condensed", sans-serif; text-transform: uppercase; } .ss-who span { color: #aab4c5; font-size: 11px; }
+.ss-rate { margin-left: auto; text-align: center; padding: 0 10px 2px; border: 2px solid var(--r); border-radius: 10px; background: #0d1320; font: 700 30px/1.25 "Barlow Condensed", sans-serif; }
+.ss-rate small { display: block; margin-top: -4px; font: 600 8px Inter, sans-serif; letter-spacing: .1em; color: #aab4c5; white-space: nowrap; }
+.ss-tiles { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-top: 10px; }
+.ss-tiles > div { background: #0d1320; border-radius: 6px; padding: 5px 0; text-align: center; }
+.ss-tiles b, .ss-tiles3 b { display: block; font: 700 16px "Barlow Condensed", sans-serif; }
+.ss-tiles small, .ss-tiles3 small { font-size: 8px; color: #aab4c5; letter-spacing: .08em; }
+.ss-bar { display: flex; gap: 0; height: 9px; border-radius: 5px; overflow: hidden; background: #0d1320; margin-top: 10px; }
+.ss-bar i { display: block; }
+.ss-leg { display: flex; flex-wrap: wrap; gap: 3px 10px; margin-top: 6px; font-size: 10px; color: #aab4c5; }
+.ss-leg i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 4px; } .ss-leg b { color: #f1f5f9; margin-left: 3px; }
+.ss-more { display: block; width: 100%; margin-top: 10px; padding: 7px 0 0; border: 0; border-top: 1px solid #2a3a5a; background: none; color: #aab4c5; font: 600 11px Inter, sans-serif; cursor: pointer; }
+.ss-more:hover { color: #fff; }
+.ss-panel { margin-top: 12px; padding: 14px; background: #182236; border: 1px solid #34466a; border-radius: 12px; display: grid; grid-template-columns: 1.1fr 1fr 1fr; gap: 20px; }
+.ss-panel[hidden] { display: none; }
+.ss-panel h4 { margin: 0 0 8px; font: 700 11px Inter, sans-serif; letter-spacing: .12em; text-transform: uppercase; color: #aab4c5; }
+.ss-grp { margin-bottom: 10px; } .ss-grp h5 { margin: 0 0 6px; font: 700 10px Inter, sans-serif; letter-spacing: .12em; color: #aab4c5; text-transform: uppercase; }
+.ss-tiles3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; } .ss-tiles3 > div { background: #0d1320; border-radius: 6px; padding: 6px 4px; text-align: center; } .ss-tiles3 b { font-size: 17px; }
+.ss-line { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; font-size: 12px; } .ss-line i { width: 9px; height: 9px; border-radius: 2px; flex: none; } .ss-line > span:first-of-type { min-width: 78px; }
+.ss-line b { margin-left: auto; min-width: 42px; text-align: right; }
+.ss-track { flex: 1; height: 6px; background: #0d1320; border-radius: 3px; position: relative; } .ss-track u { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; }
+.ss-total { margin-top: 8px; padding-top: 6px; border-top: 1px solid #2a3a5a; display: flex; justify-content: space-between; font-size: 12px; } .ss-total span { color: #aab4c5; }
+.ss-cmp { margin-bottom: 9px; } .ss-cmp > div:first-child { display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 3px; } .ss-cmp span { color: #aab4c5; } .ss-cmp em { font-style: normal; color: #aab4c5; font-weight: 400; }
+.ss-cmp .ss-bar { margin: 0; height: 7px; }
+.ss-kv { display: grid; grid-template-columns: 1fr auto; gap: 2px 14px; font-size: 12px; margin-top: 10px; } .ss-kv span { color: #aab4c5; } .ss-kv b { text-align: right; }
+.ss-panel p { margin: 0; font-size: 12px; line-height: 1.55; color: #dbe2ee; } .ss-note { margin-top: 6px !important; font-size: 11px !important; color: #aab4c5 !important; }
+@media (max-width: 900px) { .ss-cards { grid-template-columns: 1fr; } .ss-panel { grid-template-columns: 1fr; gap: 16px; } }
