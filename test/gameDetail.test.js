@@ -170,7 +170,7 @@ test('the story narrative tells the arc, momentum control, the difference makers
   const { storyBeats } = await import('../public/game/d6-narrative.js');
   const beats = storyBeats(game);
   const text = Object.fromEntries(beats.map((b) => [b.label, b.text]));
-  assert.deepEqual(beats.map((b) => b.label), ['How it unfolded', 'Who controlled play', 'What decided it', 'Penalties', 'The difference', 'Special teams']);
+  assert.deepEqual(beats.map((b) => b.label), ['How it unfolded', 'Who controlled play', 'What decided it', 'Goaltending', 'Penalties', 'The difference', 'Special teams']);
   assert.match(text['How it unfolded'], /fought back from 4 down/);
   assert.ok(beats.every((b) => b.items.length >= 1), 'every beat has points');
   assert.match(text['Who controlled play'], /shot attempts/);
@@ -295,4 +295,23 @@ test('team stats include momentum and time in control', () => {
   assert.ok(m && c);
   assert.equal(m.awayNum, game.momentum.totals.away);
   assert.match(c.away, /^\d+ min$/);
+});
+
+test('goaltending story: a starter replaced after a rough start, and a goalie with a quiet or fantastic night', async () => {
+  const { goaltending } = await import('../public/game/d6-narrative.js');
+  const goalie = (name, o) => ({ fullName: name, starter: false, played: true, toi: '20:00', toiSeconds: 1200, saves: 0, shotsAgainst: 0, goalsAgainst: 0, gsax: 0, ...o });
+  const game = {
+    status: { state: 'final', label: 'Final' },
+    away: { abbrev: 'AAA', commonName: 'Aces' }, home: { abbrev: 'HHH', commonName: 'Hawks' },
+    linescore: { totals: { away: 4, home: 3 }, periods: [] },
+    players: {
+      away: { goalies: [goalie('Pat Starter', { toiSeconds: 610, saves: 2, shotsAgainst: 5, goalsAgainst: 3, gsax: -2.5 }), goalie('Sam Backup', { toiSeconds: 3000, saves: 20, shotsAgainst: 28, goalsAgainst: 8, gsax: -1.4 })] },
+      home: { goalies: [goalie('Chris Wall', { toiSeconds: 3600, saves: 30, shotsAgainst: 31, goalsAgainst: 1, gsax: 1.8 })] },
+    },
+    penalties: [], scoring: [], momentum: null, teamStats: [],
+  };
+  const text = goaltending(game, true).join(' ');
+  assert.match(text, /Pat Starter was replaced by Sam Backup at 10:10 of the 1st period, after allowing 3 goals on 5 shots/);
+  assert.match(text, /The change did not help/);
+  assert.match(text, /Chris Wall was fantastic/);
 });
