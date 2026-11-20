@@ -29,7 +29,7 @@ test('players carry play-by-play extras and a game score', () => {
   assert.equal(scheifele.goals, 1);
   assert.equal(scheifele.a1 + scheifele.a2, scheifele.assists);
   assert.ok(scheifele.fow + scheifele.fol > 0);
-  assert.equal(scheifele.rating, 10);
+  assert.ok(scheifele.rating >= 9.5, `rating ${scheifele.rating}`); // a great night: past 9, softened but not capped
   const goalies = game.players.away.goalies;
   assert.equal(goalies.find((g) => g.decision === 'W').lastName, 'Daws');
 });
@@ -45,7 +45,7 @@ test('game score math', () => {
   const gs = skaterGameScore({ goals: 1, a1: 1, a2: 0, sog: 4, blocks: 0, penaltiesDrawn: 0, penaltiesTaken: 1, fow: 0, fol: 0, plusMinus: 1 });
   assert.equal(gs.total, 0.75 + 0.7 + 0.3 - 0.25 + 0.15);
   assert.equal(rating(0), 6);
-  assert.equal(rating(99), 10);
+  assert.ok(rating(99) > 10); // no cap
 });
 
 test('game story headline finds the comeback and the shootout winner', async () => {
@@ -329,4 +329,15 @@ test('goaltending story: a starter replaced after a rough start, and a goalie wi
   assert.match(text, /Pat Starter was replaced by Sam Backup in the Aces' net at 10:10 of the 1st period, after allowing 3 goals on 5 shots/);
   assert.match(text, /The change did not help/);
   assert.match(text, /Chris Wall was outstanding in the Hawks' net/);
+});
+
+test('rating: linear between 4 and 9, softened (not capped) past either end', async () => {
+  const { rating } = await import('../src/gameDetail.js');
+  assert.equal(rating(0), 6);
+  assert.equal(rating(2), 9); // 6 + 3
+  assert.equal(rating(-1.3333), 4);
+  assert.equal(rating(4), 10.2); // raw 12 -> 9 + 0.4 * 3
+  assert.equal(rating(6.15), 11.5); // a 46-save shutout
+  assert.equal(rating(-5.07), 1.8); // 7 goals against
+  assert.ok(rating(3) > rating(2.9) && rating(-3) < rating(-2.9)); // still strictly ordered at the ends
 });
