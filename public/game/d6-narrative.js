@@ -229,12 +229,58 @@ function difference(game, final) {
     const line = [best.goals && `${best.goals} G`, best.assists && `${best.assists} A`, `${best.sog} SOG`].filter(Boolean).join(', ');
     out.push(`${best.fullName} (${best.team}) ${final ? 'set' : 'is setting'} the pace: ${line}${best.momentum != null ? `, +${Math.max(0, best.momentum).toFixed(1)} momentum` : ''}.`);
   }
-  const gl = allGoalies(game).filter((g) => g.played && g.gsax != null && g.shotsAgainst >= 8);
-  const stand = gl.sort((x, y) => y.gsax - x.gsax)[0];
-  const weak = gl.sort((x, y) => x.gsax - y.gsax)[0];
-  if (stand && stand.gsax >= 0.7) out.push(`In net, ${stand.fullName} (${stand.team}) ${final ? 'stopped' : 'has stopped'} ${stand.saves} of ${stand.shotsAgainst}, ${stand.gsax.toFixed(1)} goals better than expected.`);
-  if (weak && weak !== stand && weak.gsax <= -0.9) out.push(`${weak.fullName} (${weak.team}) ${final ? 'allowed' : 'has allowed'} ${Math.abs(weak.gsax).toFixed(1)} more goals than expected on ${weak.shotsAgainst} shots.`);
-  else if (stand && weak === stand && stand.gsax <= -0.9) out.push(`${stand.fullName} (${stand.team}) ${final ? 'allowed' : 'has allowed'} ${Math.abs(stand.gsax).toFixed(1)} more goals than expected.`);
+  return out;
+}
+
+/** Seconds into the game as "10:11 of the 1st period". */
+function gameClock(sec) {
+  const n = Math.floor(sec / 1200);
+  const into = sec - n * 1200;
+  const per = ['1st period', '2nd period', '3rd period'][n] ?? 'overtime';
+  return `${Math.floor(into / 60)}:${String(Math.floor(into % 60)).padStart(2, '0')} of the ${per}`;
+}
+
+/** How one goalie did, in a phrase. gsax is goals saved above what an average goalie would have saved. */
+function goalieGrade(g) {
+  const sv = `${g.saves} of ${g.shotsAgainst}`;
+  const x = g.gsax ?? 0;
+  if (g.shotsAgainst < 8 && x > -1) return { tier: 'quiet', text: `has barely been tested (${sv})`, past: `was barely tested (${sv})` };
+  if (x >= 1.5) return { tier: 'great', text: `is having a fantastic night, stopping ${sv} and ${x.toFixed(1)} goals more than expected`, past: `was fantastic, stopping ${sv} and ${x.toFixed(1)} goals more than expected` };
+  if (x >= 0.5) return { tier: 'good', text: `has been solid, stopping ${sv}`, past: `was solid, stopping ${sv}` };
+  if (x > -0.5) return { tier: 'even', text: `has done what was expected (${sv})`, past: `did what was expected (${sv})` };
+  if (x > -1.2) return { tier: 'soft', text: `has let in a little more than expected (${sv}), but it is not a disaster`, past: `let in a little more than expected (${sv}), though it was not a disaster` };
+  if (x > -2) return { tier: 'bad', text: `has struggled (${sv}, ${Math.abs(x).toFixed(1)} goals worse than expected)`, past: `struggled (${sv}, ${Math.abs(x).toFixed(1)} goals worse than expected)` };
+  return { tier: 'awful', text: `is having a terrible night (${sv}, ${Math.abs(x).toFixed(1)} goals worse than expected)`, past: `had a terrible night (${sv}, ${Math.abs(x).toFixed(1)} goals worse than expected)` };
+}
+
+/** Goaltending for each team: how the goalie did and, when there was a change, who came in and how it went. */
+export function goaltending(game, final) {
+  const out = [];
+  const last = (g) => g.fullName.split(' ').slice(-1)[0];
+  for (const s of ['away', 'home']) {
+    const team = game[s];
+    // Box score order is the order they came in; a starter flag, when the NHL sets one, wins.
+    const gl = [...game.players[s].goalies].filter((g) => g.played).sort((a, b) => b.starter - a.starter);
+    if (!gl.length) continue;
+    const t = `The ${team.commonName}`;
+    if (gl.length === 1) {
+      const g = gl[0];
+      const gr = goalieGrade(g);
+      out.push(`${t}: ${g.fullName} ${final ? gr.past : gr.text}.`);
+      continue;
+    }
+    const [first, ...rest] = gl;
+    const next = rest[0];
+    const at = gameClock(first.toiSeconds);
+    const fg = goalieGrade(first);
+    const rough = fg.tier === 'bad' || fg.tier === 'awful' || first.goalsAgainst >= 3;
+    const why = rough ? `after allowing ${first.goalsAgainst} goal${first.goalsAgainst === 1 ? '' : 's'} on ${first.shotsAgainst} shots` : `with ${first.goalsAgainst} goal${first.goalsAgainst === 1 ? '' : 's'} allowed on ${first.shotsAgainst} shots, so it looks like a precaution or an injury rather than a pull`;
+    out.push(`${t}: ${first.fullName} ${final ? 'was' : 'has been'} replaced by ${next.fullName} at ${at}, ${why}.`);
+    const ng = goalieGrade(next);
+    const helped = ['great', 'good', 'quiet', 'even'].includes(ng.tier);
+    const prefix = rough ? (helped ? 'The change settled things down. ' : `The change ${final ? 'did not help' : 'has not helped'}. `) : '';
+    out.push(`${prefix}${last(next)} ${final ? ng.past : ng.text}.`);
+  }
   return out;
 }
 
@@ -270,8 +316,6 @@ function decided(game, final) {
   // Goaltending.
   const hot = gl.filter((g) => g.gsax >= 1 && g.shotsAgainst >= 8).sort((a, b) => b.gsax - a.gsax)[0];
   const cold = gl.filter((g) => g.gsax <= -1 && g.shotsAgainst >= 8).sort((a, b) => a.gsax - b.gsax)[0];
-  if (hot) out.push(`${hot.fullName} (${hot.team}) ${tense('stood tall', 'is standing tall')}, saving ${r(hot.gsax)} goals more than expected.`);
-  if (cold) out.push(`${cold.fullName} (${cold.team}) ${tense('struggled', 'is struggling')}: ${r(Math.abs(cold.gsax))} more goals allowed than expected.`);
   // Defense: a team that gave up very little quality.
   for (const s of ['away', 'home']) {
     const against = xg[other(s)];
@@ -379,7 +423,8 @@ export function storyBeats(game) {
   const beats = [
     { label: final ? 'How it unfolded' : 'How it stands', items: un.points, penalty: un.penalty, periods: un.periods },
     { label: final ? 'Who controlled play' : 'Who has the play', items: control(game, final) },
-    { label: final ? 'What decided it' : 'Chances and goaltending', items: decided(game, final) },
+    { label: final ? 'What decided it' : 'Chances so far', items: decided(game, final) },
+    { label: 'Goaltending', items: goaltending(game, final) },
     { label: final ? 'Penalties' : 'Penalties so far', items: penaltyStory(game, final) },
     { label: final ? 'The difference' : 'Standing out so far', items: difference(game, final) },
     { label: final ? 'Special teams' : 'Special teams so far', items: specialTeams(game, final) },
