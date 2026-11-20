@@ -18,28 +18,50 @@ export function hornToggles(game, cls = '') {
 }
 
 let audio = null;
-let flashTimer = null;
-function stop() {
+let alertTimer = null;
+const queue = [];
+const ALERT_MS = 8000;
+const word = (s) => String(s ?? '').toUpperCase();
+const LIGHT = '<svg viewBox="0 0 100 130" aria-hidden="true"><ellipse class="halo" cx="50" cy="52" rx="42" ry="46"/><rect x="16" y="104" width="68" height="18" rx="4" fill="#3b4558"/><rect x="24" y="92" width="52" height="14" rx="3" fill="#59647a"/><path class="dome" d="M22 92V52a28 28 0 0 1 56 0v40z"/><g stroke="#cfd6e4" stroke-width="2.5" fill="none" opacity=".8"><path d="M22 92V52a28 28 0 0 1 56 0v40"/><path d="M36 92V30M50 92V24M64 92V30"/><path d="M24 70h52M26 50h48"/></g></svg>';
+
+function hideAlert() {
   if (audio) { audio.pause(); audio = null; }
-  clearTimeout(flashTimer);
+  clearTimeout(alertTimer);
   document.getElementById('goal-flash')?.remove();
 }
+/** Skip: end this alert and go on to the next goal in the queue. */
+function skip() { hideAlert(); next(); }
+/** Stop all: end this alert, forget the queue and silence the horn. */
+function stopAll() { queue.length = 0; hideAlert(); }
 
-function flash() {
-  document.getElementById('goal-flash')?.remove();
+function show(a) {
+  hideAlert();
   const el = document.createElement('div');
   el.id = 'goal-flash';
-  el.setAttribute('aria-hidden', 'true');
+  el.setAttribute('role', 'alert');
+  const more = queue.length;
+  el.innerHTML = `<div class="ga-lights"><div class="ga-light l">${LIGHT}</div>
+    <div class="ga-msg"><div class="ga-big">${esc(word(a.team))} SCORE${/S$/i.test(a.team) ? '' : 'S'}!</div>
+    <div class="ga-sc">${a.line}</div></div><div class="ga-light r">${LIGHT}</div></div>
+    <div class="ga-ctl">${more ? `<span class="ga-q">+${more} more goal${more > 1 ? 's' : ''} queued</span>` : ''}<button type="button" class="ga-btn" data-ga="skip">${more ? 'Skip' : 'Dismiss'}</button>${more ? '<button type="button" class="ga-btn stop" data-ga="stop">Stop all</button>' : ''}</div>`;
   document.body.append(el);
-  flashTimer = setTimeout(() => el.remove(), 10_000);
+  audio = new Audio(new URL(`audio/horns/${a.abbrev}.mp3`, document.baseURI).href);
+  audio.play().catch(() => {}); // blocked until the reader has tapped a horn toggle once
+  alertTimer = setTimeout(skip, ALERT_MS);
+}
+function next() { const a = queue.shift(); if (a) show(a); }
+function play(a) {
+  const busy = document.getElementById('goal-flash');
+  queue.push(a);
+  if (busy) { // keep the queue counter on screen current
+    const q = busy.querySelector('.ga-ctl'); if (q) { const n = queue.length; q.innerHTML = `<span class="ga-q">+${n} more goal${n > 1 ? 's' : ''} queued</span><button type="button" class="ga-btn" data-ga="skip">Skip</button><button type="button" class="ga-btn stop" data-ga="stop">Stop all</button>`; }
+  } else next();
 }
 
-function play(abbrev) {
-  stop();
-  flash();
-  audio = new Audio(new URL(`audio/horns/${abbrev}.mp3`, document.baseURI).href);
-  audio.play().catch(() => {}); // blocked until the reader has tapped a horn toggle once
-}
+document.addEventListener('click', (e) => {
+  const c = e.target.closest('[data-ga]');
+  if (c) { if (c.dataset.ga === 'stop') stopAll(); else skip(); }
+});
 
 document.addEventListener('click', (e) => {
   const b = e.target.closest('[data-horn-team]');
@@ -48,7 +70,7 @@ document.addEventListener('click', (e) => {
   const on = !hornOn(id, a);
   store(KEY(id, a), on ? '1' : null);
   // Tapping is the browser's permission to play sound later: unlock audio now.
-  if (on) { const u = new Audio(); u.muted = true; u.play().catch(() => {}); } else stop();
+  if (on) { const u = new Audio(); u.muted = true; u.play().catch(() => {}); } else stopAll();
   document.querySelectorAll(`[data-horn-game="${id}"][data-horn-team="${a}"]`).forEach((x) => {
     x.classList.toggle('on', on);
     x.setAttribute('aria-pressed', String(on));
@@ -71,7 +93,14 @@ export function watchGoals(games) {
       const k = `${g.id}:${a}`;
       const before = seen.get(k);
       seen.set(k, n);
-      if (before != null && n > before && HORNS.has(a) && hornOn(g.id, a)) play(a);
+      if (before != null && n > before && HORNS.has(a) && hornOn(g.id, a)) play(alertFor(g, side));
     }
   }
+}
+
+function alertFor(g, side) {
+  const o = side === 'away' ? 'home' : 'away';
+  const nm = (t) => word(t.name || t.abbrev);
+  const line = `<span class="hit">${esc(nm(g[side]))} ${esc(g[side].score ?? '')}</span> – ${esc(g[o].score ?? '')} ${esc(nm(g[o]))}`;
+  return { abbrev: g[side].abbrev, team: nm(g[side]), line };
 }

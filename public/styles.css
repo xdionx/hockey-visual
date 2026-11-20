@@ -145,9 +145,25 @@ main.compact { grid-template-columns: repeat(auto-fill, minmax(min(100%, 440px),
 .horn-toggles { display: inline-flex; gap: 6px; flex-wrap: wrap; margin-right: 6px; }
 .horn-btn { font: 600 12px Inter, sans-serif; padding: 4px 9px; border-radius: 999px; border: 1px solid rgba(255,255,255,.25); background: transparent; color: inherit; cursor: pointer; opacity: .75; }
 .horn-btn.on { background: #c8102e; border-color: #c8102e; color: #fff; opacity: 1; }
-#goal-flash { position: fixed; inset: 0; z-index: 9999; pointer-events: none; background: #e11; animation: goalflash .8s ease-in-out infinite; }
-@keyframes goalflash { 0%, 100% { opacity: 0; } 50% { opacity: .38; } }
-@media (prefers-reduced-motion: reduce) { #goal-flash { animation: none; opacity: .25; } }
+#goal-flash { position: fixed; left: 50%; top: 14px; transform: translateX(-50%); width: min(94vw, 760px); z-index: 9999; border-radius: 16px; border: 2px solid #ff2b2b; background: linear-gradient(180deg, #1a0a0e, #2a0d12); color: #fff; padding: 18px 12px 46px; animation: ga-glow 1s steps(2, jump-none) infinite; }
+.ga-lights { display: flex; align-items: center; justify-content: center; gap: clamp(8px, 3vw, 32px); }
+.ga-msg { text-align: center; flex: 1; min-width: 0; }
+.ga-big { font: 900 clamp(24px, 6.4vw, 48px)/1 "Barlow Condensed", Inter, sans-serif; letter-spacing: .06em; }
+.ga-sc { margin-top: 8px; font: 700 clamp(14px, 3.4vw, 24px)/1.2 "Barlow Condensed", Inter, sans-serif; letter-spacing: .05em; }
+.ga-sc .hit { color: #ffd23f; }
+.ga-light { width: clamp(52px, 13vw, 100px); flex: none; }
+.ga-light svg { width: 100%; display: block; overflow: visible; }
+.ga-light .dome { fill: #8c1016; animation: ga-dome 1s steps(2, jump-none) infinite; }
+.ga-light .halo { fill: #ff2b2b; opacity: 0; filter: blur(10px); animation: ga-halo 1s steps(2, jump-none) infinite; }
+.ga-light.r .dome, .ga-light.r .halo { animation-delay: .5s; }
+.ga-ctl { position: absolute; right: 12px; bottom: 10px; display: flex; gap: 8px; align-items: center; }
+.ga-q { font: 600 12px Inter, sans-serif; color: #ffb3b3; letter-spacing: .05em; text-transform: uppercase; margin-right: 4px; }
+.ga-btn { font: 700 12px Inter, sans-serif; letter-spacing: .08em; text-transform: uppercase; border: 1.5px solid #ff6b6b; background: rgba(0,0,0,.4); color: #fff; border-radius: 999px; padding: 7px 13px; cursor: pointer; }
+.ga-btn.stop { background: #ff2b2b; border-color: #ff2b2b; }
+@keyframes ga-glow { 0% { box-shadow: 0 0 0 0 #ff2b2b00, inset 0 0 40px #ff2b2b22; } 50% { box-shadow: 0 0 60px 8px #ff2b2baa, inset 0 0 90px #ff2b2b55; } }
+@keyframes ga-dome { 50% { fill: #ff4638; } }
+@keyframes ga-halo { 50% { opacity: .85; } }
+@media (prefers-reduced-motion: reduce) { #goal-flash, .ga-light .dome, .ga-light .halo { animation: none; } .ga-light .dome { fill: #ff4638; } .ga-light .halo { opacity: .6; } }
 
 /* ── Scores redesign: team names, bigger logos, SOG/SAT bars, goal tiles ── */
 .tb { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 3px 0; border-bottom: 3px solid var(--team); }
