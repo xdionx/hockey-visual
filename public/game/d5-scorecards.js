@@ -218,6 +218,8 @@ export default {
 
 // ---- Three stars: gold, silver and bronze cards with an expandable full scorecard ----
 const MEDAL = [['gold', '★ 1st star'], ['silver', '2nd star'], ['bronze', '3rd star']];
+// Until the NHL names its three stars, our own top performers show unlabeled by star.
+const TOP = [['gold', '★ Top performer'], ['silver', '2nd best'], ['bronze', '3rd best']];
 const sgn = (v, d = 2) => `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v).toFixed(d)}`;
 const tile = (v, l) => `<div><b>${v}</b><small>${esc(l)}</small></div>`;
 const bars = (l, a, b, ca, cb, fa = a, fb = b) => `<div class="ss-cmp"><div><span>${esc(l)}</span><b>${esc(fa)} <em>vs</em> ${esc(fb)}</b></div><div class="ss-bar"><i style="flex:${Math.max(Math.abs(a), 0.01)};background:${ca}"></i><i style="flex:${Math.max(Math.abs(b), 0.01)};background:${cb}"></i></div></div>`;
@@ -250,8 +252,8 @@ function starBar(p, scale) {
     <div class="ss-leg">${parts.concat(neg).map(([k, l]) => `<span><i style="background:${PART_COLORS[k]}"></i>${esc(l)}<b>${sgn(p.gameScoreParts[k], 1)}</b></span>`).join('')}</div>`;
 }
 
-function starCard(game, c, p, i) {
-  const [tier, kicker] = MEDAL[i];
+function starCard(game, c, p, i, medals = MEDAL) {
+  const [tier, kicker] = medals[i];
   return `<article class="ss-card ${tier}" style="--team:${c[p.side]}"><span class="ss-medal">${kicker}</span>
     <div class="ss-top">${headshot(p, 'ss-mug')}<div class="ss-who"><strong>${esc(p.fullName)}</strong><span>#${p.number ?? ''} · ${esc(p.position)} · ${esc(game[p.side].name)}</span></div>
       <div class="ss-rate" style="--r:${ratingColor(p.rating)}">${p.rating.toFixed(1)}<small>GAME SCORE ${sgn(p.gameScore, 1)}</small></div></div>
@@ -293,9 +295,14 @@ function starPanel(game, c, p, i) {
 
 /** The three stars of a finished game, under the scoreboard. */
 export function starsRow(game, c, players) {
-  const top = players.slice(0, 3);
+  // The 1st/2nd/3rd star labels are the NHL's official stars, in the NHL's order.
+  const official = [...(game.threeStars ?? [])].sort((x, y) => x.star - y.star)
+    .map((st) => players.find((p) => p.id === st.id)).filter(Boolean);
+  const isOfficial = official.length === 3;
+  const top = isOfficial ? official : players.slice(0, 3);
   if (top.length < 3) return '';
-  return `<section class="ss-row" id="st-stars" aria-label="Three stars of the game"><div class="ss-cards">${top.map((p, i) => starCard(game, c, p, i)).join('')}</div>${top.map((p, i) => starPanel(game, c, p, i)).join('')}</section>`;
+  const medals = isOfficial ? MEDAL : TOP;
+  return `<section class="ss-row" id="st-stars" aria-label="${isOfficial ? 'Three stars of the game' : 'Top performers'}"><div class="ss-cards">${top.map((p, i) => starCard(game, c, p, i, medals)).join('')}</div>${top.map((p, i) => starPanel(game, c, p, i)).join('')}</section>`;
 }
 
 export function mountStars(root) {
