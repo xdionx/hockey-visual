@@ -847,3 +847,9 @@ main { padding: 0 0 48px; }
 #radio-bar { position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 9998; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: center; max-width: 94vw; padding: 10px 14px; border-radius: 999px; background: #111a2e; border: 1px solid rgba(255,255,255,.2); color: #fff; font: 600 13px Inter, sans-serif; box-shadow: 0 8px 30px rgba(0,0,0,.5); }
 #radio-bar a { color: #8ab4ff; }
 #radio-bar button { font: 700 12px Inter, sans-serif; letter-spacing: .06em; text-transform: uppercase; border: 1.5px solid #ff6b6b; background: transparent; color: #fff; border-radius: 999px; padding: 6px 12px; cursor: pointer; }
+
+/* Players 2 and 3 of the game: same card, smaller */
+.s-spot-sub { padding: 14px 20px; margin-bottom: 10px; }
+.s-spot-sub .s-spot-mug { width: 64px; height: 64px; }
+.s-spot-sub h2 { font-size: 24px; }
+.d-story .s-spot-sub h2 { font-size: 30px; }

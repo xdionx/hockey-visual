@@ -120,21 +120,24 @@ export function goalieCard(g, c) {
   </article>`;
 }
 
-export function spotlight(game, c, players, scale) {
-  const best = players[0];
-  if (!best) return '';
+function spot(game, c, best, scale, rank) {
   const parts = GS_PARTS.map(([k, label]) => {
     const v = best.gameScoreParts?.[k];
     if (v == null) return '';
     return `<div class="s-part"><span><i style="background:${PART_COLORS[k]}"></i>${esc(label)}</span><b>${v > 0 ? '+' : ''}${v.toFixed(2)}</b></div>`;
   }).join('');
-  return `<section class="s-spot" style="--team:${c[best.side]}">
-    <div class="s-spot-l">${headshot(best, 's-spot-mug')}<div><span class="s-kicker">Player of the game</span><h2>${esc(best.fullName)}</h2><span class="s-muted">#${best.number ?? ''} · ${esc(best.position)} · ${esc(game[best.side].name)}</span></div></div>
+  return `<section class="s-spot${rank > 1 ? ' s-spot-sub' : ''}" style="--team:${c[best.side]}">
+    <div class="s-spot-l">${headshot(best, 's-spot-mug')}<div><span class="s-kicker">${rank === 1 ? 'Player of the game' : rank === 2 ? 'Second best player' : 'Third best player'}</span><h2>${esc(best.fullName)}</h2><span class="s-muted">#${best.number ?? ''} · ${esc(best.position)} · ${esc(game[best.side].name)}</span></div></div>
     <div class="s-spot-r">${ratingBadge(best.rating, true)}
       ${best.position === 'G' ? `<div class="s-parts"><div class="s-part"><span>Saves</span><b>${best.saves}/${best.shotsAgainst}</b></div><div class="s-part"><span>SV%</span><b>${pct(best.savePct)}</b></div>${best.gsax != null ? `<div class="s-part" title="Our own estimate from shot distance, angle and type"><span>GSAx</span><b>${best.gsax > 0 ? '+' : ''}${best.gsax.toFixed(1)}</b></div><div class="s-part" title="Actual save % minus expected save %"><span>SV% vs exp</span><b>${best.savePctAboveExpected > 0 ? '+' : ''}${(best.savePctAboveExpected * 100).toFixed(1)}%</b></div>` : ''}</div>` : `<div class="s-parts">${parts}</div>`}
     </div>
     ${best.position === 'G' ? '' : `<div class="s-spot-bar">${breakdownBar(best, scale)}</div>`}
   </section>`;
+}
+
+/** The top three players of the game, best first. */
+export function spotlight(game, c, players, scale) {
+  return players.slice(0, 3).map((p, i) => spot(game, c, p, scale, i + 1)).join('');
 }
 
 export function grid(game, c, state) {
