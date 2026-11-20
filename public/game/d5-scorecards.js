@@ -215,3 +215,102 @@ export default {
     mountScorecards(root, game, teamColors(game));
   },
 };
+
+// ---- Three stars: gold, silver and bronze cards with an expandable full scorecard ----
+const MEDAL = [['gold', '★ 1st star'], ['silver', '2nd star'], ['bronze', '3rd star']];
+const sgn = (v, d = 2) => `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v).toFixed(d)}`;
+const tile = (v, l) => `<div><b>${v}</b><small>${esc(l)}</small></div>`;
+const bars = (l, a, b, ca, cb, fa = a, fb = b) => `<div class="ss-cmp"><div><span>${esc(l)}</span><b>${esc(fa)} <em>vs</em> ${esc(fb)}</b></div><div class="ss-bar"><i style="flex:${Math.max(Math.abs(a), 0.01)};background:${ca}"></i><i style="flex:${Math.max(Math.abs(b), 0.01)};background:${cb}"></i></div></div>`;
+const grp = (t, items) => `<div class="ss-grp"><h5>${esc(t)}</h5><div class="ss-tiles3">${items.map(([v, l]) => tile(v, l)).join('')}</div></div>`;
+
+function goalieParts(g) {
+  const saves = 0.1 * g.saves;
+  const above = 0.35 * (g.gsax ?? 0);
+  const against = -0.75 * g.goalsAgainst;
+  return { saves, above, against };
+}
+
+function starTiles(p) {
+  if (p.position === 'G') {
+    return [[p.saves, 'SV'], [p.shotsAgainst, 'SA'], [pct(p.savePct), 'SV%'], [p.goalsAgainst, 'GA'], [p.gsax != null ? sgn(p.gsax, 1) : '—', 'GSAx'], [p.xga != null ? p.xga.toFixed(1) : '—', 'EXP GA'], [esc(p.toi), 'TOI']];
+  }
+  return [[p.goals, 'G'], [p.assists, 'A'], [p.points, 'P'], [p.sog, 'SOG'], [p.attempts ?? '—', 'SAT'], [sgn(p.momentum ?? 0, 1), 'MOM'], [esc(p.toi), 'TOI']];
+}
+
+function starBar(p, scale) {
+  if (p.position === 'G') {
+    const gp = goalieParts(p);
+    const sc = Math.max(gp.saves + Math.max(0, gp.above), 0.5);
+    return `<div class="ss-bar solo"><i style="flex:${gp.saves};background:#22c55e" title="Saves"></i>${gp.above > 0 ? `<i style="flex:${gp.above};background:#14b8a6" title="Saves above expected"></i>` : ''}<span style="flex:0"></span></div>
+      <div class="ss-leg"><span><i style="background:#22c55e"></i>Saves<b>${sgn(gp.saves, 1)}</b></span>${gp.above ? `<span><i style="background:${gp.above > 0 ? '#14b8a6' : '#f59e0b'}"></i>Saves vs expected<b>${sgn(gp.above, 1)}</b></span>` : ''}<span><i style="background:#f43f5e"></i>Goals against<b>${sgn(gp.against, 1)}</b></span></div>`;
+  }
+  const parts = GS_PARTS.filter(([k]) => p.gameScoreParts[k] > 0);
+  const neg = GS_PARTS.filter(([k]) => p.gameScoreParts[k] < 0);
+  return `<div class="ss-bar solo">${parts.map(([k, l]) => `<i style="flex:${p.gameScoreParts[k]};background:${PART_COLORS[k]}" title="${esc(l)}"></i>`).join('')}</div>
+    <div class="ss-leg">${parts.concat(neg).map(([k, l]) => `<span><i style="background:${PART_COLORS[k]}"></i>${esc(l)}<b>${sgn(p.gameScoreParts[k], 1)}</b></span>`).join('')}</div>`;
+}
+
+function starCard(game, c, p, i) {
+  const [tier, kicker] = MEDAL[i];
+  return `<article class="ss-card ${tier}" style="--team:${c[p.side]}"><span class="ss-medal">${kicker}</span>
+    <div class="ss-top">${headshot(p, 'ss-mug')}<div class="ss-who"><strong>${esc(p.fullName)}</strong><span>#${p.number ?? ''} · ${esc(p.position)} · ${esc(game[p.side].name)}</span></div>
+      <div class="ss-rate" style="--r:${ratingColor(p.rating)}">${p.rating.toFixed(1)}<small>GAME SCORE ${sgn(p.gameScore, 1)}</small></div></div>
+    <div class="ss-tiles">${starTiles(p).map(([v, l]) => tile(v, l)).join('')}</div>
+    ${starBar(p)}
+    <button type="button" class="ss-more" data-star="${i}" aria-expanded="false">▾ Full scorecard</button>
+  </article>`;
+}
+
+function starPanel(game, c, p, i) {
+  const total = `<div class="ss-total"><span>Game score</span><b>${sgn(p.gameScore)} = rating ${p.rating.toFixed(1)}</b></div>`;
+  if (p.position === 'G') {
+    const gp = goalieParts(p);
+    const xsv = p.expectedSavePct;
+    return `<div class="ss-panel" data-panel="${i}" hidden><div class="ss-col"><h4>How the score adds up</h4>
+        <div class="ss-line"><i style="background:#22c55e"></i><span>${p.saves} saves × 0.1</span><b style="color:#22c55e">${sgn(gp.saves)}</b></div>
+        ${p.gsax != null ? `<div class="ss-line"><i style="background:#14b8a6"></i><span>Saves vs expected</span><b style="color:#14b8a6">${sgn(gp.above)}</b></div>` : ''}
+        <div class="ss-line"><i style="background:#f43f5e"></i><span>${p.goalsAgainst} goal${p.goalsAgainst === 1 ? '' : 's'} against × 0.75</span><b style="color:#f43f5e">${sgn(gp.against)}</b></div>${total}</div>
+      <div class="ss-col"><h4>The night in plain terms</h4>
+        <p>Faced <b>${p.shotsAgainst} shots</b> and stopped <b>${p.saves}</b> (${pct(p.savePct)}).${p.xga != null ? ` Those shots were worth <b>${p.xga.toFixed(1)} goals</b> on average, so allowing ${p.goalsAgainst} is <b>${Math.abs(p.gsax).toFixed(1)} ${p.gsax >= 0 ? 'better' : 'worse'} than expected</b>.` : ''}</p>
+        <div class="ss-kv"><span>Even strength</span><b>${esc(p.evenStrength ?? '—')}</b><span>Power play</span><b>${esc(p.powerPlay ?? '—')}</b><span>Shorthanded</span><b>${esc(p.shorthanded ?? '—')}</b>${p.decision ? `<span>Decision</span><b>${esc(p.decision)}</b>` : ''}</div></div>
+      <div class="ss-col"><h4>Against expectation</h4>
+        ${p.xga != null ? bars('Goals against vs expected', p.goalsAgainst, p.xga, '#f43f5e', '#64748b', String(p.goalsAgainst), p.xga.toFixed(1)) : ''}
+        ${xsv != null && p.shotsAgainst ? bars('Save % vs expected', p.saves / p.shotsAgainst, xsv, '#22c55e', '#64748b', pct(p.saves / p.shotsAgainst), pct(xsv)) : ''}
+        <p class="ss-note">Expected goals are our own estimate from shot distance, angle and type.</p></div></div>`;
+  }
+  const rows = GS_PARTS.map(([k, l]) => { const v = p.gameScoreParts[k]; return `<div class="ss-line"><i style="background:${PART_COLORS[k]}"></i><span>${esc(l)}</span><span class="ss-track"><u style="width:${Math.min(100, (Math.abs(v) / 3.5) * 100)}%;background:${v < 0 ? '#f43f5e' : PART_COLORS[k]}"></u></span><b>${sgn(v)}</b></div>`; }).join('');
+  const m = p.momentumParts;
+  const mpos = m?.pos ?? 0, mneg = Math.abs(m?.neg ?? 0);
+  return `<div class="ss-panel" data-panel="${i}" hidden><div class="ss-col"><h4>How the score adds up</h4>${rows}${total}</div>
+    <div class="ss-col">${grp('Shooting and playmaking', [[p.attempts ?? '—', 'ATTEMPTS'], [p.sog, 'ON GOAL'], [p.homePlate ?? 0, 'FROM HOME PLATE']])}
+      ${grp('Defense and puck care', [[p.blocks, 'BLOCKS'], [`${p.takeaways}/${p.giveaways}`, 'TAKE / GIVE'], [p.hits, 'HITS']])}
+      ${grp('Game flow', [[signed(p.plusMinus), '+/-'], [p.shifts, 'SHIFTS'], [`${p.penaltiesDrawn}/${p.penaltiesTaken}`, 'PEN DRAWN / TAKEN']])}</div>
+    <div class="ss-col"><h4>Attempts and momentum</h4>
+      ${p.onIce ? bars('Shot attempts while on ice', p.onIce.cf, p.onIce.ca, '#6366f1', '#64748b') : ''}
+      ${bars('Momentum earned vs given up', mpos, mneg, '#22c55e', '#f43f5e', sgn(mpos, 1), sgn(-mneg, 1))}
+      <p class="ss-note">${p.swingPlays ? `<b>${p.swingPlays}</b> swing play${p.swingPlays === 1 ? '' : 's'}` : 'No swing plays'}${p.keyGoalBonus > 0 ? `, including goals that tied the game or took the lead (+${p.keyGoalBonus.toFixed(2)})` : ''}.</p></div></div>`;
+}
+
+/** The three stars of a finished game, under the scoreboard. */
+export function starsRow(game, c, players) {
+  const top = players.slice(0, 3);
+  if (top.length < 3) return '';
+  return `<section class="ss-row" id="st-stars" aria-label="Three stars of the game"><div class="ss-cards">${top.map((p, i) => starCard(game, c, p, i)).join('')}</div>${top.map((p, i) => starPanel(game, c, p, i)).join('')}</section>`;
+}
+
+export function mountStars(root) {
+  const row = root.querySelector('.ss-row');
+  if (!row) return;
+  on(row, 'click', (e) => {
+    const b = e.target.closest('.ss-more');
+    if (!b) return;
+    const open = b.getAttribute('aria-expanded') === 'true';
+    row.querySelectorAll('.ss-more').forEach((x) => { x.setAttribute('aria-expanded', 'false'); x.textContent = '▾ Full scorecard'; });
+    row.querySelectorAll('.ss-panel').forEach((x) => { x.hidden = true; });
+    if (!open) {
+      b.setAttribute('aria-expanded', 'true');
+      b.textContent = '▴ Hide scorecard';
+      row.querySelector(`.ss-panel[data-panel="${b.dataset.star}"]`).hidden = false;
+    }
+  });
+}

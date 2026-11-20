@@ -4,7 +4,7 @@
 import { esc, teamColors, allSkaters, allGoalies, elapsed, logo, statusText, strengthBadge, headshot, on, panelColor, fold } from './core.js';
 import { hero, scoringCards, stars, statBars, shotLine } from './d2-broadcast.js';
 import { kpis, shotMap, heatTable, goalieTable, shotSummary, mountShotMap } from './d4-analytics.js';
-import { spotlight, scorecardControls, scorecardKey, mountScorecards } from './d5-scorecards.js';
+import { spotlight, scorecardControls, scorecardKey, mountScorecards, starsRow, mountStars } from './d5-scorecards.js';
 import { storyChapters, momentumTimeline } from './d6-chapters.js';
 import { storyBeats } from './d6-narrative.js';
 
@@ -369,6 +369,8 @@ export default {
         </div>
       </div>
 
+      ${game.status.state === 'final' ? starsRow(game, c, all) : ''}
+
       <section class="st-sec" id="st-story">
         ${header(1, 'story', 'The story')}
         <div class="st-lede"><h1>${esc(story.headline)}</h1>${story.dek.map((d) => beatHtml(d, c)).join('')}</div>
@@ -392,7 +394,7 @@ export default {
 
       <section class="st-sec" id="st-players">
         ${header(4, 'players', 'Player scorecards', 'Each player’s rating and what drove it.')}
-        ${spotlight(game, c, all, scale)}
+        ${game.status.state === 'final' ? '' : spotlight(game, c, all, scale)}
         ${scorecardControls(game)}
         <div class="s-grid" id="s-grid" data-js></div>
         ${scorecardKey()}
@@ -411,6 +413,7 @@ export default {
     mountMomentumTips(root, game, c);
     if (root.querySelector('#a-shots')) mountShotMap(root, game, c);
     if (root.querySelector('#s-grid')) mountScorecards(root, game, c);
+    mountStars(root);
 
     // Highlight the section in view.
     const links = new Map([...root.querySelectorAll('.st-nav a')].map((a) => [a.dataset.sec, a]));
