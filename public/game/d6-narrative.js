@@ -67,6 +67,9 @@ function unfolded(game, final) {
     else if (before === null) did = goals.slice(0, i).some((x) => x.lead === g.side) ? `retook the lead for the ${nick(g.side)}` : `put the ${nick(g.side)} ahead`;
     else if (g.side === g.lead) did = `extended the ${nick(g.side)} lead`;
     else did = 'cut the deficit';
+    // In overtime the goal that ends it is always the winner, so there is no "go-ahead" to talk about.
+    const otWinner = g === gwg && /OT$/.test(g.period);
+    if (otWinner) did = 'scored and won the game in overtime';
     let how = '';
     const link = links(g);
     if (link?.w.kind === 'pp-goal') how = ` on the power play, after ${pen(link.x)} at ${link.x.period === g.period ? link.x.time : shortWhen(link.x)}`;
@@ -85,7 +88,7 @@ function unfolded(game, final) {
     const flag = g === gwg ? 'win' : g.lead === null && i ? 'tie' : g.lead && before !== g.lead && before === null ? 'lead' : '';
     return {
       at: elapsed(g.period, g.time), time: g.time, period: g.period, side: g.side, flag, goal: true,
-      text: `${who} (${g.team}) ${did}${how}${g === gwg ? ', the game-winner' : ''}`,
+      text: `${who} (${g.team}) ${did}${how}${g === gwg && !otWinner ? ', the game-winner' : ''}`,
       score: `${ab('away')} ${g.after.away} – ${g.after.home} ${ab('home')}`,
     };
   });
@@ -140,7 +143,7 @@ function unfolded(game, final) {
       const idx = goals.reduce((k, g, i) => (g.lead === winner && (goals[i - 1]?.lead ?? null) !== winner ? i : k), -1);
       const decider = goals[idx];
       if (decider && idx <= 0 && behind === 0) {
-        if (gwg) points.push(`${lastName(gwg.scorer.fullName)} scored the game-winner at ${when(gwg)}.`);
+        if (gwg) points.push(/OT$/.test(gwg.period) ? `${lastName(gwg.scorer.fullName)} scored and won the game in overtime for the ${nick(winner)} at ${when(gwg)}.` : `${lastName(gwg.scorer.fullName)} scored the game-winner at ${when(gwg)}.`);
       } else if (decider) {
         const after = goals.slice(idx + 1);
         const oppAfter = after.filter((g) => g.side === other(winner)).length;
@@ -148,7 +151,9 @@ function unfolded(game, final) {
         const tail = inOT ? '' : oppAfter
           ? ` The ${nick(other(winner))} answered ${oppAfter === 1 ? 'once' : `${oppAfter} times`}, but it was not enough.`
           : ` The ${nick(other(winner))} never got the equalizer; the ${nick(winner)} held on.`;
-        points.push(`${lastName(decider.scorer.fullName)} put the ${nick(winner)} ahead for good at ${when(decider)}${decider === gwg ? ', the game-winner' : ''}.${tail}`);
+        points.push(inOT && decider === gwg
+          ? `${lastName(decider.scorer.fullName)} scored and won the game in overtime for the ${nick(winner)} at ${when(decider)}.`
+          : `${lastName(decider.scorer.fullName)} put the ${nick(winner)} ahead for good at ${when(decider)}${decider === gwg ? ', the game-winner' : ''}.${tail}`);
       }
     }
   } else {

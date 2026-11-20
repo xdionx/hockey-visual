@@ -105,7 +105,7 @@ export function storyline(game) {
     const n = t[l] + 1;
     let k = 0;
     const gwg = goals.find((g) => g.team === game[w].abbrev && ++k === n);
-    if (gwg) dek.push(`${gwg.scorer.fullName} scored the winner at ${gwg.time} of the ${gwg.periodName.toLowerCase()}.`);
+    if (gwg) dek.push(/OT$/.test(String(gwg.period)) ? `${gwg.scorer.fullName} scored and won the game in overtime at ${gwg.time}.` : `${gwg.scorer.fullName} scored the winner at ${gwg.time} of the ${gwg.periodName.toLowerCase()}.`);
   }
   if (att) {
     const top = shots.away.attempts >= shots.home.attempts ? 'away' : 'home';
