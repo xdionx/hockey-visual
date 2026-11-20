@@ -4,12 +4,12 @@
 // momentum at any moment is the sum of recent pushes for each team. The chart shows home minus away.
 //
 // Weights (one shot on goal = 1.0):
-//   goal 3.0, shot on goal 1.0, missed shot 0.35, blocked attempt 0.2 (and 0.1 to the blocking team)
+//   goal 3.0 (the first goal of the game 1.5x), shot on goal 1.0, missed shot 0.35, blocked attempt 0.2 (and 0.2 to the blocking team)
 //   attempts from the home plate area (posts to faceoff dots to top of circles) count 1.5x
 //   faceoff win 0.3 defensive zone (breaks up possession) / 0.2 offensive (SAT starts) / 0.1 neutral
-//   takeaway 0.15, giveaway 0.15 to the other team (low: scorers count them differently from rink to rink), hit 0.2
-//   penalty drawn 1.0, plus 0.2 every 10 seconds of power play (extended possession)
-//   penalty killed off 1.5 to the shorthanded team; a shorthanded goal counts 1.5x (4.5)
+//   takeaway 0.15, giveaway 0.15 to the other team (low: scorers count them differently from rink to rink), hit 0.1
+//   penalty drawn 1.0, plus 0.1 every 10 seconds of power play (extended possession)
+//   penalty killed off 2.5 to the shorthanded team; a shorthanded goal counts 1.5x (4.5)
 //
 // Taking a penalty hurts the player who took it: they lose the 1.0 the other team gained, every
 // power-play push the penalty led to, and a further 1.5 if the power play scored. Drawing one
@@ -40,9 +40,9 @@ export function inHomePlate(x, y) {
 const plateMult = (d) => (inHomePlate(d.xCoord, d.yCoord) ? HOME_PLATE_BONUS : 1);
 
 export const MOMENTUM_WEIGHTS = {
-  goal: 3, sog: 1, miss: 0.35, blockedShooter: 0.2, blocker: 0.1,
-  faceoff: { O: 0.2, N: 0.1, D: 0.3 }, takeaway: 0.15, giveaway: 0.15, hit: 0.2,
-  shorthandedGoalMult: 1.5, penaltyDrawn: 1, powerPlayTick: 0.2, penaltyKilled: 1.5, powerPlayGoalAgainst: 1.5, powerPlayGoalDrawn: 0.75,
+  goal: 3, sog: 1, miss: 0.35, blockedShooter: 0.2, blocker: 0.2, firstGoalMult: 1.5,
+  faceoff: { O: 0.2, N: 0.1, D: 0.3 }, takeaway: 0.15, giveaway: 0.15, hit: 0.1,
+  shorthandedGoalMult: 1.5, penaltyDrawn: 1, powerPlayTick: 0.1, penaltyKilled: 2.5, powerPlayGoalAgainst: 1.5, powerPlayGoalDrawn: 0.75,
   fighterCredit: 0.5, fightSpark: 1,
   majorMult: 2.5, gameMisconduct: 2, gameMisconductTeam: 0.5, misconductBase: 0.15, misconductPerPoint: 0.08, misconductMax: 1.2,
 };
@@ -103,6 +103,7 @@ export function pushes(plays, awayId, rosterTeam) {
   const W = MOMENTUM_WEIGHTS;
   const out = [];
   const fightSeen = new Set();
+  let goalsSeen = 0; // the first goal of the game forces the other team to chase, so it counts more
   const sideOf = (teamId) => (teamId === awayId ? 'away' : 'home');
   const other = (s) => (s === 'away' ? 'home' : 'away');
   for (const p of plays) {
@@ -119,7 +120,7 @@ export function pushes(plays, awayId, rosterTeam) {
         // A shorthanded goal swings a game harder than a power-play goal: 1.5x.
         const st = strength(p.situationCode);
         const sh = st && st.awayGoalie && st.homeGoalie && (owner === 'away' ? st.away < st.home : st.home < st.away);
-        add(owner, W.goal * (sh ? W.shorthandedGoalMult : 1), 'goal', credits);
+        add(owner, W.goal * (sh ? W.shorthandedGoalMult : 1) * (goalsSeen++ === 0 ? W.firstGoalMult : 1), 'goal', credits);
         break;
       }
       case 'shot-on-goal': add(owner, W.sog * plateMult(d), 'sog', [{ id: d.shootingPlayerId, share: 1 }]); break;
