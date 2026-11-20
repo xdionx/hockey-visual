@@ -267,3 +267,4 @@ a.gc:hover { background: #2a3850; }
 .gc { flex-basis: 170px; }
 .gc small:last-child { white-space: normal; }
 .gc { min-height: 64px; align-content: start; }
+.gc .nth { color: #fbbf24; font-style: normal; font-weight: 700; }
