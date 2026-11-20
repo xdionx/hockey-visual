@@ -43,7 +43,7 @@ test('shots exclude the shootout and face the right nets', () => {
 
 test('game score math', () => {
   const gs = skaterGameScore({ goals: 1, a1: 1, a2: 0, sog: 4, blocks: 0, penaltiesDrawn: 0, penaltiesTaken: 1, fow: 0, fol: 0, plusMinus: 1 });
-  assert.equal(gs.total, 0.75 + 0.7 + 0.3 - 0.25 + 0.15);
+  assert.equal(gs.total, 0.75 + 0.7 + 0.3 - 0.15 + 0.15);
   assert.equal(rating(0), 6);
   assert.ok(rating(99) > 10); // no cap
 });

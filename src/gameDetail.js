@@ -21,11 +21,12 @@ const humanize = (key) => String(key ?? '').replace(/-/g, ' ').replace(/\b\w/, (
 // shift charts, weighted by result; when shifts are missing, on-ice goals use plus/minus.
 export const GAME_SCORE_WEIGHTS = {
   goals: 0.75, primaryAssists: 0.7, secondaryAssists: 0.55, shots: 0.075, blocks: 0.05,
-  penaltiesDrawn: 0.25, penaltiesTaken: -0.25, faceoffWins: 0.01, faceoffLosses: -0.01, plusMinus: 0.15, onIceAttempts: 0.05,
+  penaltiesDrawn: 0.15, penaltiesTaken: -0.15, faceoffWins: 0.01, faceoffLosses: -0.01, plusMinus: 0.15, onIceAttempts: 0.05,
   // Takeaways and giveaways are scored by hand, differently from rink to rink, so they count only a little.
   takeaways: 0.03, giveaways: -0.03,
   homePlate: 0.04, // per shot attempt from the home plate area; our addition
-  // Penalties: the public model uses ±0.15; we use ±0.25 so drawing and taking them weigh more.
+  // Penalties: ±0.15 like the public model, the same for every penalty. Whether the power play scores is mostly luck,
+  // so the game score charges the expected cost; momentum still charges the player when the power play does score.
   // Goals that matter: one bonus per goal, never two. A goal that ties the game or takes the lead earns the first;
   // the go-ahead goal that turns out to be the game winner earns the second instead of it. Assists get a share.
   keyGoal: 0.25, gameWinner: 0.35, keyGoalAssist1: 0.4, keyGoalAssist2: 0.2,
