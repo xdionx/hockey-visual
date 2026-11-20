@@ -17,7 +17,7 @@ import { shotAttempts } from '../src/sat.js';
 
 // Bump this whenever the shape or wording of what src/ produces changes (labels, new fields):
 // finished games are cached at the edge for 30 days, so old answers must be left behind.
-const CACHE_VERSION = 4;
+const CACHE_VERSION = 5;
 
 const NHL = 'https://api-web.nhle.com/v1';
 const SECOND = 1;

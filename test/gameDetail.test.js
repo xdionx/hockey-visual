@@ -121,12 +121,22 @@ test('drawing a penalty earns the power play it created', async () => {
 test('shorthanded goals swing momentum 1.5x more than other goals', async () => {
   const { pushes } = await import('../src/momentum.js');
   const goal = (code, owner) => ({ typeDescKey: 'goal', situationCode: code, timeInPeriod: '05:00', periodDescriptor: { number: 1, periodType: 'REG' }, details: { eventOwnerTeamId: owner, scoringPlayerId: 1 } });
-  const [sh] = pushes([goal('1451', 52)], 52, new Map());
-  const [pp] = pushes([goal('1541', 52)], 52, new Map());
-  const [ev] = pushes([goal('1551', 52)], 52, new Map());
+  const opener = goal('1551', 99); // the first goal of a game counts more, so start with one for the other team
+  const second = (code) => pushes([opener, goal(code, 52)], 52, new Map()).find((x) => x.team === 'away');
+  const sh = second('1451');
+  const pp = second('1541');
+  const ev = second('1551');
   assert.equal(sh.w, 4.5);
   assert.equal(pp.w, 3);
   assert.equal(ev.w, 3);
+});
+
+test('the first goal of the game counts 1.5x', async () => {
+  const { pushes } = await import('../src/momentum.js');
+  const goal = (owner) => ({ typeDescKey: 'goal', situationCode: '1551', timeInPeriod: '05:00', periodDescriptor: { number: 1, periodType: 'REG' }, details: { eventOwnerTeamId: owner, scoringPlayerId: 1 } });
+  const [first, next] = pushes([goal(52), goal(99)], 52, new Map());
+  assert.equal(first.w, 4.5);
+  assert.equal(next.w, 3);
 });
 
 test('expected goals: close shots are worth more than long ones, and goalies get GSAx', async () => {
