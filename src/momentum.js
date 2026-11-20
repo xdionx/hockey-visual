@@ -4,7 +4,7 @@
 // momentum at any moment is the sum of recent pushes for each team. The chart shows home minus away.
 //
 // Weights (one shot on goal = 1.0):
-//   goal 3.0 (the first goal of the game 1.5x), shot on goal 1.0, missed shot 0.35, blocked attempt 0.2 (and 0.2 to the blocking team)
+//   goal 3.0 (the first goal of the game 1.5x; a goal that ties the game or takes the lead 1.25x), shot on goal 1.0, missed shot 0.35, blocked attempt 0.2 (and 0.2 to the blocking team)
 //   attempts from the home plate area (posts to faceoff dots to top of circles) count 1.5x
 //   faceoff win 0.3 defensive zone (breaks up possession) / 0.2 offensive (SAT starts) / 0.1 neutral
 //   takeaway 0.15, giveaway 0.15 to the other team (low: scorers count them differently from rink to rink), hit 0.1
@@ -40,7 +40,7 @@ export function inHomePlate(x, y) {
 const plateMult = (d) => (inHomePlate(d.xCoord, d.yCoord) ? HOME_PLATE_BONUS : 1);
 
 export const MOMENTUM_WEIGHTS = {
-  goal: 3, sog: 1, miss: 0.35, blockedShooter: 0.2, blocker: 0.2, firstGoalMult: 1.5,
+  goal: 3, sog: 1, miss: 0.35, blockedShooter: 0.2, blocker: 0.2, firstGoalMult: 1.5, tieOrLeadMult: 1.25,
   faceoff: { O: 0.2, N: 0.1, D: 0.3 }, takeaway: 0.15, giveaway: 0.15, hit: 0.1,
   shorthandedGoalMult: 1.5, penaltyDrawn: 1, powerPlayTick: 0.1, penaltyKilled: 2.5, powerPlayGoalAgainst: 1.5, powerPlayGoalDrawn: 0.75,
   fighterCredit: 0.5, fightSpark: 1,
@@ -103,7 +103,7 @@ export function pushes(plays, awayId, rosterTeam) {
   const W = MOMENTUM_WEIGHTS;
   const out = [];
   const fightSeen = new Set();
-  let goalsSeen = 0; // the first goal of the game forces the other team to chase, so it counts more
+  const tally = { away: 0, home: 0 }; // running score: the first goal, and any goal that ties the game or takes the lead, counts more
   const sideOf = (teamId) => (teamId === awayId ? 'away' : 'home');
   const other = (s) => (s === 'away' ? 'home' : 'away');
   for (const p of plays) {
@@ -120,7 +120,12 @@ export function pushes(plays, awayId, rosterTeam) {
         // A shorthanded goal swings a game harder than a power-play goal: 1.5x.
         const st = strength(p.situationCode);
         const sh = st && st.awayGoalie && st.homeGoalie && (owner === 'away' ? st.away < st.home : st.home < st.away);
-        add(owner, W.goal * (sh ? W.shorthandedGoalMult : 1) * (goalsSeen++ === 0 ? W.firstGoalMult : 1), 'goal', credits);
+        const first = tally.away + tally.home === 0;
+        const before = tally[owner] - tally[other(owner)];
+        tally[owner]++;
+        const after = tally[owner] - tally[other(owner)];
+        const key = first ? W.firstGoalMult : after === 0 || (after > 0 && before <= 0) ? W.tieOrLeadMult : 1; // ties it, or moves into the lead
+        add(owner, W.goal * (sh ? W.shorthandedGoalMult : 1) * key, 'goal', credits);
         break;
       }
       case 'shot-on-goal': add(owner, W.sog * plateMult(d), 'sog', [{ id: d.shootingPlayerId, share: 1 }]); break;

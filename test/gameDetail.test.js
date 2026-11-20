@@ -121,8 +121,8 @@ test('drawing a penalty earns the power play it created', async () => {
 test('shorthanded goals swing momentum 1.5x more than other goals', async () => {
   const { pushes } = await import('../src/momentum.js');
   const goal = (code, owner) => ({ typeDescKey: 'goal', situationCode: code, timeInPeriod: '05:00', periodDescriptor: { number: 1, periodType: 'REG' }, details: { eventOwnerTeamId: owner, scoringPlayerId: 1 } });
-  const opener = goal('1551', 99); // the first goal of a game counts more, so start with one for the other team
-  const second = (code) => pushes([opener, goal(code, 52)], 52, new Map()).find((x) => x.team === 'away');
+  // The first goal, and goals that tie or take the lead, count more; so go two down first and score the 2-1 goal.
+  const second = (code) => pushes([goal('1551', 99), goal('1551', 99), goal(code, 52)], 52, new Map()).find((x) => x.team === 'away');
   const sh = second('1451');
   const pp = second('1541');
   const ev = second('1551');
@@ -136,7 +136,22 @@ test('the first goal of the game counts 1.5x', async () => {
   const goal = (owner) => ({ typeDescKey: 'goal', situationCode: '1551', timeInPeriod: '05:00', periodDescriptor: { number: 1, periodType: 'REG' }, details: { eventOwnerTeamId: owner, scoringPlayerId: 1 } });
   const [first, next] = pushes([goal(52), goal(99)], 52, new Map());
   assert.equal(first.w, 4.5);
-  assert.equal(next.w, 3);
+  assert.equal(next.w, 3.75); // 1-1: it ties the game
+});
+
+test('goals that tie the game or take the lead count 1.25x in momentum, and the game winner is a game-score bonus only', async () => {
+  const { pushes } = await import('../src/momentum.js');
+  const { classifyGoals, skaterGameScore } = await import('../src/gameDetail.js');
+  const goal = (owner, n) => ({ eventId: n, sortOrder: n, typeDescKey: 'goal', situationCode: '1551', timeInPeriod: '05:00', periodDescriptor: { number: 1, periodType: 'REG' }, details: { eventOwnerTeamId: owner, scoringPlayerId: n } });
+  // home 1-0 (opener), away ties 1-1, away leads 2-1, home ties 2-2, away leads 3-2, away extends 4-2
+  const plays = [goal(99, 1), goal(52, 2), goal(52, 3), goal(99, 4), goal(52, 5), goal(52, 6)];
+  const w = pushes(plays, 52, new Map()).filter((x) => x.kind === 'goal').map((x) => x.w);
+  assert.deepEqual(w, [4.5, 3.75, 3.75, 3.75, 3.75, 3]);
+  const kinds = classifyGoals({ awayTeam: { id: 52 }, homeTeam: { id: 99 }, plays });
+  // Away wins 4-2: its 3rd goal (the 3-2 go-ahead that was never given back) is the game winner.
+  assert.deepEqual([...kinds.entries()], [[1, 'lead'], [2, 'tie'], [3, 'lead'], [4, 'tie'], [5, 'winner']]);
+  const base = { goals: 1, a1: 0, a2: 0, sog: 0, blocks: 0, penaltiesDrawn: 0, penaltiesTaken: 0, fow: 0, fol: 0, plusMinus: 0 };
+  assert.equal(skaterGameScore({ ...base, keyGoalBonus: 0.35 }).parts.scoring, 1.1);
 });
 
 test('expected goals: close shots are worth more than long ones, and goalies get GSAx', async () => {

@@ -26,6 +26,9 @@ export const GAME_SCORE_WEIGHTS = {
   takeaways: 0.03, giveaways: -0.03,
   homePlate: 0.04, // per shot attempt from the home plate area; our addition
   // Penalties: the public model uses ±0.15; we use ±0.25 so drawing and taking them weigh more.
+  // Goals that matter: one bonus per goal, never two. A goal that ties the game or takes the lead earns the first;
+  // the go-ahead goal that turns out to be the game winner earns the second instead of it. Assists get a share.
+  keyGoal: 0.25, gameWinner: 0.35, keyGoalAssist1: 0.4, keyGoalAssist2: 0.2,
   momentum: 0.05, // per point of momentum impact (see momentum.js); our addition to the public model
 };
 
@@ -33,7 +36,7 @@ export const GAME_SCORE_WEIGHTS = {
 export function skaterGameScore(s) {
   const w = GAME_SCORE_WEIGHTS;
   const parts = {
-    scoring: s.goals * w.goals + s.a1 * w.primaryAssists + s.a2 * w.secondaryAssists,
+    scoring: s.goals * w.goals + s.a1 * w.primaryAssists + s.a2 * w.secondaryAssists + (s.keyGoalBonus ?? 0),
     shooting: s.sog * w.shots + (s.homePlate ?? 0) * w.homePlate,
     defense: s.blocks * w.blocks + (s.takeaways ?? 0) * w.takeaways + (s.giveaways ?? 0) * w.giveaways,
     discipline: s.penaltiesDrawn * w.penaltiesDrawn + s.penaltiesTaken * w.penaltiesTaken + (s.severity ?? 0),
@@ -119,16 +122,52 @@ function linescore(box, rightRail) {
   };
 }
 
+/**
+ * Which goals matter most: 'tie' (ties the game), 'lead' (moves the team into the lead) or 'winner' (the go-ahead
+ * goal the winning team never gave back; it takes the place of 'lead'). Keyed by the play's id. Shootouts don't count.
+ */
+export function classifyGoals(pbp) {
+  const goals = (pbp?.plays ?? []).filter((e) => e.typeDescKey === 'goal' && e.periodDescriptor?.periodType !== 'SO');
+  const tally = { [pbp?.awayTeam?.id]: 0, [pbp?.homeTeam?.id]: 0 };
+  const kinds = [];
+  for (const e of goals) {
+    const team = e.details?.eventOwnerTeamId;
+    if (team == null || !(team in tally)) continue;
+    const opp = team === pbp.awayTeam.id ? pbp.homeTeam.id : pbp.awayTeam.id;
+    const before = tally[team] - tally[opp];
+    tally[team]++;
+    const after = tally[team] - tally[opp];
+    kinds.push({ e, team, kind: after === 0 ? 'tie' : after > 0 && before <= 0 ? 'lead' : null });
+  }
+  const away = tally[pbp?.awayTeam?.id]; const home = tally[pbp?.homeTeam?.id];
+  if (away !== home && kinds.length) {
+    const winner = away > home ? pbp.awayTeam.id : pbp.homeTeam.id;
+    const need = Math.min(away, home) + 1; // the winner's goal number (loser's total + 1) is the game winner
+    let n = 0;
+    for (const k of kinds) if (k.team === winner && ++n === need) k.kind = 'winner';
+  }
+  return new Map(kinds.filter((k) => k.kind).map((k) => [k.e.eventId ?? k.e.sortOrder, k.kind]));
+}
+
 /** Per-player event counts from play-by-play that the boxscore doesn't carry. */
 function eventCounts(pbp) {
   const counts = new Map();
   const get = (id) => {
-    if (!counts.has(id)) counts.set(id, { a1: 0, a2: 0, fow: 0, fol: 0, penaltiesDrawn: 0, penaltiesTaken: 0, severity: 0, discipline: [], missed: 0, blockedAgainst: 0, homePlate: 0 });
+    if (!counts.has(id)) counts.set(id, { a1: 0, a2: 0, fow: 0, fol: 0, penaltiesDrawn: 0, penaltiesTaken: 0, severity: 0, discipline: [], missed: 0, blockedAgainst: 0, homePlate: 0, keyGoalBonus: 0 });
     return counts.get(id);
   };
+  const keyGoals = classifyGoals(pbp);
   for (const e of pbp?.plays ?? []) {
     if (e.periodDescriptor?.periodType === 'SO') continue;
     const d = e.details ?? {};
+    const kg = e.typeDescKey === 'goal' ? keyGoals.get(e.eventId ?? e.sortOrder) : null;
+    if (kg) {
+      const W = GAME_SCORE_WEIGHTS;
+      const bonus = kg === 'winner' ? W.gameWinner : W.keyGoal;
+      if (d.scoringPlayerId) get(d.scoringPlayerId).keyGoalBonus += bonus;
+      if (d.assist1PlayerId) get(d.assist1PlayerId).keyGoalBonus += bonus * W.keyGoalAssist1;
+      if (d.assist2PlayerId) get(d.assist2PlayerId).keyGoalBonus += bonus * W.keyGoalAssist2;
+    }
     const shooter = d.shootingPlayerId ?? d.scoringPlayerId;
     if (shooter && ['goal', 'shot-on-goal', 'missed-shot', 'blocked-shot'].includes(e.typeDescKey) && inHomePlate(d.xCoord, d.yCoord)) get(shooter).homePlate++;
     switch (e.typeDescKey) {
@@ -234,7 +273,7 @@ export function rosterMap(pbp) {
 }
 
 function skater(raw, counts, roster, momentum, onIce) {
-  const c = counts.get(raw.playerId) ?? { a1: 0, a2: 0, fow: 0, fol: 0, penaltiesDrawn: 0, penaltiesTaken: 0, severity: 0, discipline: [], missed: 0, blockedAgainst: 0, homePlate: 0 };
+  const c = counts.get(raw.playerId) ?? { a1: 0, a2: 0, fow: 0, fol: 0, penaltiesDrawn: 0, penaltiesTaken: 0, severity: 0, discipline: [], missed: 0, blockedAgainst: 0, homePlate: 0, keyGoalBonus: 0 };
   const r = roster.get(raw.playerId);
   const s = {
     id: raw.playerId,
@@ -260,6 +299,7 @@ function skater(raw, counts, roster, momentum, onIce) {
     toiSeconds: toSeconds(raw.toi),
     a1: c.a1,
     a2: c.a2,
+    keyGoalBonus: round(c.keyGoalBonus),
     fow: c.fow,
     fol: c.fol,
     foPct: c.fow + c.fol ? round((100 * c.fow) / (c.fow + c.fol), 1) : null,
