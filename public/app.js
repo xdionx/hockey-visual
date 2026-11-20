@@ -190,10 +190,11 @@ function gameHtml(game) {
   const hasBox = game.status.state === 'live' || game.status.state === 'final';
   const open = openGames.has(game.id);
   const n = game.goals.length;
+  const head = `<div class="gh"><h3>Goals</h3><button type="button" class="more" aria-expanded="${open}" data-id="${game.id}">${open ? '▴ Hide' : `▾ Show all (${n})`}</button></div>`;
   const goals = !started(game) ? ''
     : !n ? '<p class="no-goals">No goals yet.</p>'
-    : `${open ? `<div class="gts"><h3>Goals</h3>${game.goals.map((g) => goalTile(game, g, tc)).join('')}</div>` : `<div class="gstrip" tabindex="0" aria-label="Goals, scroll sideways">${game.goals.map((g) => goalChip(game, g, tc)).join('')}</div>`}
-    <button type="button" class="more" aria-expanded="${open}" data-id="${game.id}">${open ? '▴ Hide goals' : `▾ Show all goals (${n})`}</button>`;
+    : `${head}${open ? `<div class="gts">${game.goals.map((g) => goalTile(game, g, tc)).join('')}</div>
+    <button type="button" class="more more-bottom" aria-expanded="true" data-id="${game.id}">▴ Hide goals</button>` : `<div class="gstrip" tabindex="0" aria-label="Goals, scroll sideways">${game.goals.map((g) => goalChip(game, g, tc)).join('')}</div>`}`;
   const links = [
     game.video?.recap ? videoLink(game.video.recap, game.video.recapId, `${game.away.abbrev} @ ${game.home.abbrev} · Recap`, 'Recap') : '',
     game.video?.condensed ? videoLink(game.video.condensed, game.video.condensedId, `${game.away.abbrev} @ ${game.home.abbrev} · Condensed game`, 'Condensed') : '',
