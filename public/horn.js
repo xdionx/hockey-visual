@@ -14,8 +14,75 @@ export function hornToggles(game, cls = '') {
     const on = hornOn(game.id, a);
     return `<button type="button" class="horn-btn${on ? ' on' : ''}" data-horn-game="${game.id}" data-horn-team="${esc(a)}" aria-pressed="${on}" title="Play the ${esc(a)} goal horn when they score">🚨 ${esc(a)} horn ${on ? 'on' : 'off'}</button>`;
   });
-  return btns.length ? `<span class="horn-toggles ${cls}">${btns.join('')}</span>` : '';
+  const listen = listenButtons(game);
+  return btns.length || listen ? `<span class="horn-toggles ${cls}">${listen}${btns.join('')}</span>` : '';
 }
+
+// ── Team radio: NHL.com's own HLS radio feeds, played in the page ──
+// Feeds live at <cdn>/<team>/<season>/<team>-radio.m3u8 while a game is on. Chrome and Firefox need
+// hls.js (loaded only when someone taps Listen); Safari plays HLS natively. If a feed won't start we say so
+// and link to the game on NHL.com, whose Listen button opens the same feed.
+const RADIO = (abbrev, season) => `https://d2igy0yla8zi0u.cloudfront.net/${abbrev.toLowerCase()}/${season}/${abbrev.toLowerCase()}-radio.m3u8`;
+const HLS_JS = 'https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.5.17/hls.min.js';
+const gamePage = (game) => {
+  const d = new Date(game.startTimeUTC);
+  const p = Object.fromEntries(new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(d).map((x) => [x.type, x.value]));
+  return `https://www.nhl.com/gamecenter/${game.away.abbrev.toLowerCase()}-vs-${game.home.abbrev.toLowerCase()}/${p.year}/${p.month}/${p.day}/${game.id}`;
+};
+function listenButtons(game) {
+  if (game.status?.state !== 'live' || !game.season || /[?&]sim\b/.test(location.search)) return '';
+  return ['away', 'home'].map((s) => game[s].abbrev).filter((a) => HORNS.has(a)).map((a) =>
+    `<button type="button" class="horn-btn listen-btn${radio?.abbrev === a ? ' on' : ''}" data-listen="${esc(a)}" data-listen-game="${game.id}" data-listen-season="${esc(game.season)}" data-listen-page="${esc(gamePage(game))}" title="Listen to the ${esc(a)} radio broadcast here">${radio?.abbrev === a ? '■' : '🎧'} ${esc(a)} radio</button>`).join('');
+}
+
+let radio = null; // { abbrev, audio, hls }
+function radioBar() {
+  let bar = document.getElementById('radio-bar');
+  if (!bar) { bar = document.createElement('div'); bar.id = 'radio-bar'; document.body.append(bar); }
+  return bar;
+}
+function stopRadio() {
+  if (radio) { radio.hls?.destroy(); radio.audio.pause(); radio.audio.removeAttribute('src'); radio.audio.load(); radio = null; }
+  document.getElementById('radio-bar')?.remove();
+  document.querySelectorAll('.listen-btn.on').forEach((b) => { b.classList.remove('on'); b.textContent = `🎧 ${b.dataset.listen} radio`; });
+}
+function radioFailed(abbrev, page) {
+  const bar = radioBar();
+  bar.innerHTML = `<span>Couldn't start the ${esc(abbrev)} radio feed here.</span> <a href="${esc(page)}" target="_blank" rel="noopener">Open on NHL.com ›</a> <button type="button" data-radio-stop>Close</button>`;
+}
+function loadHls() {
+  if (window.Hls) return Promise.resolve(window.Hls);
+  return new Promise((ok, no) => { const s = document.createElement('script'); s.src = HLS_JS; s.onload = () => ok(window.Hls); s.onerror = no; document.head.append(s); });
+}
+async function startRadio(btn) {
+  const abbrev = btn.dataset.listen; const page = btn.dataset.listenPage;
+  const url = RADIO(abbrev, btn.dataset.listenSeason);
+  stopRadio();
+  const audio = new Audio(); audio.autoplay = true;
+  radio = { abbrev, audio, hls: null };
+  document.querySelectorAll(`.listen-btn[data-listen="${abbrev}"]`).forEach((b) => { b.classList.add('on'); b.textContent = `■ ${abbrev} radio`; });
+  radioBar().innerHTML = `<span>🎧 ${esc(abbrev)} radio · connecting…</span> <button type="button" data-radio-stop>Stop</button>`;
+  const ok = () => { if (radio?.audio === audio) radioBar().innerHTML = `<span>🎧 ${esc(abbrev)} radio · live</span> <button type="button" data-radio-stop>Stop</button>`; };
+  const fail = () => { if (radio?.audio !== audio) return; stopRadio(); radioFailed(abbrev, page); };
+  audio.addEventListener('playing', ok);
+  audio.addEventListener('error', fail);
+  try {
+    if (audio.canPlayType('application/vnd.apple.mpegurl')) { audio.src = url; await audio.play(); return; }
+    const Hls = await loadHls();
+    if (!Hls?.isSupported()) return fail();
+    const hls = new Hls({ lowLatencyMode: true });
+    radio.hls = hls;
+    hls.on(Hls.Events.ERROR, (_, e) => { if (e.fatal) fail(); });
+    hls.loadSource(url); hls.attachMedia(audio);
+    audio.play().catch(() => {});
+  } catch { fail(); }
+}
+document.addEventListener('click', (e) => {
+  if (e.target.closest('[data-radio-stop]')) return stopRadio();
+  const b = e.target.closest('[data-listen]');
+  if (!b) return;
+  if (b.classList.contains('on')) stopRadio(); else startRadio(b);
+});
 
 let audio = null;
 let alertTimer = null;
