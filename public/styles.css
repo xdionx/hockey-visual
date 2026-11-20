@@ -273,3 +273,7 @@ a.gc:hover { background: #2a3850; }
 .gc .st, .gc .nth { display: inline-block; padding: 0 6px; border-radius: 999px; font-size: 9px; line-height: 15px; letter-spacing: .04em; }
 .gc .st { border: 1px solid #7dd3fc; background: rgba(125, 211, 252, .12); }
 .gc .nth { border: 1px solid #fbbf24; background: rgba(251, 191, 36, .12); }
+.gstrip { cursor: grab; }
+.gstrip.dragging { cursor: grabbing; scroll-snap-type: none; user-select: none; }
+.gstrip.dragging * { pointer-events: none; }
+.gstrip { overscroll-behavior-x: contain; }

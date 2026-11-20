@@ -194,12 +194,20 @@ function gameHtml(game) {
   </article>`;
 }
 
+// Goal strips scroll sideways: touch swipes natively, a mouse drags (below).
+// A refresh rebuilds the cards, so remember where each strip was scrolled to.
+const stripPos = new Map();
+function saveStrips() { gamesEl.querySelectorAll('.cd').forEach((c) => { const st = c.querySelector('.gstrip'); if (st) stripPos.set(c.dataset.id, st.scrollLeft); }); }
+function restoreStrips() { gamesEl.querySelectorAll('.cd').forEach((c) => { const st = c.querySelector('.gstrip'); if (st && stripPos.has(c.dataset.id)) st.scrollLeft = stripPos.get(c.dataset.id); }); }
+
 function render(data) {
+  saveStrips();
   $('#dateLabel').textContent = prettyDate(data.date);
   setTitle(data.date);
   gamesEl.innerHTML = data.games.length
     ? data.games.map(gameHtml).join('')
     : '<p class="msg">No games scheduled on this date.</p>';
+  restoreStrips();
 }
 
 gamesEl.addEventListener('click', (e) => {
@@ -209,6 +217,33 @@ gamesEl.addEventListener('click', (e) => {
   if (openGames.has(id)) openGames.delete(id); else openGames.add(id);
   if (current?.games) render(current);
 });
+
+let drag = null;
+gamesEl.addEventListener('pointerdown', (e) => {
+  const strip = e.target.closest('.gstrip');
+  if (!strip || e.pointerType !== 'mouse' || e.button !== 0) return;
+  drag = { strip, x: e.clientX, left: strip.scrollLeft, moved: false };
+});
+window.addEventListener('pointermove', (e) => {
+  if (!drag) return;
+  const dx = e.clientX - drag.x;
+  if (!drag.moved && Math.abs(dx) < 5) return;
+  drag.moved = true;
+  drag.strip.classList.add('dragging');
+  drag.strip.scrollLeft = drag.left - dx;
+});
+window.addEventListener('pointerup', () => {
+  if (!drag) return;
+  const { strip, moved } = drag;
+  drag = null;
+  strip.classList.remove('dragging');
+  if (moved) { // a drag is not a click: swallow the click that follows so no video opens
+    const stop = (ev) => { ev.preventDefault(); ev.stopPropagation(); };
+    window.addEventListener('click', stop, { capture: true, once: true });
+    setTimeout(() => window.removeEventListener('click', stop, { capture: true }), 0);
+  }
+});
+gamesEl.addEventListener('dragstart', (e) => { if (e.target.closest('.gstrip')) e.preventDefault(); });
 
 let lastText = '';
 
