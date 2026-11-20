@@ -57,9 +57,16 @@ export function goalieGameScore(g) {
   return round(-0.75 * g.goalsAgainst + 0.1 * g.saves + 0.35 * (g.gsax ?? 0));
 }
 
-/** A 3.0-10.0 rating from a game score, like the ratings in soccer apps. 0 game score = 6.0. */
+/**
+ * A rating from a game score, like the ratings in soccer apps: 0 game score = 6.0, +1.5 per game score point.
+ * Ratings between 4 and 9 follow that line exactly. Past either end each extra point counts 0.4, so a historic night
+ * (Fowler's 46-save shutout) reads about 11.5 and a disaster (7 goals against) about 2, with no cap and no floor.
+ */
+export const RATING_SOFT_SLOPE = 0.4;
 export function rating(gameScore) {
-  return round(Math.min(10, Math.max(3, 6 + 1.5 * gameScore)), 1);
+  const raw = 6 + 1.5 * gameScore;
+  const k = RATING_SOFT_SLOPE;
+  return round(raw > 9 ? 9 + k * (raw - 9) : raw < 4 ? 4 + k * (raw - 4) : raw, 1);
 }
 
 const TEAM_STAT_LABELS = {

@@ -284,7 +284,7 @@ export function makeTabs(root) {
 
 /** Color for a 3-10 rating: red → amber → green → blue. */
 export function ratingColor(r) {
-  if (r >= 8.5) return '#2563eb';
+  if (r >= 8.5) return '#2563eb'; // blue stays for everything above, including ratings over 10
   if (r >= 7.3) return '#16a34a';
   if (r >= 6.6) return '#65a30d';
   if (r >= 6.0) return '#ca8a04';
