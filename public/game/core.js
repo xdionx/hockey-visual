@@ -11,7 +11,7 @@ const TEAM_COLORS = {
   NJD: ['#CE1126', '#111111'], NYI: ['#00539B', '#F47D30'], NYR: ['#0038A8', '#CE1126'], OTT: ['#DA1A32', '#B79257'],
   PHI: ['#F74902', '#111111'], PIT: ['#FCB514', '#111111'], SJS: ['#006D75', '#EA7200'], SEA: ['#001628', '#68A2B9'],
   STL: ['#002F87', '#FCB514'], TBL: ['#002868', '#8a9bb8'], TOR: ['#00205B', '#8a9bb8'], UTA: ['#6CACE4', '#010101'],
-  VAN: ['#00205B', '#00843D'], VGK: ['#B4975A', '#333F42'], WSH: ['#C8102E', '#041E42'], WPG: ['#041E42', '#004C97'],
+  VAN: ['#00205B', '#00843D'], VGK: ['#B4975A', '#333F42'], WSH: ['#C8102E', '#041E42'], WPG: ['#041E42', '#AC162C'],
 };
 
 const hex = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
@@ -57,22 +57,22 @@ export function readable(color, bg = '#111827', min = 4.5) {
  * { away, home } accent colors that are distinguishable from each other.
  * With { dark: true }, very dark colors (navy, black) are lifted so they show on a dark page.
  */
+const SILVER = '#e4e8ef';
 const chromatic = (h) => Math.max(...hex(h)) - Math.min(...hex(h)) >= 60;
 
 export function teamColors(game, { dark = false } = {}) {
   const a = TEAM_COLORS[game.away.abbrev] ?? ['#4b5563', '#9ca3af'];
   const h = TEAM_COLORS[game.home.abbrev] ?? ['#1f2937', '#6b7280'];
-  // When the two primaries look alike, switch one team to its second color, but only a real color:
-  // never a black, grey or white that would read as an arbitrary grey.
-  let away = a[0];
-  let home = h[0];
-  if (dist(a[0], h[0]) < 90) {
-    if (chromatic(h[1])) home = h[1];
-    else if (chromatic(a[1])) away = a[1];
-  }
-  if (dark) {
-    away = readable(away);
-    home = readable(home);
+  // The home team always keeps its primary color. If the away team's primary looks like it (compared
+  // after any lifting for the dark page, since that is what is on screen), the away team switches to
+  // its secondary, but only a real color. If it has none (black), a team that is a near twin of the home team goes silver.
+  const fit = (c) => (dark ? readable(c) : c);
+  const home = fit(h[0]);
+  let away = fit(a[0]);
+  if (dist(away, home) < 110) {
+    const alt = fit(a[1]);
+    if (chromatic(a[1]) && dist(alt, home) > dist(away, home)) away = alt;
+    else if (!chromatic(a[1]) && dist(away, home) < 60) away = SILVER; // true twins with no second color: white-silver
   }
   return { away, home, awayAlt: a[1], homeAlt: h[1], awayBase: away, homeBase: home };
 }
