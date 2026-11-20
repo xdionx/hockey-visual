@@ -311,7 +311,7 @@ test('goaltending story: a starter replaced after a rough start, and a goalie wi
     penalties: [], scoring: [], momentum: null, teamStats: [],
   };
   const text = goaltending(game, true).join(' ');
-  assert.match(text, /Pat Starter was replaced by Sam Backup at 10:10 of the 1st period, after allowing 3 goals on 5 shots/);
+  assert.match(text, /Pat Starter was replaced by Sam Backup in the Aces' net at 10:10 of the 1st period, after allowing 3 goals on 5 shots/);
   assert.match(text, /The change did not help/);
-  assert.match(text, /Chris Wall was fantastic/);
+  assert.match(text, /Chris Wall was outstanding in the Hawks' net/);
 });
