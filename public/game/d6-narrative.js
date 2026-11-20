@@ -240,17 +240,20 @@ function gameClock(sec) {
   return `${Math.floor(into / 60)}:${String(Math.floor(into % 60)).padStart(2, '0')} of the ${per}`;
 }
 
-/** How one goalie did, in a phrase. gsax is goals saved above what an average goalie would have saved. */
-function goalieGrade(g) {
+/** How one goalie did, in a phrase. gsax is goals saved above what an average goalie would have saved. `where` is e.g. "in the Sabres' net". */
+function goalieGrade(g, where = '') {
   const sv = `${g.saves} of ${g.shotsAgainst}`;
   const x = g.gsax ?? 0;
-  if (g.shotsAgainst < 8 && x > -1) return { tier: 'quiet', text: `has barely been tested (${sv})`, past: `was barely tested (${sv})` };
-  if (x >= 1.5) return { tier: 'great', text: `is having a fantastic night, stopping ${sv} and ${x.toFixed(1)} goals more than expected`, past: `was fantastic, stopping ${sv} and ${x.toFixed(1)} goals more than expected` };
-  if (x >= 0.5) return { tier: 'good', text: `has been solid, stopping ${sv}`, past: `was solid, stopping ${sv}` };
-  if (x > -0.5) return { tier: 'even', text: `has done what was expected (${sv})`, past: `did what was expected (${sv})` };
-  if (x > -1.2) return { tier: 'soft', text: `has let in a little more than expected (${sv}), but it is not a disaster`, past: `let in a little more than expected (${sv}), though it was not a disaster` };
-  if (x > -2) return { tier: 'bad', text: `has struggled (${sv}, ${Math.abs(x).toFixed(1)} goals worse than expected)`, past: `struggled (${sv}, ${Math.abs(x).toFixed(1)} goals worse than expected)` };
-  return { tier: 'awful', text: `is having a terrible night (${sv}, ${Math.abs(x).toFixed(1)} goals worse than expected)`, past: `had a terrible night (${sv}, ${Math.abs(x).toFixed(1)} goals worse than expected)` };
+  const worse = `${Math.abs(x).toFixed(1)} goals worse than expected`;
+  const w = where ? ` ${where}` : '';
+  const shots = `${g.shotsAgainst} shot${g.shotsAgainst === 1 ? '' : 's'}`;
+  if (g.shotsAgainst < 8 && x > -1) return { tier: 'quiet', text: `has had a quiet night${w}, facing ${shots}`, past: `had a quiet night${w}, facing ${shots}` };
+  if (x >= 1.5) return { tier: 'great', text: `has been outstanding${w}, stopping ${sv}, ${x.toFixed(1)} goals better than expected`, past: `was outstanding${w}, stopping ${sv}, ${x.toFixed(1)} goals better than expected` };
+  if (x >= 0.5) return { tier: 'good', text: `has been solid${w}, stopping ${sv}`, past: `was solid${w}, stopping ${sv}` };
+  if (x > -0.5) return { tier: 'even', text: `has been steady${w}, stopping ${sv}`, past: `was steady${w}, stopping ${sv}` };
+  if (x > -1.2) return { tier: 'soft', text: `has given up a little more than expected${w}, stopping ${sv}, but nothing disastrous`, past: `gave up a little more than expected${w}, stopping ${sv}, but nothing disastrous` };
+  if (x > -2) return { tier: 'bad', text: `has struggled${w}, stopping ${sv}, ${worse}`, past: `struggled${w}, stopping ${sv}, ${worse}` };
+  return { tier: 'awful', text: `is having a terrible night${w}, stopping ${sv}, ${worse}`, past: `had a terrible night${w}, stopping ${sv}, ${worse}` };
 }
 
 /** Goaltending for each team: how the goalie did and, when there was a change, who came in and how it went. */
@@ -262,11 +265,11 @@ export function goaltending(game, final) {
     // Box score order is the order they came in; a starter flag, when the NHL sets one, wins.
     const gl = [...game.players[s].goalies].filter((g) => g.played).sort((a, b) => b.starter - a.starter);
     if (!gl.length) continue;
-    const t = `The ${team.commonName}`;
+    const where = `in the ${team.commonName}${/s$/.test(team.commonName) ? "'" : "'s"} net`;
     if (gl.length === 1) {
       const g = gl[0];
-      const gr = goalieGrade(g);
-      out.push(`${t}: ${g.fullName} ${final ? gr.past : gr.text}.`);
+      const gr = goalieGrade(g, where);
+      out.push(`${g.fullName} ${final ? gr.past : gr.text}.`);
       continue;
     }
     const [first, ...rest] = gl;
@@ -275,7 +278,7 @@ export function goaltending(game, final) {
     const fg = goalieGrade(first);
     const rough = fg.tier === 'bad' || fg.tier === 'awful' || first.goalsAgainst >= 3;
     const why = rough ? `after allowing ${first.goalsAgainst} goal${first.goalsAgainst === 1 ? '' : 's'} on ${first.shotsAgainst} shots` : `with ${first.goalsAgainst} goal${first.goalsAgainst === 1 ? '' : 's'} allowed on ${first.shotsAgainst} shots, so it looks like a precaution or an injury rather than a pull`;
-    out.push(`${t}: ${first.fullName} ${final ? 'was' : 'has been'} replaced by ${next.fullName} at ${at}, ${why}.`);
+    out.push(`${first.fullName} ${final ? 'was' : 'has been'} replaced by ${next.fullName} ${where} at ${at}, ${why}.`);
     const ng = goalieGrade(next);
     const helped = ['great', 'good', 'quiet', 'even'].includes(ng.tier);
     const prefix = rough ? (helped ? 'The change settled things down. ' : `The change ${final ? 'did not help' : 'has not helped'}. `) : '';
