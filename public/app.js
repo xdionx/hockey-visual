@@ -8,10 +8,9 @@ const gamesEl = $('#games');
 let refreshTimer = null;
 let current = null; // last scoreboard response
 
-// Layout: compact rows (every game on one screen, scorers on one line) or full cards.
+// Cards: goals are a scrolling strip; the button opens the full list (remembered per game).
 const store = (k, v) => { try { return v === undefined ? localStorage.getItem(k) : localStorage.setItem(k, v); } catch { return null; } };
-let view = store('scores-view') === 'cards' ? 'cards' : 'compact';
-const openGames = new Set(); // compact rows the user expanded
+const openGames = new Set(); // cards the user expanded
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
@@ -80,14 +79,15 @@ function goalAttrs(game, g) {
     : '';
 }
 
-/** One line of play pills, one per goal (compact view). */
-function goalPills(game, tc) {
-  return game.goals.map((g) => {
-    const attrs = goalAttrs(game, g);
-    const color = tc[sideOf(game, g.team)];
-    const when = g.period === 'SO' ? 'SO' : `${g.period} ${g.time}`;
-    return `<${attrs ? 'a' : 'span'} class="gp"${attrs ? ` ${attrs}` : ''} style="--team:${color}">${attrs ? playIcon : ''}<span>${esc(g.scorer.lastName || g.scorer.name)}</span><small>${esc(when)}</small></${attrs ? 'a' : 'span'}>`;
-  }).join('');
+/** A goal chip for the scrolling strip: scorer, when, assists; opens the clip. */
+function goalChip(game, g, tc) {
+  const attrs = goalAttrs(game, g);
+  const color = tc[sideOf(game, g.team)];
+  const so = g.period === 'SO';
+  const when = so ? 'SO' : `${g.period} ${g.time}`;
+  const assists = so ? 'Shootout' : g.assists.length ? g.assists.map((a) => esc(a.lastName || a.name)).join(', ') : 'Unassisted';
+  const tag = attrs ? 'a' : 'div';
+  return `<${tag} class="gc"${attrs ? ` ${attrs}` : ''} style="--team:${color}"><b>${attrs ? playIcon : ''}${esc(g.scorer.lastName || g.scorer.name)}</b><small>${esc(when)}</small><small>${assists}</small></${tag}>`;
 }
 
 /** A goal tile: who, assists, the running score and a play button. */
@@ -137,14 +137,6 @@ $('#lightbox-close').addEventListener('click', () => lightbox.close());
 lightbox.addEventListener('click', (e) => e.target === lightbox && lightbox.close()); // backdrop
 lightbox.addEventListener('close', () => { lightboxFrame.innerHTML = ''; }); // stops playback
 
-function videoLinksHtml(game) {
-  const links = [];
-  const matchup = `${game.away.abbrev} @ ${game.home.abbrev}`;
-  if (game.video?.recap) links.push(videoLink(game.video.recap, game.video.recapId, `${matchup} · Recap`, 'Recap'));
-  if (game.video?.condensed) links.push(videoLink(game.video.condensed, game.video.condensedId, `${matchup} · Condensed game`, 'Condensed game'));
-  return links.length ? `<div class="videos">${links.join('')}</div>` : '';
-}
-
 function teamBlock(game, side, tc, big) {
   const team = game[side];
   const ls = game.linescore;
@@ -163,14 +155,17 @@ const horns = (game) => (game.status.state === 'final' ? '' : hornToggles(game))
 function gameHtml(game) {
   const tc = teamColors(game, { dark: true });
   const hasBox = game.status.state === 'live' || game.status.state === 'final';
-  const goals = started(game)
-    ? (game.goals.length ? `<div class="gts"><h3>Goals</h3>${game.goals.map((g) => goalTile(game, g, tc)).join('')}</div>` : '<p class="no-goals">No goals yet.</p>')
-    : '';
+  const open = openGames.has(game.id);
+  const n = game.goals.length;
+  const goals = !started(game) ? ''
+    : !n ? '<p class="no-goals">No goals yet.</p>'
+    : `${open ? `<div class="gts"><h3>Goals</h3>${game.goals.map((g) => goalTile(game, g, tc)).join('')}</div>` : `<div class="gstrip" tabindex="0" aria-label="Goals, scroll sideways">${game.goals.map((g) => goalChip(game, g, tc)).join('')}</div>`}
+    <button type="button" class="more" aria-expanded="${open}" data-id="${game.id}">${open ? '▴ Hide goals' : `▾ Show all goals (${n})`}</button>`;
   const links = [
     game.video?.recap ? videoLink(game.video.recap, game.video.recapId, `${game.away.abbrev} @ ${game.home.abbrev} · Recap`, 'Recap') : '',
     game.video?.condensed ? videoLink(game.video.condensed, game.video.condensedId, `${game.away.abbrev} @ ${game.home.abbrev} · Condensed game`, 'Condensed') : '',
   ].join('');
-  return `<article class="game cd" style="--away:${tc.away};--home:${tc.home}">
+  return `<article class="game cd" data-id="${game.id}" style="--away:${tc.away};--home:${tc.home}">
     <div class="status ${game.status.state}"><span class="label">${esc(statusText(game))}${strengthBadge(game, tc)}</span><span class="venue">${esc(game.venue)}</span></div>
     <div class="tbs">${teamBlock(game, 'away', tc, true)}${teamBlock(game, 'home', tc, true)}</div>
     ${statLines(game, tc)}
@@ -179,57 +174,21 @@ function gameHtml(game) {
   </article>`;
 }
 
-function compactHtml(game) {
-  const tc = teamColors(game, { dark: true });
-  const hasBox = game.status.state === 'live' || game.status.state === 'final';
-  const open = openGames.has(game.id);
-  const links = open ? videoLinksHtml(game) : '';
-  let goals = '';
-  if (started(game) && game.goals.length) {
-    goals = open
-      ? `<div class="gts two">${game.goals.map((g) => goalTile(game, g, tc)).join('')}</div>${links}`
-      : `<div class="gps">${goalPills(game, tc)}</div>`;
-  }
-  return `<article class="game cg${open ? ' open' : ''}" data-id="${game.id}" style="--away:${tc.away};--home:${tc.home}">
-    <div class="cg-head">
-      <div class="status ${game.status.state}"><span class="label">${esc(statusText(game))}${strengthBadge(game, tc)}</span></div>
-      <div class="cg-teams">${teamBlock(game, 'away', tc, false)}<span class="dash">–</span>${teamBlock(game, 'home', tc, false)}</div>
-      ${statLines(game, tc)}
-      <div class="cg-act">${started(game) && game.goals.length ? `<button type="button" class="more" aria-expanded="${open}" aria-label="Show goals">${open ? '▴' : '▾'}</button>` : ''}${hasBox ? `<a class="cg-box" href="game.html?id=${game.id}" aria-label="Box score: ${esc(game.away.abbrev)} at ${esc(game.home.abbrev)}">Box ›</a>` : ''}</div>
-    </div>
-    ${goals ? `<div class="cg-goals">${goals}</div>` : ''}
-    ${horns(game) ? `<div class="cg-foot">${horns(game)}</div>` : ''}
-  </article>`;
-}
-
 function render(data) {
   $('#dateLabel').textContent = prettyDate(data.date);
   setTitle(data.date);
-  gamesEl.className = view;
   gamesEl.innerHTML = data.games.length
-    ? data.games.map(view === 'compact' ? compactHtml : gameHtml).join('')
+    ? data.games.map(gameHtml).join('')
     : '<p class="msg">No games scheduled on this date.</p>';
 }
 
 gamesEl.addEventListener('click', (e) => {
-  const more = e.target.closest('.cg .more');
+  const more = e.target.closest('.cd .more');
   if (!more) return;
-  const id = Number(more.closest('.cg').dataset.id);
+  const id = Number(more.dataset.id);
   if (openGames.has(id)) openGames.delete(id); else openGames.add(id);
   if (current?.games) render(current);
 });
-
-const viewEl = $('#view');
-function syncView() { viewEl.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.view === view))); }
-viewEl.addEventListener('click', (e) => {
-  const b = e.target.closest('button[data-view]');
-  if (!b || b.dataset.view === view) return;
-  view = b.dataset.view;
-  store('scores-view', view);
-  syncView();
-  if (current?.games) render(current);
-});
-syncView();
 
 let lastText = '';
 
