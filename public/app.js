@@ -106,7 +106,7 @@ function goalChip(game, g, tc) {
   const when = so ? 'SO' : `${ordPeriod(g.period)} ${g.time}`;
   const assists = so ? 'Shootout' : g.assists.length ? g.assists.map(assistText).join(', ') : 'Unassisted';
   const tag = attrs ? 'a' : 'div';
-  return `<${tag} class="gc"${attrs ? ` ${attrs}` : ''} style="--team:${color}"><b>${attrs ? playIcon : ''}${esc(g.scorer.lastName || g.scorer.name)}${g.scorer.goalsToDate != null ? ` <span class="cnt">(${g.scorer.goalsToDate})</span>` : ''}</b><small>${esc(when)}${strengthTags(g).map((t) => ` · <em class="st">${t}</em>`).join('')}${nth ? ` · <em class="nth">${nthLabel(nth)}</em>` : ''}</small><small>${assists}</small></${tag}>`;
+  return `<${tag} class="gc"${attrs ? ` ${attrs}` : ''} style="--team:${color}"><b>${attrs ? playIcon : ''}${esc(g.scorer.lastName || g.scorer.name)}${g.scorer.goalsToDate != null ? ` <span class="cnt">(${g.scorer.goalsToDate})</span>` : ''}</b><small>${esc(when)}${strengthTags(g).map((t) => ` <em class="st">${t}</em>`).join('')}${nth ? ` <em class="nth">${nthLabel(nth)}</em>` : ''}</small><small>${assists}</small></${tag}>`;
 }
 
 /** A goal tile: who, assists, the running score and a play button. */
