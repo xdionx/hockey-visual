@@ -229,6 +229,9 @@ export function computeMomentum(pbp, awayId, gameEnd = null) {
     players.set(id, p);
   };
   const totals = { away: 0, home: 0 };
+  // The same without goals (and the extra a power-play goal adds), so the season page can test
+  // whether momentum predicts results without counting the result itself.
+  const noGoals = { away: 0, home: 0 };
   let i = 0;
   for (let t = 0; t <= end + STEP; t += STEP) {
     while (i < list.length && list[i].t <= t) {
@@ -246,6 +249,7 @@ export function computeMomentum(pbp, awayId, gameEnd = null) {
       if (e.debit) credit(e.debit, -(e.debitW ?? e.w), false, e.kind);
       level[e.team] += e.w;
       totals[e.team] += e.w;
+      if (e.kind !== 'goal' && e.kind !== 'pp-goal-against') noGoals[e.team] += e.w;
     }
     decayTo(t);
     if (t <= end) series.push([t, round(level.home - level.away)]);
@@ -306,6 +310,7 @@ export function computeMomentum(pbp, awayId, gameEnd = null) {
     swings,
     powerPlays: powerPlays(plays, awayId),
     totals: { away: round(totals.away, 1), home: round(totals.home, 1) },
+    totalsNoGoals: { away: round(noGoals.away, 1), home: round(noGoals.home, 1) },
     periods: periods.map((p) => {
       const sum = p.away + p.home || 1;
       const away = Math.round((100 * p.away) / sum);

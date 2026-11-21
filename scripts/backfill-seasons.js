@@ -9,7 +9,7 @@
 // Regular season only (game ids <season start>02NNNN, numbered from 1).
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { emptySeason, addGame, linesFromPbp, seasonOf, SEASON_VERSION, FIRST_FULL_SEASON } from '../src/seasonStats.js';
+import { emptySeason, addGame, fromPbp, seasonOf, SEASON_VERSION, FIRST_FULL_SEASON } from '../src/seasonStats.js';
 
 const args = process.argv.slice(2);
 const outDir = args.find((a) => !a.startsWith('--')) ?? 'seasons-data';
@@ -63,7 +63,8 @@ outer: for (let season = newest; season >= oldest; season = prevSeason(season)) 
       continue;
     }
     misses = 0;
-    addGame(total, linesFromPbp(data));
+    const { lines, game } = fromPbp(data);
+    addGame(total, lines, game);
     total.next++;
     done++;
     if (done % 50 === 0) await save();

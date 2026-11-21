@@ -19,7 +19,7 @@ import { getScoreboard, getGameDetailRaw } from '../src/nhlApi.js';
 import { normalizeGameDetail } from '../src/gameDetail.js';
 import { normalizeScoreboard } from '../src/normalize.js';
 import { shotAttempts } from '../src/sat.js';
-import { emptySeason, addGame, linesFromDetail, seasonOf } from '../src/seasonStats.js';
+import { emptySeason, addGame, linesFromDetail, gameFromDetail, seasonOf } from '../src/seasonStats.js';
 
 const args = process.argv.slice(2);
 const outDir = args.find((a) => !a.startsWith('--')) ?? 'data';
@@ -69,6 +69,9 @@ await mkdir(join(outDir, 'games'), { recursive: true });
 await mkdir(join(outDir, 'sat'), { recursive: true });
 let boxFetched = 0;
 let boxFailed = 0;
+// Box scores saved before team momentum without goals existed are fetched once more, a few a run.
+let upgrades = 0;
+const UPGRADES_PER_RUN = 80;
 for (let date = from; date <= today; date = shift(date, 1)) {
   const day = JSON.parse(await readFile(join(outDir, 'scores', `${date}.json`), 'utf8').catch(() => 'null'));
   for (const game of day?.games ?? []) {
@@ -76,7 +79,9 @@ for (let date = from; date <= today; date = shift(date, 1)) {
     const file = join(outDir, 'games', `${game.id}.json`);
     const saved = JSON.parse(await readFile(file, 'utf8').catch(() => 'null'));
     const satFile = join(outDir, 'sat', `${game.id}.json`);
-    if (saved?.status?.state === 'final' && date < refreshFrom && (await exists(satFile))) continue;
+    const stale = saved?.momentum && !saved.momentum.totalsNoGoals && upgrades < UPGRADES_PER_RUN;
+    if (saved?.status?.state === 'final' && date < refreshFrom && (await exists(satFile)) && !stale) continue;
+    if (stale && date < refreshFrom) upgrades++;
     await new Promise((r) => setTimeout(r, 300));
     try {
       const raw = await getGameDetailRaw(game.id);
@@ -98,12 +103,13 @@ const gameFiles = (await readdir(join(outDir, 'games'))).filter((f) => f.endsWit
 for (const f of gameFiles) {
   const g = JSON.parse(await readFile(join(outDir, 'games', f), 'utf8').catch(() => 'null'));
   if (!g || g.season !== season || g.gameType !== 2 || g.status?.state !== 'final') continue;
-  addGame(total, linesFromDetail(g));
+  const lines = linesFromDetail(g);
+  addGame(total, lines, gameFromDetail(g, lines));
 }
 await mkdir(join(outDir, 'seasons'), { recursive: true });
 const seasonFile = join(outDir, 'seasons', `${season}.json`);
 const before = JSON.parse(await readFile(seasonFile, 'utf8').catch(() => 'null'));
-if (before?.games !== total.games || JSON.stringify(before?.players) !== JSON.stringify(total.players)) {
+if (before?.games !== total.games || JSON.stringify(before?.players) !== JSON.stringify(total.players) || JSON.stringify(before?.g) !== JSON.stringify(total.g)) {
   total.updated = new Date().toISOString();
   total.complete = false;
   await writeFile(seasonFile, `${JSON.stringify(total)}\n`);

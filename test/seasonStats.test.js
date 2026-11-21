@@ -63,3 +63,15 @@ test('player profile from the landing feed', () => {
   assert.equal(traded.team, 'A / B');
   assert.equal(traded.toiPerGame, 750);
 });
+
+test('game rows match from the box score and the play-by-play', async () => {
+  const { gameFromDetail, fromPbp, gameObj } = await import('../src/seasonStats.js');
+  const fromDetail = gameObj(gameFromDetail(normalizeGameDetail(raw)));
+  const pbpGame = gameObj(fromPbp(raw.pbp).game);
+  assert.deepEqual(fromDetail, pbpGame);
+  assert.equal(pbpGame.end, 'SO');
+  assert.equal(pbpGame.n, 312);
+  assert.ok(pbpGame.an < pbpGame.am && pbpGame.hn < pbpGame.hm, 'goals left out');
+  const total = addGame(emptySeason(20262027), fromPbp(raw.pbp).lines, fromPbp(raw.pbp).game);
+  assert.equal(total.g.length, 1);
+});
