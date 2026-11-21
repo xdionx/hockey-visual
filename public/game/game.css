@@ -900,3 +900,7 @@ main { padding: 0 0 48px; }
 
 /* Star cards: same width and side margins as the sections below them */
 .ss-row { width: min(1168px, calc(100% - 32px)); margin: 18px auto 8px; }
+
+/* The expanded scorecard wears the outline of the card it belongs to (gold, silver or bronze) */
+.ss-panel { border: 2px solid var(--medal, #34466a); box-shadow: 0 0 14px color-mix(in srgb, var(--medal, #34466a) 25%, transparent); }
+.ss-panel.gold { --medal: #fbbf24; } .ss-panel.silver { --medal: #cbd5e1; } .ss-panel.bronze { --medal: #cd7f32; }

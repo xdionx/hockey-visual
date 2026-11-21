@@ -267,7 +267,7 @@ function starPanel(game, c, p, i) {
   if (p.position === 'G') {
     const gp = goalieParts(p);
     const xsv = p.expectedSavePct;
-    return `<div class="ss-panel" data-panel="${i}" hidden><div class="ss-col"><h4>How the score adds up</h4>
+    return `<div class="ss-panel ${MEDAL[i][0]}" data-panel="${i}" hidden><div class="ss-col"><h4>How the score adds up</h4>
         <div class="ss-line"><i style="background:#22c55e"></i><span>${p.saves} saves × 0.1</span><b style="color:#22c55e">${sgn(gp.saves)}</b></div>
         ${p.gsax != null ? `<div class="ss-line"><i style="background:#14b8a6"></i><span>Saves vs expected</span><b style="color:#14b8a6">${sgn(gp.above)}</b></div>` : ''}
         <div class="ss-line"><i style="background:#f43f5e"></i><span>${p.goalsAgainst} goal${p.goalsAgainst === 1 ? '' : 's'} against × 0.75</span><b style="color:#f43f5e">${sgn(gp.against)}</b></div>${total}</div>
@@ -282,7 +282,7 @@ function starPanel(game, c, p, i) {
   const rows = GS_PARTS.map(([k, l]) => { const v = p.gameScoreParts[k]; return `<div class="ss-line"><i style="background:${PART_COLORS[k]}"></i><span>${esc(l)}</span><span class="ss-track"><u style="width:${Math.min(100, (Math.abs(v) / 3.5) * 100)}%;background:${v < 0 ? '#f43f5e' : PART_COLORS[k]}"></u></span><b>${sgn(v)}</b></div>`; }).join('');
   const m = p.momentumParts;
   const mpos = m?.pos ?? 0, mneg = Math.abs(m?.neg ?? 0);
-  return `<div class="ss-panel" data-panel="${i}" hidden><div class="ss-col"><h4>How the score adds up</h4>${rows}${total}</div>
+  return `<div class="ss-panel ${MEDAL[i][0]}" data-panel="${i}" hidden><div class="ss-col"><h4>How the score adds up</h4>${rows}${total}</div>
     <div class="ss-col">${grp('Shooting and playmaking', [[p.attempts ?? '—', 'ATTEMPTS'], [p.sog, 'ON GOAL'], [p.homePlate ?? 0, 'FROM HOME PLATE']])}
       ${grp('Defense and puck care', [[p.blocks, 'BLOCKS'], [`${p.takeaways}/${p.giveaways}`, 'TAKE / GIVE'], [p.hits, 'HITS']])}
       ${grp('Game flow', [[signed(p.plusMinus), '+/-'], [p.shifts, 'SHIFTS'], [`${p.penaltiesDrawn}/${p.penaltiesTaken}`, 'PEN DRAWN / TAKEN']])}</div>
