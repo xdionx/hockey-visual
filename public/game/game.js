@@ -1,17 +1,16 @@
 // Box score page: loads one game's data/games/<id>.json and renders it in the chosen design.
-// Switch designs with the bar at the top, keys 1-5, or ?design=<name> in the URL.
+// Switch designs with the bar at the top, keys 1-4, or ?design=<name> in the URL.
 import { hornToggles, watchGoals } from '../horn.js';
 import { esc, initVideo, makeSortable, makeTabs, upgradeShots, morphInner, setMountSignal, resetRinkIds } from './core.js';
 import { getData, LIVE_REFRESH_MS } from '../data.js';
 import { startSim } from './sim.js';
-import classic from './d1-classic.js';
-import broadcast from './d2-broadcast.js';
+import momentum from './d3-momentum.js';
 import analytics from './d4-analytics.js';
 import scorecards from './d5-scorecards.js';
 import story from './d6-story.js';
 
 // Game Story is the main design; the others stay for comparison while it settles.
-const DESIGNS = [story, broadcast, analytics, scorecards, classic];
+const DESIGNS = [story, momentum, analytics, scorecards];
 const params = new URLSearchParams(location.search);
 const gameId = params.get('id');
 const box = document.querySelector('#box');
