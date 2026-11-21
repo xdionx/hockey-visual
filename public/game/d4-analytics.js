@@ -97,11 +97,12 @@ export function flowChart(game, c) {
 
 const HEAT_COLS = [
   ['gameScore', 'GS', (p) => p.gameScore.toFixed(2)], ['momentum', 'MOM', (p) => `${(p.momentum ?? 0) > 0 ? '+' : ''}${(p.momentum ?? 0).toFixed(1)}`], ['points', 'P'], ['goals', 'G'], ['assists', 'A'], ['sog', 'SOG'], ['attempts', 'SAT'],
-  ['plusMinus', '+/-', (p) => signed(p.plusMinus)], ['fow', 'FO', (p) => faceoffLine(p)?.text.replace(' / ', '/') ?? ''], ['hits', 'HIT'], ['blocks', 'BLK'], ['takeaways', 'TK'], ['giveaways', 'GV'], ['toiSeconds', 'TOI', (p) => p.toi],
+  ['plusMinus', '+/-', (p) => signed(p.plusMinus)], ['foPct', 'FO%', (p) => { const fo = faceoffLine(p); return fo ? `${fo.pct}<small class="a-fo">${fo.won}/${fo.total}</small>` : ''; }, true], ['hits', 'HIT'], ['blocks', 'BLK'], ['takeaways', 'TK'], ['giveaways', 'GV'], ['toiSeconds', 'TOI', (p) => p.toi],
 ];
 
 export function heatTable(game, c) {
-  const list = allSkaters(game).sort((a, b) => b.gameScore - a.gameScore);
+  // Players with no faceoffs get -1 so they sort last and stay blank.
+  const list = allSkaters(game).map((p) => ({ ...p, foPct: p.foPct ?? -1 })).sort((a, b) => b.gameScore - a.gameScore);
   const range = Object.fromEntries(HEAT_COLS.map(([k]) => [k, [Math.min(...list.map((p) => p[k])), Math.max(...list.map((p) => p[k]))]]));
   const heat = (k, v) => {
     const [lo, hi] = range[k];
@@ -109,10 +110,10 @@ export function heatTable(game, c) {
     const t = (v - lo) / (hi - lo);
     return k === 'giveaways' ? -t : t;
   };
-  const cell = ([k, , f]) => (p) => {
+  const cell = ([k, , f, raw]) => (p) => {
     const t = heat(k, p[k]);
     const bg = t >= 0 ? `rgba(56, 189, 248, ${(t * 0.55).toFixed(2)})` : `rgba(248, 113, 113, ${(-t * 0.5).toFixed(2)})`;
-    return `<td data-v="${p[k]}" style="background:${bg}">${f ? esc(f(p)) : p[k]}</td>`;
+    return `<td data-v="${p[k]}" style="background:${bg}">${f ? (raw ? f(p) : esc(f(p))) : p[k]}</td>`;
   };
   return `<section class="a-card"><h2>Skaters <small>sorted by game score; click a heading to re-sort</small></h2>
     <div class="a-scroll"><table class="a-table sortable">

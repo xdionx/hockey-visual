@@ -947,3 +947,6 @@ main { padding: 0 0 48px; }
 .s-fo b { font: 700 15px "Barlow Condensed", sans-serif; color: #fff; letter-spacing: .02em; }
 .s-fo em { font-style: normal; font-weight: 700; color: #ec4899; }
 .pr-stats .none { visibility: hidden; }
+
+/* Box score FO% column: the percentage leads, won/taken sits beside it in smaller type */
+.a-table td .a-fo { margin-left: 5px; font-size: .78em; font-weight: 500; opacity: .75; white-space: nowrap; }
