@@ -95,6 +95,13 @@ export function headshot(p, cls = 'mug') {
 }
 
 export const signed = (n) => (n > 0 ? `+${n}` : String(n));
+/** Faceoffs a skater took: { won, total, text: '6 / 10', pct: '60%' }, or null when they took none (so nothing is shown). */
+export function faceoffLine(p) {
+  const total = (p.fow ?? 0) + (p.fol ?? 0);
+  if (!total) return null;
+  return { won: p.fow, total, text: `${p.fow} / ${total}`, pct: `${Math.round((100 * p.fow) / total)}%` };
+}
+
 export const pct = (v, d = 3) => (v == null ? '-' : v.toFixed(d).replace(/^0/, ''));
 
 export function statusText(game) {
@@ -417,8 +424,14 @@ export function fold(title, html, { cls = '', attrs = '' } = {}) {
 
 /** Update el's contents to match html, changing only what differs (no reloads or flashes). */
 export function morphInner(el, html) {
-  morphChildren(el, parse(html, el.namespaceURI === SVG_NS && el.tagName.toLowerCase() !== 'foreignobject'));
+  const svg = el.namespaceURI === SVG_NS && el.tagName.toLowerCase() !== 'foreignobject';
+  morphChildren(el, parse(svg ? html : htmlFilter(html), svg));
 }
+
+// A page-wide pass over HTML before it goes in (the box score uses it to link player names).
+let htmlFilter = (html) => html;
+export function setHtmlFilter(fn) { htmlFilter = fn ?? ((html) => html); }
+export const filterHtml = (html) => htmlFilter(html);
 
 /** Expected-goals line for a goalie: expected SV%, actual SV%, the difference and goals saved above expected. */
 export function goalieXg(g) {
@@ -433,4 +446,9 @@ export function goalieXg(g) {
     <span class="${cls(g.savePctAboveExpected)}"><b>${g.savePctAboveExpected != null ? sign(g.savePctAboveExpected * 100) + '%' : '-'}</b>SV% above exp.</span>
     <span class="${cls(g.gsax)}"><b>${sign(g.gsax, 2)}</b>GSAx</span>
   </div>`;
+}
+
+/** A team's primary color, lifted to read on the dark pages (player cards). */
+export function teamColor(abbrev) {
+  return readable((TEAM_COLORS[abbrev] ?? ['#64748b'])[0]);
 }

@@ -88,7 +88,7 @@ export function stars(game) {
   if (!game.threeStars.length) return '';
   const order = [2, 1, 3].map((n) => game.threeStars.find((s) => s.star === n)).filter(Boolean);
   return `<section class="b-card"><h2>Three stars</h2><div class="b-stars">
-    ${order.map((s) => `<div class="b-star s${s.star}">${headshot(s, 'b-star-mug')}<span class="b-star-n">${'★'.repeat(s.star === 1 ? 3 : s.star === 2 ? 2 : 1)}</span><strong>${esc(s.name)}</strong><span>${esc(s.team)} · ${esc(s.line)}</span><div class="b-plinth">${s.star}</div></div>`).join('')}
+    ${order.map((s) => `<div class="b-star s${s.star}">${headshot(s, 'b-star-mug')}<span class="b-star-n">${['1st', '2nd', '3rd'][s.star - 1]} Star</span><strong>${esc(s.name)}</strong><span>${esc(s.team)} · ${esc(s.line)}</span><div class="b-plinth">${s.star}</div></div>`).join('')}
   </div></section>`;
 }
 
@@ -119,28 +119,3 @@ export function roster(game, side, c) {
     </table></div>
   </div>`;
 }
-
-export default {
-  id: 'broadcast',
-  name: 'Broadcast',
-  inspiration: 'Dark on-air graphics with team-color panels, inspired by TSN and NHL broadcasts',
-  render(game) {
-    const c = teamColors(game, { dark: true });
-    // Hero panels keep the true team colors; markers and bars use the lifted ones.
-    c.panelAway = panelColor(c.awayBase);
-    c.panelHome = panelColor(c.homeBase);
-    return `<div class="b-wrap">
-      ${hero(game, c)}
-      <div class="b-cols">
-        <div>${flow(game, c)}${scoringCards(game, c)}</div>
-        <div>${stars(game)}${statBars(game, c)}</div>
-      </div>
-      <section class="b-card" data-tab-scope><div class="b-tabs" data-tabs="b-team" role="tablist">
-        <button type="button" data-tab="away" aria-selected="true" style="--team:${c.away}">${esc(game.away.name)}</button>
-        <button type="button" data-tab="home" aria-selected="false" style="--team:${c.home}">${esc(game.home.name)}</button>
-      </div>
-      ${roster(game, 'away', c)}${roster(game, 'home', c)}</section>
-      <p class="b-vids">${videoButton(game.video.recapId, `${game.away.abbrev} @ ${game.home.abbrev} · Recap`, '&#9654; Recap', 'b-btn')}${videoButton(game.video.condensedId, `${game.away.abbrev} @ ${game.home.abbrev} · Condensed game`, '&#9654; Condensed game', 'b-btn')}</p>
-    </div>`;
-  },
-};

@@ -1,22 +1,23 @@
 // Box score page: loads one game's data/games/<id>.json and renders it in the chosen design.
-// Switch designs with the bar at the top, keys 1-5, or ?design=<name> in the URL.
+// Switch designs with the bar at the top, keys 1-4, or ?design=<name> in the URL.
 import { hornToggles, watchGoals } from '../horn.js';
-import { esc, initVideo, makeSortable, makeTabs, upgradeShots, morphInner, setMountSignal, resetRinkIds } from './core.js';
+import { setHtmlFilter, filterHtml, esc, initVideo, makeSortable, makeTabs, upgradeShots, morphInner, setMountSignal, resetRinkIds } from './core.js';
 import { getData, LIVE_REFRESH_MS } from '../data.js';
 import { startSim } from './sim.js';
-import classic from './d1-classic.js';
-import broadcast from './d2-broadcast.js';
+import momentum from './d3-momentum.js';
 import analytics from './d4-analytics.js';
 import scorecards from './d5-scorecards.js';
 import story from './d6-story.js';
+import { playerIndex, linkPlayers, installPlayerLinks } from '../player/link.js';
 
 // Game Story is the main design; the others stay for comparison while it settles.
-const DESIGNS = [story, broadcast, analytics, scorecards, classic];
+const DESIGNS = [story, momentum, analytics, scorecards];
 const params = new URLSearchParams(location.search);
 const gameId = params.get('id');
 const box = document.querySelector('#box');
 const switcher = document.querySelector('#switcher');
 let game = null;
+let names = null; // player names on this page -> ids, so every mention links to the player card
 let timer = null;
 
 const stored = () => { try { return localStorage.getItem('boxDesign.v2'); } catch { return null; } };
@@ -86,7 +87,7 @@ function render() {
   box.className = `design d-${d.id} ${d.classes ?? ''}`;
   resetRinkIds();
   if (patch) morphInner(box, d.render(game));
-  else box.innerHTML = d.render(game);
+  else box.innerHTML = filterHtml(d.render(game));
   rendered = d.id;
   makeSortable(box);
   makeTabs(box);
@@ -111,11 +112,25 @@ function showGame(data) {
   if (text === lastText) return;
   game = upgradeShots(data);
   lastText = text;
+  names = gameNames(game);
+  setHtmlFilter((html) => linkPlayers(html, names));
   document.title = `${game.away.abbrev} @ ${game.home.abbrev} ${shortDate(game.gameDate)}${params.has('sim') ? ' (sim)' : ''}`;
   document.querySelector('#back').href = params.has('sim') ? 'sim.html' : `./?date=${game.gameDate}`;
   // Finished games have no horns to blow, except while replaying one in the simulator.
   document.querySelector('#horns').innerHTML = game.status.state === 'final' && !params.has('sim') ? '' : hornToggles(game);
   render();
+}
+
+/** Everyone in this game, for linking names to player cards. */
+function gameNames(g) {
+  const people = [];
+  for (const side of ['away', 'home']) {
+    const p = g.players?.[side] ?? {};
+    people.push(...(p.forwards ?? []), ...(p.defense ?? []), ...(p.goalies ?? []));
+  }
+  for (const goal of g.scoring ?? []) people.push(goal.scorer, ...(goal.assists ?? []));
+  const avoid = ['away', 'home'].flatMap((s) => [g[s]?.placeName, g[s]?.commonName, g[s]?.name, g[s]?.abbrev]);
+  return playerIndex(people, { avoid });
 }
 
 async function load(quiet = false) {
@@ -159,5 +174,6 @@ async function load(quiet = false) {
 }
 
 initVideo(box);
+installPlayerLinks();
 render();
 load();

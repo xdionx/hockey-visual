@@ -4,7 +4,7 @@
 import { esc, teamColors, allSkaters, allGoalies, elapsed, logo, statusText, strengthBadge, headshot, on, panelColor, fold } from './core.js';
 import { hero, scoringCards, stars, statBars, shotLine } from './d2-broadcast.js';
 import { kpis, shotMap, heatTable, goalieTable, shotSummary, mountShotMap } from './d4-analytics.js';
-import { spotlight, scorecardControls, scorecardKey, mountScorecards } from './d5-scorecards.js';
+import { spotlight, scorecardControls, scorecardKey, mountScorecards, starsRow, mountStars } from './d5-scorecards.js';
 import { storyChapters, momentumTimeline } from './d6-chapters.js';
 import { storyBeats } from './d6-narrative.js';
 
@@ -27,7 +27,7 @@ const SECTIONS = [
   ['story', 'Story'], ['momentum', 'Momentum'], ['shots', 'Shots'], ['players', 'Players'], ['box', 'Box score'],
 ];
 
-function colors(game) {
+export function colors(game) {
   const c = teamColors(game, { dark: true });
   c.panelAway = panelColor(c.awayBase);
   c.panelHome = panelColor(c.homeBase);
@@ -116,12 +116,12 @@ export function storyline(game) {
   return { headline, dek };
 }
 
-function header(n, id, title, sub = '') {
+export function header(n, id, title, sub = '') {
   return `<header class="st-h"><span class="st-n">${String(n).padStart(2, '0')}</span><h2>${esc(title)}</h2>${sub ? `<p>${esc(sub)}</p>` : ''}</header>`;
 }
 
 /** Compact score and clock that slides into the sticky bar once the big scoreboard scrolls away. */
-function miniScore(game, c) {
+export function miniScore(game, c) {
   const pre = game.status.state === 'pre';
   const team = (side) => `<span class="st-mini-t" style="--team:${c[side]}">${logo(game[side], 'st-mini-logo', true)}<b>${esc(game[side].abbrev)}</b><strong data-sog="${pre ? '' : `${game.linescore.shots?.[side] ?? 0} SOG`}">${pre ? '' : game.linescore.totals[side]}</strong>${shotLine(game, side)}</span>`;
   return `<div class="st-mini" aria-hidden="true">${team('away')}<span class="st-mini-s ${game.status.state}">${esc(statusText(game))}${strengthBadge(game, c)}</span>${team('home')}</div>`;
@@ -152,7 +152,7 @@ function causeText(game, cause) {
 }
 
 /** Hover or focus anything on the momentum chart to see what it is; elsewhere, read the momentum at that moment. */
-function mountMomentumTips(root, game, c) {
+export function mountMomentumTips(root, game, c) {
   const svg = root.querySelector('.st-mc-svg');
   const tip = root.querySelector('.st-mc .st-tip');
   const series = game.momentum?.series;
@@ -200,7 +200,7 @@ function mountMomentumTips(root, game, c) {
 }
 
 /** Diverging momentum chart: home pushes up, away pushes down. */
-function momentumChart(game, c) {
+export function momentumChart(game, c) {
   const m = game.momentum;
   if (!m?.series?.length) return '';
   const W = 1000; const H = 330; const P = { l: 8, r: 8, t: 56, b: 26 };
@@ -272,7 +272,7 @@ function momentumChart(game, c) {
 }
 
 /** A slim, label-free momentum strip that rides in the sticky bar under the score. */
-function momentumStrip(game, c) {
+export function momentumStrip(game, c) {
   const m = game.momentum;
   if (!m?.series?.length) return '';
   const W = 1000; const H = 40; const mid = H / 2;
@@ -294,7 +294,7 @@ function momentumStrip(game, c) {
     </svg></div>`;
 }
 
-function drivers(game, c) {
+export function drivers(game, c) {
   const list = allSkaters(game).filter((p) => p.momentum != null).sort((a, b) => b.momentum - a.momentum).slice(0, 6);
   if (!list.length) return '';
   const max = Math.max(...list.map((p) => p.momentum), 1);
@@ -306,7 +306,7 @@ function drivers(game, c) {
 }
 
 /** Players who cost their team momentum, mostly through penalties and giveaways. */
-function killers(game, c) {
+export function killers(game, c) {
   const list = allSkaters(game).filter((p) => p.momentum < 0).sort((a, b) => a.momentum - b.momentum).slice(0, 3);
   if (!list.length) return '';
   const max = Math.max(...list.map((p) => -p.momentum), 1);
@@ -318,7 +318,7 @@ function killers(game, c) {
 }
 
 /** Goals per period as a small strip under the momentum chart: who won each period. */
-function periodWins(game, c) {
+export function periodWins(game, c) {
   const mmss = (sec) => `${Math.floor(sec / 60)}:${String(Math.round(sec % 60)).padStart(2, '0')}`;
   return `<div class="st-periods">${game.linescore.periods.filter((p) => p.label !== 'SO').map((p, i) => {
     const m = game.momentum?.periods?.[i];
@@ -337,7 +337,7 @@ function periodWins(game, c) {
 }
 
 /** Goals by period plus shots on goal and attempts, one row per team. */
-function lineScore(game, c) {
+export function lineScore(game, c) {
   const ls = game.linescore;
   const s = shotSummary(game);
   const row = (side) => `<tr style="--team:${c[side]}"><td class="l"><span class="st-ls-t">${logo(game[side], 'st-ls-logo', true)}${esc(game[side].abbrev)}</span></td>
@@ -369,6 +369,8 @@ export default {
         </div>
       </div>
 
+      ${game.status.state === 'final' ? starsRow(game, c, all) : ''}
+
       <section class="st-sec" id="st-story">
         ${header(1, 'story', 'The story')}
         <div class="st-lede"><h1>${esc(story.headline)}</h1>${story.dek.map((d) => beatHtml(d, c)).join('')}</div>
@@ -392,7 +394,7 @@ export default {
 
       <section class="st-sec" id="st-players">
         ${header(4, 'players', 'Player scorecards', 'Each player’s rating and what drove it.')}
-        ${spotlight(game, c, all, scale)}
+        ${game.status.state === 'final' ? '' : spotlight(game, c, all, scale)}
         ${scorecardControls(game)}
         <div class="s-grid" id="s-grid" data-js></div>
         ${scorecardKey()}
@@ -411,6 +413,7 @@ export default {
     mountMomentumTips(root, game, c);
     if (root.querySelector('#a-shots')) mountShotMap(root, game, c);
     if (root.querySelector('#s-grid')) mountScorecards(root, game, c);
+    mountStars(root);
 
     // Highlight the section in view.
     const links = new Map([...root.querySelectorAll('.st-nav a')].map((a) => [a.dataset.sec, a]));

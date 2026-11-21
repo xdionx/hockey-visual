@@ -14,7 +14,7 @@ h1 { margin: 0; font-size: 24px; letter-spacing: -0.01em; }
 .datebar button.today { font-size: 14px; padding: 0 12px; }
 .datebar input { padding: 0 8px; }
 .date-label { width: 100%; margin: 0; color: var(--muted); }
-main { max-width: 1200px; margin: 0 auto; padding: 8px 16px 40px; display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 520px), 1fr)); align-items: start; }
+main { max-width: 1200px; margin: 0 auto; padding: 8px 16px 40px; display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); align-items: start; }
 .msg { grid-column: 1 / -1; text-align: center; color: var(--muted); padding: 48px 0; }
 .game { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px 16px; }
 .status { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin-bottom: 8px; display: flex; justify-content: space-between; gap: 8px; }
@@ -250,3 +250,55 @@ main.compact { grid-template-columns: repeat(auto-fill, minmax(min(100%, 640px),
 #radio-bar { position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 9998; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: center; max-width: 94vw; padding: 10px 14px; border-radius: 999px; background: #111a2e; border: 1px solid rgba(255,255,255,.2); color: #fff; font: 600 13px Inter, sans-serif; box-shadow: 0 8px 30px rgba(0,0,0,.5); }
 #radio-bar a { color: #8ab4ff; }
 #radio-bar button { font: 700 12px Inter, sans-serif; letter-spacing: .06em; text-transform: uppercase; border: 1.5px solid #ff6b6b; background: transparent; color: #fff; border-radius: 999px; padding: 6px 12px; cursor: pointer; }
+
+/* Cards: goal strip + SOG/SAT overlay */
+.cd .sxs { gap: 3px; }
+.cd .sx { gap: 6px; }
+.cd .sx .bar { height: 6px; }
+.cd .sx:nth-child(2) .bar { opacity: .55; }
+.gstrip { margin-top: 10px; display: flex; gap: 6px; overflow-x: auto; scroll-snap-type: x proximity; padding-bottom: 6px; scrollbar-width: thin; mask-image: linear-gradient(90deg, #000 88%, transparent); }
+.gc { flex: 0 0 138px; scroll-snap-align: start; display: grid; gap: 1px; padding: 6px 8px; border-radius: 5px; border-top: 3px solid var(--team); background: var(--chip); color: #e2e8f0; text-decoration: none; font: 600 12px Inter, sans-serif; }
+.gc b { display: flex; align-items: center; gap: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gc small { color: #aab4c5; font-weight: 500; font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+a.gc:hover { background: #2a3850; }
+.cd .more { display: block; width: 100%; margin-top: 6px; padding: 6px; border: 0; border-radius: 4px; background: transparent; color: #aab4c5; font: 600 11px Inter, sans-serif; cursor: pointer; }
+.cd .gh { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+.cd .gh h3 { margin: 0; font: 700 12px "Barlow Condensed", sans-serif; letter-spacing: .12em; text-transform: uppercase; color: #aab4c5; }
+.cd .gh .more { display: inline-block; width: auto; margin: 0; padding: 2px 8px; }
+.cd .gh + .gts, .cd .gh + .gstrip { margin-top: 6px; }
+.cd .more:hover { color: #fff; background: var(--chip); }
+.gc .cnt { color: #aab4c5; font-weight: 500; }
+.gc { flex-basis: 170px; }
+.gc small:last-child { white-space: normal; }
+.gc { min-height: 64px; align-content: start; }
+.gc .nth { color: #fbbf24; font-style: normal; font-weight: 700; }
+.gc .st { color: #7dd3fc; font-style: normal; font-weight: 700; }
+/* Rounded boxes around the PP / SH / EN and nth-goal labels */
+.gc .st, .gc .nth { display: inline-block; padding: 0 6px; border-radius: 999px; font-size: 9px; line-height: 15px; letter-spacing: .04em; }
+.gc .st { border: 1px solid #7dd3fc; background: rgba(125, 211, 252, .12); }
+.gc .nth { border: 1px solid #fbbf24; background: rgba(251, 191, 36, .12); }
+.gstrip { cursor: grab; }
+.gstrip.dragging { cursor: grabbing; scroll-snap-type: none; user-select: none; }
+.gstrip.dragging * { pointer-events: none; }
+.gstrip { overscroll-behavior-x: contain; }
+/* Scores page: lift the cards off the page background (they were dark on dark) */
+#games .game.cd { background: #182236; border-color: #34466a; box-shadow: 0 2px 14px rgba(0, 0, 0, .55), inset 0 1px 0 rgba(255, 255, 255, .05); }
+#games .cd .tb { background: linear-gradient(90deg, color-mix(in srgb, var(--team) 34%, #1b2740), #1b2740 88%); }
+#games .gc { background: #243249; }
+a.gc:hover { background: #2f4260; }
+#games .cd .more { color: #c3cddd; }
+#games .cd-foot .videos a { background: #243249; }
+/* Top bar shows the game's state */
+#games .game.cd::before { background: var(--bar, #6b7280); }
+#games .ph-idle { --bar: #6b7280; }
+#games .ph-live { --bar: #3b82f6; }
+#games .ph-late { --bar: #f59e0b; }
+#games .ph-final { --bar: #e11d48; }
+
+/* More breathing room around the page edges */
+.top { padding: 32px 20px 12px; gap: 14px 20px; }
+main { padding-left: 20px; padding-right: 20px; }
+@media (max-width: 520px) {
+  .top { padding: 28px 20px 10px; }
+  main { padding-top: 12px; }
+}

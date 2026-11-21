@@ -1,6 +1,8 @@
 // Design 5 "Scorecards": one card per player with a game rating and what drove it.
 // A modern take on HockeyStats-style player game cards; the start of the per-player scorecard.
-import { esc, logo, teamColors, statusText, prettyDate, allSkaters, allGoalies, pct, signed, rinkMarkup, shotMark, headshot, ratingColor, GS_PARTS, on, morphInner, goalieXg, fold, penKind, elapsed } from './core.js';
+import { hero } from './d2-broadcast.js';
+import { colors, header as secHeader } from './d6-story.js';
+import { faceoffLine, esc, logo, teamColors, statusText, prettyDate, allSkaters, allGoalies, pct, signed, rinkMarkup, shotMark, headshot, ratingColor, GS_PARTS, on, morphInner, goalieXg, fold, penKind, elapsed } from './core.js';
 
 export const PART_COLORS = { scoring: '#6366f1', momentum: '#22c55e', shooting: '#0ea5e9', onIce: '#14b8a6', defense: '#a3a3a3', discipline: '#f59e0b', faceoffs: '#ec4899' };
 
@@ -87,6 +89,12 @@ export function disciplineChips(game, p) {
   return `<div class="s-discs">${list.map(chip).join('')}</div>`;
 }
 
+/** Faceoffs won / taken and the win %, only for players who took one. */
+function faceoffChip(p) {
+  const fo = faceoffLine(p);
+  return fo ? `<div class="s-fo"><span>Faceoffs</span><b>${fo.text}</b><em>${fo.pct}</em></div>` : '';
+}
+
 export function skaterCard(game, p, c, scale) {
   return `<article class="s-card" style="--team:${c[p.side]}">
     <div class="s-top">${headshot(p, 's-mug')}
@@ -95,6 +103,7 @@ export function skaterCard(game, p, c, scale) {
     </div>
     <div class="s-line"><span><b>${p.goals}</b>G</span><span><b>${p.assists}</b>A</span><span><b>${p.sog}</b>SOG</span><span><b>${signed(p.plusMinus)}</b>+/-</span><span title="Momentum impact: weighted plays that pushed momentum toward the player's team (swing plays count 1.5x)"><b>${p.momentum != null ? (p.momentum > 0 ? '+' : '') + p.momentum.toFixed(1) : '-'}</b>MOM</span><span><b>${esc(p.toi)}</b>TOI</span></div>
     ${p.onIce ? `<div class="s-onice" title="Shot attempts while on the ice, weighted: on goal 1, missed 0.5, blocked 0.35"><span>On-ice shots</span><b>${p.onIce.cf.toFixed(1)}</b><div class="s-oi-bar"><i style="width:${p.onIce.pct ?? 50}%"></i></div><b>${p.onIce.ca.toFixed(1)}</b><em>${p.onIce.pct != null ? `${Math.round(p.onIce.pct)}%` : ''}</em></div>` : ''}
+    ${faceoffChip(p)}
     ${disciplineChips(game, p)}
     ${p.swingPlays ? `<div class="s-swing">&#8635; ${p.swingPlays} swing play${p.swingPlays > 1 ? 's' : ''}</div>` : ''}
     <div class="s-body">
@@ -140,6 +149,32 @@ export function spotlight(game, c, players, scale) {
   return players.slice(0, 3).map((p, i) => spot(game, c, p, scale, i + 1)).join('');
 }
 
+// Rows the viewer opened (by player id). Kept outside the render so live refreshes don't close them.
+const openRows = new Set();
+
+/** One compact row per player; tapping it opens the momentum bar, shot map and the rest in place. */
+function playerRow(game, p, c, scale, rank) {
+  const g = p.position === 'G';
+  const fo = g ? null : faceoffLine(p);
+  const stats = g
+    ? [[p.saves, 'SV'], [p.goalsAgainst, 'GA'], [pct(p.savePct), 'SV%'], [esc(p.toi), 'TOI']]
+    : [[p.goals, 'G'], [p.assists, 'A'], [p.sog, 'SOG'], [signed(p.plusMinus), '+/-'], [fo ? fo.won + '/' + fo.total : '', 'FO'], [esc(p.toi), 'TOI']];
+  const sub = `#${p.number ?? ''} · ${esc(p.position)}${g && p.decision ? ` · ${esc(p.decision)}` : ''}`;
+  const detail = g ? goalieCard(p, c) : skaterCard(game, p, c, scale);
+  return `<details class="pr${g ? ' goalie' : ''}" data-pid="${p.id}" style="--team:${c[p.side]}"${openRows.has(p.id) ? ' open' : ''}>
+    <summary>
+      <span class="pr-rank">${rank}</span>
+      ${headshot(p, 'pr-mug')}
+      <span class="pr-who"><strong>${esc(p.fullName)}</strong><small>${sub}</small></span>
+      <span class="pr-stats">${stats.map(([v, l]) => (v === '' ? `<span class="none"><b>0</b>${l}</span>` : `<span><b>${v}</b>${l}</span>`)).join('')}</span>
+      ${ratingBadge(p.rating)}
+      <span class="pr-chev" aria-hidden="true"></span>
+      ${g ? '' : `<span class="pr-bar">${breakdownBar(p, scale)}</span>`}
+    </summary>
+    <div class="pr-detail">${detail}</div>
+  </details>`;
+}
+
 export function grid(game, c, state) {
   const sk = allSkaters(game);
   const gs = allGoalies(game);
@@ -151,7 +186,15 @@ export function grid(game, c, state) {
   const key = { rating: (p) => p.rating, points: (p) => (p.points ?? -1) * 100 + p.rating, toi: (p) => p.toiSeconds }[state.sort];
   list.sort((a, b) => key(b) - key(a));
   const scale = Math.max(1.5, ...sk.map((p) => Object.values(p.gameScoreParts).reduce((a, v) => a + Math.max(0, v), 0)), ...sk.map((p) => -Object.values(p.gameScoreParts).reduce((a, v) => a + Math.min(0, v), 0))) * 1.05;
-  return list.map((p) => (p.position === 'G' ? goalieCard(p, c) : skaterCard(game, p, c, scale))).join('') || '<p class="s-muted">No players match.</p>';
+  if (!list.length) return '<p class="s-muted">No players match.</p>';
+  // One ranked column per team, so each side's best players come to the top.
+  const col = (side) => {
+    const mine = list.filter((p) => p.side === side);
+    if (!mine.length) return '';
+    return `<section class="pr-col" style="--team:${c[side]}"><h3>${esc(game[side].name)}<small>${esc(game[side].abbrev)}</small></h3>${mine.map((p, i) => playerRow(game, p, c, scale, i + 1)).join('')}</section>`;
+  };
+  const cols = ['away', 'home'].map(col).join('');
+  return `<div class="pr-cols${state.team === 'all' ? '' : ' one'}">${cols}</div>`;
 }
 
 export function scorecardControls(game) {
@@ -183,6 +226,12 @@ export function mountScorecards(root, game, c) {
   });
   const el = root.querySelector('#s-grid');
   const draw = () => morphInner(el, grid(game, c, state));
+  // 'toggle' doesn't bubble, so listen in the capture phase.
+  on(el, 'toggle', (e) => {
+    const id = Number(e.target.dataset?.pid);
+    if (!id) return;
+    if (e.target.open) openRows.add(id); else openRows.delete(id);
+  }, { capture: true });
   on(root.querySelector('#s-controls'), 'click', (e) => {
     const b = e.target.closest('button[data-v]');
     if (!b) return;
@@ -197,21 +246,129 @@ export function mountScorecards(root, game, c) {
 export default {
   id: 'scorecards',
   name: 'Scorecards',
-  inspiration: 'Per-player game cards with a rating and what drove it: a modern take on HockeyStats player cards',
+  inspiration: 'Per-player game cards with a rating and what drove it',
+  classes: 'd-story d-broadcast d-analytics d-scorecards',
   render(game) {
-    const c = teamColors(game);
+    const c = colors(game);
     const sk = allSkaters(game);
     const all = [...sk, ...allGoalies(game)].sort((a, b) => b.rating - a.rating || b.gameScore - a.gameScore);
-    const scale = Math.max(1.5, ...sk.map((p) => Object.values(p.gameScoreParts).reduce((a, v) => a + Math.max(0, v), 0))) * 1.05;
-    return `<div class="s-wrap">
-      ${header(game, c)}
-      ${spotlight(game, c, all, scale)}
-      ${scorecardControls(game)}
-      <section class="s-grid" id="s-grid" data-js></section>
-      ${scorecardKey()}
+    const scale = Math.max(1.5, ...sk.map((p) => Object.values(p.gameScoreParts).reduce((t, v) => t + Math.max(0, v), 0))) * 1.05;
+    const started = game.status.state === 'live' || game.status.state === 'final';
+    return `<div class="b-wrap st-wrap">
+      ${hero(game, c, { strip: false, shots: true })}
+      ${started ? `
+      ${game.status.state === 'final' ? starsRow(game, c, all) : `<section class="st-sec">${secHeader(1, 'top', 'Top performers')}${spotlight(game, c, all, scale)}</section>`}
+      <section class="st-sec">
+        ${secHeader(1, 'players', 'Player scorecards', 'Each player’s rating and what drove it. Tap a row to expand.')}
+        ${scorecardControls(game)}
+        <div class="s-grid" id="s-grid" data-js></div>
+        ${scorecardKey()}
+      </section>` : '<p class="st-empty">Scorecards appear once the game starts.</p>'}
     </div>`;
   },
   mount(root, game) {
-    mountScorecards(root, game, teamColors(game));
+    if (root.querySelector('#s-grid')) mountScorecards(root, game, colors(game));
+    mountStars(root);
   },
 };
+
+// ---- Top performers: gold, silver and bronze cards with an expandable full scorecard ----
+// The top three players by our own game score (not the NHL's official three stars).
+const MEDAL = [['gold', 'Top Performer'], ['silver', ''], ['bronze', '']];
+const sgn = (v, d = 2) => `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v).toFixed(d)}`;
+const tile = (v, l) => `<div><b>${v}</b><small>${esc(l)}</small></div>`;
+const bars = (l, a, b, ca, cb, fa = a, fb = b) => `<div class="ss-cmp"><div><span>${esc(l)}</span><b>${esc(fa)} <em>vs</em> ${esc(fb)}</b></div><div class="ss-bar"><i style="flex:${Math.max(Math.abs(a), 0.01)};background:${ca}"></i><i style="flex:${Math.max(Math.abs(b), 0.01)};background:${cb}"></i></div></div>`;
+const grp = (t, items) => `<div class="ss-grp"><h5>${esc(t)}</h5><div class="ss-tiles3">${items.map(([v, l]) => tile(v, l)).join('')}</div></div>`;
+
+function goalieParts(g) {
+  const saves = 0.1 * g.saves;
+  const above = 0.35 * (g.gsax ?? 0);
+  const against = -0.75 * g.goalsAgainst;
+  return { saves, above, against };
+}
+
+function starTiles(p) {
+  if (p.position === 'G') {
+    return [[p.saves, 'SV'], [p.shotsAgainst, 'SA'], [pct(p.savePct), 'SV%'], [p.goalsAgainst, 'GA'], [p.gsax != null ? sgn(p.gsax, 1) : '—', 'GSAx'], [p.xga != null ? p.xga.toFixed(1) : '—', 'EXP GA'], [esc(p.toi), 'TOI']];
+  }
+  return [[p.goals, 'G'], [p.assists, 'A'], [p.points, 'P'], [p.sog, 'SOG'], [p.attempts ?? '—', 'SAT'], [sgn(p.momentum ?? 0, 1), 'MOM'], [esc(p.toi), 'TOI']];
+}
+
+function starBar(p, scale) {
+  if (p.position === 'G') {
+    const gp = goalieParts(p);
+    const sc = Math.max(gp.saves + Math.max(0, gp.above), 0.5);
+    return `<div class="ss-bar solo"><i style="flex:${gp.saves};background:#22c55e" title="Saves"></i>${gp.above > 0 ? `<i style="flex:${gp.above};background:#14b8a6" title="Saves above expected"></i>` : ''}<span style="flex:0"></span></div>
+      <div class="ss-leg"><span><i style="background:#22c55e"></i>Saves<b>${sgn(gp.saves, 1)}</b></span>${gp.above ? `<span><i style="background:${gp.above > 0 ? '#14b8a6' : '#f59e0b'}"></i>Saves vs expected<b>${sgn(gp.above, 1)}</b></span>` : ''}<span><i style="background:#f43f5e"></i>Goals against<b>${sgn(gp.against, 1)}</b></span></div>`;
+  }
+  const parts = GS_PARTS.filter(([k]) => p.gameScoreParts[k] > 0);
+  const neg = GS_PARTS.filter(([k]) => p.gameScoreParts[k] < 0);
+  return `<div class="ss-bar solo">${parts.map(([k, l]) => `<i style="flex:${p.gameScoreParts[k]};background:${PART_COLORS[k]}" title="${esc(l)}"></i>`).join('')}</div>
+    <div class="ss-leg">${parts.concat(neg).map(([k, l]) => `<span><i style="background:${PART_COLORS[k]}"></i>${esc(l)}<b>${sgn(p.gameScoreParts[k], 1)}</b></span>`).join('')}</div>`;
+}
+
+function starCard(game, c, p, i) {
+  const [tier, kicker] = MEDAL[i];
+  return `<article class="ss-card ${tier}" style="--team:${c[p.side]}">${kicker ? `<span class="ss-medal">${kicker}</span>` : ''}
+    <div class="ss-top">${headshot(p, 'ss-mug')}<div class="ss-who"><strong>${esc(p.fullName)}</strong><span>#${p.number ?? ''} · ${esc(p.position)} · ${esc(game[p.side].name)}</span></div>
+      <div class="ss-rate" style="--r:${ratingColor(p.rating)}">${p.rating.toFixed(1)}<small>GAME SCORE ${sgn(p.gameScore, 1)}</small></div></div>
+    <div class="ss-tiles">${starTiles(p).map(([v, l]) => tile(v, l)).join('')}</div>
+    ${starBar(p)}
+    <button type="button" class="ss-more" data-star="${i}" aria-expanded="false">▾ Full scorecard</button>
+  </article>`;
+}
+
+function starPanel(game, c, p, i) {
+  const total = `<div class="ss-total"><span>Game score</span><b>${sgn(p.gameScore)} = rating ${p.rating.toFixed(1)}</b></div>`;
+  if (p.position === 'G') {
+    const gp = goalieParts(p);
+    const xsv = p.expectedSavePct;
+    return `<div class="ss-panel ${MEDAL[i][0]}" data-panel="${i}" hidden><div class="ss-col"><h4>How the score adds up</h4>
+        <div class="ss-line"><i style="background:#22c55e"></i><span>${p.saves} saves × 0.1</span><b style="color:#22c55e">${sgn(gp.saves)}</b></div>
+        ${p.gsax != null ? `<div class="ss-line"><i style="background:#14b8a6"></i><span>Saves vs expected</span><b style="color:#14b8a6">${sgn(gp.above)}</b></div>` : ''}
+        <div class="ss-line"><i style="background:#f43f5e"></i><span>${p.goalsAgainst} goal${p.goalsAgainst === 1 ? '' : 's'} against × 0.75</span><b style="color:#f43f5e">${sgn(gp.against)}</b></div>${total}</div>
+      <div class="ss-col"><h4>The night in plain terms</h4>
+        <p>Faced <b>${p.shotsAgainst} shots</b> and stopped <b>${p.saves}</b> (${pct(p.savePct)}).${p.xga != null ? ` Those shots were worth <b>${p.xga.toFixed(1)} goals</b> on average, so allowing ${p.goalsAgainst} is <b>${Math.abs(p.gsax).toFixed(1)} ${p.gsax >= 0 ? 'better' : 'worse'} than expected</b>.` : ''}</p>
+        <div class="ss-kv"><span>Even strength</span><b>${esc(p.evenStrength ?? '—')}</b><span>Power play</span><b>${esc(p.powerPlay ?? '—')}</b><span>Shorthanded</span><b>${esc(p.shorthanded ?? '—')}</b>${p.decision ? `<span>Decision</span><b>${esc(p.decision)}</b>` : ''}</div></div>
+      <div class="ss-col"><h4>Against expectation</h4>
+        ${p.xga != null ? bars('Goals against vs expected', p.goalsAgainst, p.xga, '#f43f5e', '#64748b', String(p.goalsAgainst), p.xga.toFixed(1)) : ''}
+        ${xsv != null && p.shotsAgainst ? bars('Save % vs expected', p.saves / p.shotsAgainst, xsv, '#22c55e', '#64748b', pct(p.saves / p.shotsAgainst), pct(xsv)) : ''}
+        <p class="ss-note">Expected goals are our own estimate from shot distance, angle and type.</p></div></div>`;
+  }
+  const rows = GS_PARTS.map(([k, l]) => { const v = p.gameScoreParts[k]; return `<div class="ss-line"><i style="background:${PART_COLORS[k]}"></i><span>${esc(l)}</span><span class="ss-track"><u style="width:${Math.min(100, (Math.abs(v) / 3.5) * 100)}%;background:${v < 0 ? '#f43f5e' : PART_COLORS[k]}"></u></span><b>${sgn(v)}</b></div>`; }).join('');
+  const m = p.momentumParts;
+  const mpos = m?.pos ?? 0, mneg = Math.abs(m?.neg ?? 0);
+  return `<div class="ss-panel ${MEDAL[i][0]}" data-panel="${i}" hidden><div class="ss-col"><h4>How the score adds up</h4>${rows}${total}</div>
+    <div class="ss-col">${grp('Shooting and playmaking', [[p.attempts ?? '—', 'ATTEMPTS'], [p.sog, 'ON GOAL'], [p.homePlate ?? 0, 'FROM HOME PLATE']])}
+      ${grp('Defense and puck care', [[p.blocks, 'BLOCKS'], [`${p.takeaways}/${p.giveaways}`, 'TAKE / GIVE'], [p.hits, 'HITS']])}
+      ${grp('Game flow', [[signed(p.plusMinus), '+/-'], [p.shifts, 'SHIFTS'], [`${p.penaltiesDrawn}/${p.penaltiesTaken}`, 'PEN DRAWN / TAKEN']])}
+      ${faceoffLine(p) ? grp('Faceoffs', [[faceoffLine(p).text, 'WON / TAKEN'], [faceoffLine(p).pct, 'WIN %']]) : ''}</div>
+    <div class="ss-col"><h4>Attempts and momentum</h4>
+      ${p.onIce ? bars('Shot attempts while on ice', p.onIce.cf, p.onIce.ca, '#6366f1', '#64748b') : ''}
+      ${bars('Momentum earned vs given up', mpos, mneg, '#22c55e', '#f43f5e', sgn(mpos, 1), sgn(-mneg, 1))}
+      <p class="ss-note">${p.swingPlays ? `<b>${p.swingPlays}</b> swing play${p.swingPlays === 1 ? '' : 's'}` : 'No swing plays'}${p.keyGoalBonus > 0 ? `, including goals that tied the game or took the lead (+${p.keyGoalBonus.toFixed(2)})` : ''}.</p></div></div>`;
+}
+
+/** The top three performers of a finished game (by our game score), under the scoreboard. */
+export function starsRow(game, c, players) {
+  const top = players.slice(0, 3);
+  if (top.length < 3) return '';
+  return `<section class="ss-row" id="st-stars" aria-label="Top performers of the game"><div class="ss-cards">${top.map((p, i) => starCard(game, c, p, i)).join('')}</div>${top.map((p, i) => starPanel(game, c, p, i)).join('')}</section>`;
+}
+
+export function mountStars(root) {
+  const row = root.querySelector('.ss-row');
+  if (!row) return;
+  on(row, 'click', (e) => {
+    const b = e.target.closest('.ss-more');
+    if (!b) return;
+    const open = b.getAttribute('aria-expanded') === 'true';
+    row.querySelectorAll('.ss-more').forEach((x) => { x.setAttribute('aria-expanded', 'false'); x.textContent = '▾ Full scorecard'; });
+    row.querySelectorAll('.ss-panel').forEach((x) => { x.hidden = true; });
+    if (!open) {
+      b.setAttribute('aria-expanded', 'true');
+      b.textContent = '▴ Hide scorecard';
+      row.querySelector(`.ss-panel[data-panel="${b.dataset.star}"]`).hidden = false;
+    }
+  });
+}
