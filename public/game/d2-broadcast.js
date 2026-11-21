@@ -88,7 +88,7 @@ export function stars(game) {
   if (!game.threeStars.length) return '';
   const order = [2, 1, 3].map((n) => game.threeStars.find((s) => s.star === n)).filter(Boolean);
   return `<section class="b-card"><h2>Three stars</h2><div class="b-stars">
-    ${order.map((s) => `<div class="b-star s${s.star}">${headshot(s, 'b-star-mug')}<span class="b-star-n">${'★'.repeat(s.star === 1 ? 3 : s.star === 2 ? 2 : 1)}</span><strong>${esc(s.name)}</strong><span>${esc(s.team)} · ${esc(s.line)}</span><div class="b-plinth">${s.star}</div></div>`).join('')}
+    ${order.map((s) => `<div class="b-star s${s.star}">${headshot(s, 'b-star-mug')}<span class="b-star-n">${'★'.repeat(s.star)}</span><strong>${esc(s.name)}</strong><span>${esc(s.team)} · ${esc(s.line)}</span><div class="b-plinth">${s.star}</div></div>`).join('')}
   </div></section>`;
 }
 
