@@ -242,16 +242,56 @@ function trendsCard(list) {
       <tbody>${rows}</tbody></table></div>`);
 }
 
+// Model versions side by side (public/model-lab.json, written by scripts/model-lab.js over past seasons).
+const LAB_CHECKS = [
+  ['pickNg', 'pickSat', 'Same game', 'Team with more momentum (goals left out) won the game', pct],
+  ['fitNg', 'fitSat', 'Standings', 'Team share vs points % (r)', r2],
+  ['halfPtsNg', 'halfPtsSat', 'Predicts 2nd half', 'First-half share vs second-half points % (r)', r2],
+  ['aheadGdNg', 'aheadGdSat', 'Predicts next game', 'Season-to-date share gap vs the next game\'s goal gap (r)', r2],
+];
+const diff = (v, base, isPct) => {
+  if (v == null || base == null) return '';
+  const raw = isPct ? (v - base) * 100 : v - base;
+  const d = Math.abs(raw) < (isPct ? 0.05 : 0.005) ? 0 : raw;
+  const txt = isPct ? `${d > 0 ? '+' : d < 0 ? '−' : ''}${Math.abs(d).toFixed(1)}` : `${d > 0 ? '+' : d < 0 ? '−' : ''}${Math.abs(d).toFixed(2)}`;
+  return ` <small class="${d > 0 ? 'ml-up' : d < 0 ? 'ml-down' : ''}">${txt}</small>`;
+};
+
+function labCard(lab, view) {
+  if (!lab?.versions?.length) return '';
+  const seasons = Object.keys(lab.seasons).map(Number).sort((a, b) => b - a);
+  const block = view === 'all' ? lab.pooled : lab.seasons[view];
+  if (!block) return '';
+  const first = block[lab.versions[0].id];
+  const sat = `<tr class="ml-sat"><td class="l">Shot attempts (SAT) <small>yardstick</small></td>${LAB_CHECKS.map(([, k, , , f]) => `<td>${f(first.checks[k])}</td>`).join('')}</tr>`;
+  const rows = lab.versions.map((v) => {
+    const c = block[v.id]?.checks ?? {};
+    return `<tr class="${v.live ? 'ml-live' : ''}"><td class="l">${esc(v.name)}${v.live ? ' <span class="ml-tag">live</span>' : ''}</td>${LAB_CHECKS.map(([k, base, , , f], i) => {
+      const leak = i === 0 && v.leaky;
+      return `<td class="pc-o${leak ? ' ml-leak' : ''}" ${leak ? 'title="Uses the score, so this number partly counts the result"' : ''}>${f(c[k])}${leak ? '†' : diff(c[k], first.checks[base], f === pct)}</td>`;
+    }).join('')}</tr>`;
+  }).join('');
+  const views = [['all', `All ${seasons.length} seasons`], ...seasons.map((x) => [String(x), fmt.season(x)])];
+  const games = view === 'all' ? lab.pooled[lab.versions[0].id].games : first.games;
+  return card('Model versions', `${games.toLocaleString()} games${view === 'all' ? `, ${seasons.length} seasons averaged` : ''}`, `
+    <p class="ms-lede">Each version of the momentum model scored over the same past games, next to shot attempts. Small numbers show the gap to SAT: green beats it. The last two checks never see the game they judge, so they are the fairest tests of real skill. Hockey is random, so a few points over SAT is a real gain.</p>
+    <div class="ms-toggle" role="group" aria-label="Seasons">${views.map(([k, l]) => `<button type="button" data-lab="${k}" aria-pressed="${k === String(view)}">${l}</button>`).join('')}</div>
+    <div class="pc-scroll"><table class="pc-table ml-table"><thead><tr><th class="l">Version</th>${LAB_CHECKS.map(([, , l, tip]) => `<th class="pc-o" title="${tip}">${l}</th>`).join('')}</tr></thead>
+      <tbody>${sat}${rows}</tbody></table></div>
+    <p class="pq-note">Same game: how often the team with more momentum, goals left out, won. Standings: how closely each team's season share lines up with its points % (r, 1 = perfect). Predicts 2nd half: first-half share against second-half points %. Predicts next game: before every game, the gap between the two teams' season-to-date shares, against the goal gap in that game (10+ games each; small r values are normal for a single game). With all seasons selected, the two prediction checks pool every season into one test. † uses the score, so its same-game number partly counts the result.</p>
+    <details class="ms-fold"><summary>What each version changes</summary><ul class="ml-notes">${lab.versions.map((v) => `<li><b>${esc(v.name)}</b>: ${esc(v.note || '')}</li>`).join('')}</ul></details>`, 'ml-card');
+}
+
 let state = null;
 
 function render() {
   const { list, season, pos, showAll } = state;
   const sel = list.find((s) => s.season === season);
   const total = sel?.total;
-  const head = `<section class="ms-hero"><span class="pc-kicker">Our model · regular season</span><h1>Momentum <b>stats</b></h1>
+  const head = `<section class="ms-hero"><span class="pc-kicker">Our model${total?.v ? ` v${total.v}` : ''} · regular season</span><h1>Momentum <b>stats</b></h1>
     <p>How the momentum model rates players and teams, and how well it lines up with winning, season by season.</p>${chips(list, season)}</section>`;
   if (!total) {
-    main.innerHTML = `${head}<section class="pc-card"><p class="pq-note">${fmt.season(season)} hasn't been built yet. Seasons are rebuilt from the NHL play-by-play a few at a time; pick another season above.</p></section>${trendsCard(list)}`;
+    main.innerHTML = `${head}<section class="pc-card"><p class="pq-note">${fmt.season(season)} hasn't been built yet. Seasons are rebuilt from the NHL play-by-play a few at a time; pick another season above.</p></section>${trendsCard(list)}${labCard(state.lab, state.labView)}`;
     return;
   }
   const m = sel.model;
@@ -265,6 +305,7 @@ function render() {
       ${teamsCard(m)}
       ${playersCard(total, pos, showAll)}
       ${trendsCard(list)}
+      ${labCard(state.lab, state.labView)}
     </div>`;
   makeSortable(main);
 }
@@ -275,6 +316,15 @@ main.addEventListener('click', (e) => {
     const sel = state.list.find((s) => s.season === state.season);
     x.parentNode.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b === x)));
     main.querySelector('.ms-scatter').innerHTML = scatter(sel.model.teams, x.dataset.x);
+    return;
+  }
+  const l = e.target.closest('[data-lab]');
+  if (l) {
+    state.labView = l.dataset.lab;
+    const old = main.querySelector('.ml-card');
+    const tmp = document.createElement('div');
+    tmp.innerHTML = labCard(state.lab, state.labView);
+    old.replaceWith(tmp.firstElementChild);
     return;
   }
   const p = e.target.closest('[data-pos]');
@@ -294,7 +344,7 @@ main.addEventListener('click', (e) => {
 
 async function start() {
   const seasons = allSeasons();
-  const totals = await Promise.all(seasons.map((s) => loadSeason(s)));
+  const [totals, lab] = await Promise.all([Promise.all(seasons.map((s) => loadSeason(s))), fetch('model-lab.json').then((r) => (r.ok ? r.json() : null)).catch(() => null)]);
   const list = seasons.map((season, i) => {
     const total = totals[i];
     return { season, total, state: stateOf(season, total), model: total ? seasonModel(total) : null };
@@ -302,7 +352,7 @@ async function start() {
   const asked = Number(params.get('season'));
   // Default: the current season once it has a few weeks of games, else the newest finished one.
   const fallback = list.find((s) => s.state === 'current' && s.total.games >= 150) ?? list.find((s) => s.state === 'complete') ?? list.find((s) => s.total);
-  state = { list, season: list.some((s) => s.season === asked) ? asked : fallback?.season ?? seasons[0], pos: null, showAll: false };
+  state = { list, lab, labView: 'all', season: list.some((s) => s.season === asked) ? asked : fallback?.season ?? seasons[0], pos: null, showAll: false };
   render();
 }
 

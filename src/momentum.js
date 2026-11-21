@@ -37,7 +37,7 @@ export function inHomePlate(x, y) {
   if (ax >= 69) return ay <= 4 + ((89 - ax) * 18) / 20; // posts (89, 4) to dots (69, 22)
   return ay <= 22; // dots out to the top of the circles
 }
-const plateMult = (d) => (inHomePlate(d.xCoord, d.yCoord) ? HOME_PLATE_BONUS : 1);
+const plateMult = (d, bonus = HOME_PLATE_BONUS) => (inHomePlate(d.xCoord, d.yCoord) ? bonus : 1);
 
 export const MOMENTUM_WEIGHTS = {
   goal: 3, sog: 1, miss: 0.35, blockedShooter: 0.2, blocker: 0.2, firstGoalMult: 1.5, tieOrLeadMult: 1.25,
@@ -99,8 +99,8 @@ export function powerPlays(plays, awayId) {
  * Pushes from play-by-play: [{ t, team: 'away'|'home', w, kind, credits: [{ id, share }], debit }]
  * debit = player whose mistake handed the other team the push (giveaway, penalty taken).
  */
-export function pushes(plays, awayId, rosterTeam) {
-  const W = MOMENTUM_WEIGHTS;
+export function pushes(plays, awayId, rosterTeam, W = MOMENTUM_WEIGHTS) {
+  const plate = (d) => plateMult(d, W.plate ?? HOME_PLATE_BONUS);
   const out = [];
   const fightSeen = new Set();
   const tally = { away: 0, home: 0 }; // running score: the first goal, and any goal that ties the game or takes the lead, counts more
@@ -112,6 +112,8 @@ export function pushes(plays, awayId, rosterTeam) {
     const t = elapsedOf(p);
     const owner = d.eventOwnerTeamId != null ? sideOf(d.eventOwnerTeamId) : null;
     const add = (team, w, kind, credits = [], debit = null) => out.push({ t, team, w, kind, credits, debit, period: p.periodDescriptor.number, time: p.timeInPeriod });
+    // Shots keep where they came from, so model experiments (scripts/model-lab.js) can weigh them differently.
+    const shot = (team, w, kind, credits) => out.push({ t, team, w, kind, credits, debit: null, period: p.periodDescriptor.number, time: p.timeInPeriod, x: d.xCoord, y: d.yCoord, shotType: d.shotType, sit: p.situationCode });
     switch (p.typeDescKey) {
       case 'goal': {
         const credits = [{ id: d.scoringPlayerId, share: d.assist1PlayerId ? 0.6 : 1 }];
@@ -125,16 +127,16 @@ export function pushes(plays, awayId, rosterTeam) {
         tally[owner]++;
         const after = tally[owner] - tally[other(owner)];
         const key = first ? W.firstGoalMult : after === 0 || (after > 0 && before <= 0) ? W.tieOrLeadMult : 1; // ties it, or moves into the lead
-        add(owner, W.goal * (sh ? W.shorthandedGoalMult : 1) * key, 'goal', credits);
+        shot(owner, W.goal * (sh ? W.shorthandedGoalMult : 1) * key, 'goal', credits);
         break;
       }
-      case 'shot-on-goal': add(owner, W.sog * plateMult(d), 'sog', [{ id: d.shootingPlayerId, share: 1 }]); break;
-      case 'missed-shot': add(owner, W.miss * plateMult(d), 'miss', [{ id: d.shootingPlayerId, share: 1 }]); break;
+      case 'shot-on-goal': shot(owner, W.sog * plate(d), 'sog', [{ id: d.shootingPlayerId, share: 1 }]); break;
+      case 'missed-shot': shot(owner, W.miss * plate(d), 'miss', [{ id: d.shootingPlayerId, share: 1 }]); break;
       case 'blocked-shot': {
         const shooterTeam = rosterTeam.get(d.shootingPlayerId);
         const shooter = shooterTeam != null ? sideOf(shooterTeam) : owner ? other(owner) : null;
         if (!shooter) break;
-        add(shooter, W.blockedShooter * plateMult(d), 'block-attempt', [{ id: d.shootingPlayerId, share: 1 }]);
+        shot(shooter, W.blockedShooter * plate(d), 'block-attempt', [{ id: d.shootingPlayerId, share: 1 }]);
         if (d.blockingPlayerId && rosterTeam.get(d.blockingPlayerId) !== rosterTeam.get(d.shootingPlayerId)) {
           add(other(shooter), W.blocker, 'block', [{ id: d.blockingPlayerId, share: 1 }]);
         }
@@ -196,10 +198,10 @@ export function pushes(plays, awayId, rosterTeam) {
 }
 
 /** Full momentum picture for one game. */
-export function computeMomentum(pbp, awayId, gameEnd = null) {
+export function computeMomentum(pbp, awayId, gameEnd = null, W = MOMENTUM_WEIGHTS) {
   const plays = [...(pbp?.plays ?? [])].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
   const rosterTeam = new Map((pbp?.rosterSpots ?? []).map((r) => [r.playerId, r.teamId]));
-  const list = pushes(plays, awayId, rosterTeam);
+  const list = pushes(plays, awayId, rosterTeam, W);
   const regular = plays.filter((p) => p.periodDescriptor?.periodType !== 'SO');
   const last = regular.length ? elapsedOf(regular.at(-1)) : 0;
   const end = gameEnd ?? last;
@@ -237,7 +239,7 @@ export function computeMomentum(pbp, awayId, gameEnd = null) {
     while (i < list.length && list[i].t <= t) {
       const e = list[i++];
       decayTo(e.t);
-      if (e.kind === 'misconduct') e.debitW = Math.min(MOMENTUM_WEIGHTS.misconductMax, MOMENTUM_WEIGHTS.misconductBase + MOMENTUM_WEIGHTS.misconductPerPoint * (players.get(e.debit)?.pos ?? 0));
+      if (e.kind === 'misconduct') e.debitW = Math.min(W.misconductMax, W.misconductBase + W.misconductPerPoint * (players.get(e.debit)?.pos ?? 0));
       if (e.kind === 'fight-spark') {
         // The team that was behind gets the lift; when it's even there is nobody to wake up.
         e.team = level.away < level.home - 0.5 ? 'away' : level.home < level.away - 0.5 ? 'home' : null;
