@@ -21,7 +21,7 @@ const versions = VERSIONS.filter((v) => !only || only.includes(v.id));
 
 const files = (await readdir(dir)).filter((f) => f.endsWith('.ndjson.gz')).sort();
 const pairs = Object.fromEntries(versions.map((v) => [v.id, { half: [], ahead: [] }]));
-const result = { updated: new Date().toISOString(), versions: versions.map(({ id, name, note, live }) => ({ id, name, note, live: !!live })), seasons: {} };
+const result = { updated: new Date().toISOString(), versions: versions.map(({ id, name, note, live, leaky }) => ({ id, name, note, live: !!live, leaky: !!leaky })), seasons: {} };
 for (const f of files) {
   const season = Number(f.slice(0, 8));
   const games = gunzipSync(await readFile(join(dir, f))).toString().split('\n').filter(Boolean).map((l) => JSON.parse(l));

@@ -34,14 +34,12 @@ export const VERSIONS = [
   { id: 'v3-gs', name: 'v3, goals count as shots', goalAsShot: true, note: 'In "no goals", a goal still counts as the shot on goal it was, like SAT does. v3 drops it completely, which takes shots away from the team that scored.' },
   { id: 'v3-nopk', name: 'v3, goals as shots, no kill credit', goalAsShot: true, weights: { penaltyKilled: 0 }, note: 'A penalty killed off is only credited when the power play did not score, so it partly counts goals. This leaves it out.' },
   { id: 'v3-lean', name: 'v3, shots and penalties only', goalAsShot: true, weights: LEAN, note: 'Drops faceoffs, hits, takeaways and giveaways.' },
-  { id: 'v3-nohit', name: 'v3, no hits', goalAsShot: true, weights: { hit: 0 }, note: 'Hits are mostly made by the team without the puck.' },
-  { id: 'v3-noen', name: 'v3, empty net left out', goalAsShot: true, value: noEmptyNet, note: 'Pushes while a goalie is pulled do not count: the trailing team throws everything at the net then.' },
+  { id: 'v3-noen', name: 'v3, empty net left out', goalAsShot: true, value: noEmptyNet, note: 'Pushes while a goalie is pulled do not count: the trailing team throws everything at the net then. A goalie is pulled because a team is losing, so its same-game number gets a small unfair boost.' },
   { id: 'v3-xg', name: 'Shot quality (xG)', goalAsShot: true, goalShot: 'xg', value: xgValue(), note: 'Shots are worth their chance of going in (distance, angle, shot type) instead of a flat 1.0 with a home-plate bonus.' },
   { id: 'v3-pp', name: 'v3, power-play shots 0.6x', goalAsShot: true, value: ppShots(0.6), note: 'Power-play shots are easier to get; the penalty drawn already earned the credit.' },
-  { id: 'v3-score', name: 'v3, score-adjusted', goalAsShot: true, leaky: true, value: scoreAdjusted(0.2), note: 'A push by the team that is ahead counts more, by the team behind less, because trailing teams push harder. Uses the score, so its same-game number is not a fair test; judge it on the prediction checks.' },
-  { id: 'c1', name: 'Combo: no hits, no empty net, PP shots 0.6x, no kill credit', goalAsShot: true, weights: { hit: 0, penaltyKilled: 0 }, value: chain(noEmptyNet, ppShots(0.6)), note: '' },
-  { id: 'c2', name: 'Combo: lean, no empty net, PP shots 0.6x, no kill credit', goalAsShot: true, weights: { ...LEAN, penaltyKilled: 0 }, value: chain(noEmptyNet, ppShots(0.6)), note: '' },
-  { id: 'c3', name: 'Combo c1 + score-adjusted', goalAsShot: true, leaky: true, weights: { hit: 0, penaltyKilled: 0 }, value: chain(noEmptyNet, ppShots(0.6), scoreAdjusted(0.2)), note: '' },
+  { id: 'v3-plate3', name: 'v3, home plate 3x', goalAsShot: true, weights: { plate: 3 }, note: 'Shots from the home plate area (posts to dots to top of circles) count 3x instead of 1.5x.' },
+  { id: 'v4', name: 'v4 candidate', goalAsShot: true, weights: { ...LEAN, plate: 3 }, note: 'Goals count as shots, faceoffs, hits, takeaways and giveaways left out, home plate shots 3x. Found by searching weights on 2021-24 and checked on 2024-26, where it beat v3 and SAT in every season.' },
+  { id: 'v4-score', name: 'v4, score-adjusted', goalAsShot: true, leaky: true, weights: { ...LEAN, plate: 3 }, value: scoreAdjusted(0.1), note: 'v4 with pushes by the leading team counted a little more (10% per goal of lead). Better at prediction, but uses the score, so not fair for the same-game test.' },
 ];
 
 /** Prices shots by expected goals, scaled so an average shot on goal is still worth about 1.0. */

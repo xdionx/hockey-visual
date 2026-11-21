@@ -251,9 +251,10 @@ const LAB_CHECKS = [
 ];
 const diff = (v, base, isPct) => {
   if (v == null || base == null) return '';
-  const d = isPct ? (v - base) * 100 : v - base;
+  const raw = isPct ? (v - base) * 100 : v - base;
+  const d = Math.abs(raw) < (isPct ? 0.05 : 0.005) ? 0 : raw;
   const txt = isPct ? `${d > 0 ? '+' : d < 0 ? '−' : ''}${Math.abs(d).toFixed(1)}` : `${d > 0 ? '+' : d < 0 ? '−' : ''}${Math.abs(d).toFixed(2)}`;
-  return ` <small class="${d > 0.0005 ? 'ml-up' : d < -0.0005 ? 'ml-down' : ''}">${txt}</small>`;
+  return ` <small class="${d > 0 ? 'ml-up' : d < 0 ? 'ml-down' : ''}">${txt}</small>`;
 };
 
 function labCard(lab, view) {
