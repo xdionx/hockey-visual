@@ -9,11 +9,12 @@
 //   finished, from yesterday or today .............. 1 hour
 //   finished, 2 or more days old ................... 30 days (never changes)
 //
-// Routes: /sat/<gameId>.json (shot attempts per team, for the Scores page), /latest.json, /scores/<YYYY-MM-DD>.json, /games/<gameId>.json, /raw/<gameId>.json (the raw
+// Routes: /players/<playerId>.json (profile, seasons, last 5 games; 30 minutes), /sat/<gameId>.json (shot attempts per team, for the Scores page), /latest.json, /scores/<YYYY-MM-DD>.json, /games/<gameId>.json, /raw/<gameId>.json (the raw
 // NHL responses, for the replay simulator)
 import { normalizeScoreboard } from '../src/normalize.js';
 import { normalizeGameDetail } from '../src/gameDetail.js';
 import { shotAttempts } from '../src/sat.js';
+import { normalizePlayer } from '../src/player.js';
 
 // Bump this whenever the shape or wording of what src/ produces changes (labels, new fields):
 // finished games are cached at the edge for 30 days, so old answers must be left behind.
@@ -84,6 +85,8 @@ async function build(path) {
     const board = normalizeScoreboard(raw);
     return { body: board, ttl: scoreboardTtl(board, today) };
   }
+  m = path.match(/^\/players\/(\d{7,8})\.json$/);
+  if (m) return { body: normalizePlayer(await nhl(`player/${m[1]}/landing`)), ttl: 30 * 60 };
   m = path.match(/^\/sat\/(\d{10})\.json$/);
   if (m) {
     const pbp = await nhl(`gamecenter/${m[1]}/play-by-play`);
