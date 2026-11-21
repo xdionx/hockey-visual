@@ -22,7 +22,7 @@ import { getScoreboard, getGameDetailRaw } from '../src/nhlApi.js';
 import { normalizeGameDetail } from '../src/gameDetail.js';
 import { normalizeScoreboard } from '../src/normalize.js';
 import { shotAttempts } from '../src/sat.js';
-import { emptySeason, addGame, linesFromPbp, linesFromDetail, seasonOf, SEASON_VERSION } from '../src/seasonStats.js';
+import { emptySeason, addGame, fromPbp, linesFromDetail, seasonOf, SEASON_VERSION } from '../src/seasonStats.js';
 import { getPlayByPlay } from '../src/nhlApi.js';
 
 const args = process.argv.slice(2);
@@ -53,7 +53,8 @@ async function writeIfChanged(path, data) {
 /** Saves one finished game's player lines (SAT, momentum) for the season totals. */
 async function writeLines(gameId, pbp) {
   await mkdir(join(outDir, 'lines'), { recursive: true });
-  const out = { v: SEASON_VERSION, gameId, lines: linesFromPbp(pbp) };
+  const { lines, game } = fromPbp(pbp);
+  const out = { v: SEASON_VERSION, gameId, lines, game };
   await writeIfChanged(join(outDir, 'lines', `${gameId}.json`), out);
   return out;
 }
@@ -124,12 +125,12 @@ for (const f of (await readdir(join(outDir, 'games'))).filter((x) => x.endsWith(
   }
   // Time on ice comes from the box score (the play-by-play doesn't carry it).
   const toi = new Map(linesFromDetail(g).map((l) => [l.id, l.toi]));
-  addGame(total, saved.lines.map((l) => ({ ...l, toi: toi.get(l.id) ?? null })));
+  addGame(total, saved.lines.map((l) => ({ ...l, toi: toi.get(l.id) ?? null })), saved.game ?? null);
 }
 await mkdir(join(outDir, 'seasons'), { recursive: true });
 const seasonFile = join(outDir, 'seasons', `${season}.json`);
 const before = JSON.parse(await readFile(seasonFile, 'utf8').catch(() => 'null'));
-if (before?.games !== total.games || JSON.stringify(before?.players) !== JSON.stringify(total.players)) {
+if (before?.games !== total.games || JSON.stringify(before?.players) !== JSON.stringify(total.players) || JSON.stringify(before?.g) !== JSON.stringify(total.g)) {
   total.updated = new Date().toISOString();
   total.complete = false;
   await writeFile(seasonFile, `${JSON.stringify(total)}\n`);
