@@ -16,7 +16,7 @@ import { computeMomentum } from './momentum.js';
 
 // Bump when how a game line is computed changes (momentum weights, what counts as an attempt):
 // the backfill then rebuilds the saved seasons instead of mixing old and new numbers.
-export const SEASON_VERSION = 1;
+export const SEASON_VERSION = 2; // 2: backup goalies who never went in no longer count as a game played
 
 /** First season the NHL play-by-play has every event with rink coordinates (needed for momentum). */
 export const FIRST_FULL_SEASON = 20092010;
@@ -79,7 +79,9 @@ export function linesFromPbp(pbp) {
     if (e.typeDescKey === 'goal' || e.typeDescKey === 'shot-on-goal') a.sog++;
     att.set(id, a);
   }
-  return (pbp.rosterSpots ?? []).map((r) => {
+  // A dressed backup goalie who never went in didn't play (the NHL doesn't count that as a game).
+  const inNet = new Set(pbp.plays.map((e) => e.details?.goalieInNetId).filter(Boolean));
+  return (pbp.rosterSpots ?? []).filter((r) => r.positionCode !== 'G' || inNet.has(r.playerId)).map((r) => {
     const base = { id: r.playerId, name: `${t(r.firstName)} ${t(r.lastName)}`.trim(), team: abbrev[r.teamId] ?? '', pos: r.positionCode };
     if (r.positionCode === 'G') return { ...base, toi: null };
     const m = momentum[r.playerId];
