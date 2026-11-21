@@ -52,6 +52,15 @@
 .ms-more:hover { border-color: #38bdf8; }
 .pc-table small { color: var(--mute); font-size: 11px; }
 
+.ml-table td small { font-weight: 600; margin-left: 3px; }
+.ml-table td small.ml-up { color: #4ade80; }
+.ml-table td small.ml-down { color: #f87171; }
+.ml-table tr.ml-sat td { color: #fbbf24; font-weight: 600; border-bottom: 1px solid #334155; }
+.ml-table tr.ml-live td:first-child { font-weight: 700; }
+.ml-table td.ml-leak { color: #64748b !important; }
+.ml-tag { display: inline-block; padding: 1px 6px; margin-left: 4px; border-radius: 3px; background: #e11d48; color: #fff; font: 700 11px Inter, sans-serif; text-transform: uppercase; letter-spacing: .05em; }
+.ml-notes { margin: 8px 0 0; padding-left: 18px; color: #cbd5e1; line-height: 1.5; }
+
 @media (max-width: 640px) {
   .ms-hero h1 { font-size: 34px; }
   .ms-hero h1::before { height: 26px; }
