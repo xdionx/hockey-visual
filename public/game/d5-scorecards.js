@@ -217,9 +217,9 @@ export default {
 };
 
 // ---- Three stars: gold, silver and bronze cards with an expandable full scorecard ----
-const MEDAL = [['gold', '★ 1st star'], ['silver', '2nd star'], ['bronze', '3rd star']];
+const MEDAL = [['gold', '1st Star'], ['silver', '2nd Star'], ['bronze', '3rd Star']];
 // Until the NHL names its three stars, our own top performers show unlabeled by star.
-const TOP = [['gold', '★ Top performer'], ['silver', '2nd best'], ['bronze', '3rd best']];
+const TOP = [['gold', 'Top performer'], ['silver', '2nd best'], ['bronze', '3rd best']];
 const sgn = (v, d = 2) => `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v).toFixed(d)}`;
 const tile = (v, l) => `<div><b>${v}</b><small>${esc(l)}</small></div>`;
 const bars = (l, a, b, ca, cb, fa = a, fb = b) => `<div class="ss-cmp"><div><span>${esc(l)}</span><b>${esc(fa)} <em>vs</em> ${esc(fb)}</b></div><div class="ss-bar"><i style="flex:${Math.max(Math.abs(a), 0.01)};background:${ca}"></i><i style="flex:${Math.max(Math.abs(b), 0.01)};background:${cb}"></i></div></div>`;
