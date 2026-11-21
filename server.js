@@ -12,6 +12,8 @@ import { normalizeGameDetail } from './src/gameDetail.js';
 import { shotAttempts } from './src/sat.js';
 import { getPlayByPlay } from './src/nhlApi.js';
 import { normalizeScoreboard } from './src/normalize.js';
+import { getPlayer } from './src/nhlApi.js';
+import { normalizePlayer } from './src/player.js';
 
 const PORT = Number(process.env.PORT) || 3000;
 const ROOT = fileURLToPath(new URL('.', import.meta.url));
@@ -37,6 +39,11 @@ const server = http.createServer(async (req, res) => {
 
     const sat = url.pathname.match(/^\/data\/sat\/(\d{10})\.json$/);
     if (sat) return sendJson(res, 200, shotAttempts(await getPlayByPlay(sat[1])));
+    const pl = url.pathname.match(/^\/data\/players\/(\d{7,8})\.json$/);
+    if (pl) return sendJson(res, 200, normalizePlayer(await getPlayer(pl[1])));
+    // Season totals: whatever the data scripts saved under ./data/seasons (see scripts/update-data.js).
+    const se = url.pathname.match(/^\/data\/seasons\/(\d{8})\.json$/);
+    if (se) return sendJson(res, 200, JSON.parse(await readFile(join(ROOT, 'data', 'seasons', `${se[1]}.json`), 'utf8')));
     const r = url.pathname.match(/^\/data\/raw\/(\d{10})\.json$/);
     if (r) return sendJson(res, 200, await getGameDetailRaw(r[1]));
     if (url.pathname.startsWith('/src/')) { // the shared modules the replay runs in the browser

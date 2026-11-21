@@ -1,0 +1,58 @@
+# Builds past seasons' SAT and momentum totals per player (scripts/backfill-seasons.js) and keeps
+# them on the `seasons-data` branch; the publish workflow copies them into both sites.
+# A season is ~1,300 play-by-play requests (~12 minutes), so each run works for up to 45 minutes
+# and the next run picks up where it stopped. Runs while no games are on; once every season back to
+# 2009-10 is complete a run finishes in seconds.
+name: Backfill seasons
+
+on:
+  schedule:
+    - cron: '20 8-15 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: backfill-seasons
+  cancel-in-progress: false
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          path: prod
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Check out saved seasons
+        env:
+          REMOTE: https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}
+        run: |
+          if ! git clone --quiet --depth 1 --branch seasons-data "$REMOTE" seasons; then
+            git init --quiet -b seasons-data seasons
+            git -C seasons remote add origin "$REMOTE"
+          fi
+      - name: Build seasons from play-by-play
+        run: node prod/scripts/backfill-seasons.js seasons --minutes 45
+      - name: Save seasons
+        id: save
+        working-directory: seasons
+        run: |
+          git add -A
+          if ! git diff --cached --quiet; then
+            git -c user.name="github-actions[bot]" -c user.email="41898333+github-actions[bot]@users.noreply.github.com" \
+              commit --quiet -m "Update seasons"
+            git push --quiet origin seasons-data
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Republish the site with the new seasons
+        if: steps.save.outputs.changed == 'true'
+        run: gh workflow run publish.yml --repo "$GITHUB_REPOSITORY" --ref main
+        env:
+          GH_TOKEN: ${{ github.token }}

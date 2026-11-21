@@ -9,12 +9,17 @@
 //
 // Also writes <outDir>/games/<gameId>.json (the box score) for every game that has
 // started. Finished games already saved are skipped.
-import { mkdir, readFile, writeFile, access } from 'node:fs/promises';
+//
+// Then rolls the current season's finished regular-season games up into
+// <outDir>/seasons/<season>.json (SAT and momentum per player, see src/seasonStats.js).
+// Past seasons come from scripts/backfill-seasons.js instead.
+import { mkdir, readFile, writeFile, access, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { getScoreboard, getGameDetailRaw } from '../src/nhlApi.js';
 import { normalizeGameDetail } from '../src/gameDetail.js';
 import { normalizeScoreboard } from '../src/normalize.js';
 import { shotAttempts } from '../src/sat.js';
+import { emptySeason, addGame, linesFromDetail, seasonOf } from '../src/seasonStats.js';
 
 const args = process.argv.slice(2);
 const outDir = args.find((a) => !a.startsWith('--')) ?? 'data';
@@ -84,6 +89,25 @@ for (let date = from; date <= today; date = shift(date, 1)) {
       console.warn(`Box score ${game.id} failed: ${err.message}`);
     }
   }
+}
+
+// Current season totals, rebuilt from the saved box scores (cheap: no API calls).
+const season = seasonOf(today);
+const total = emptySeason(season);
+const gameFiles = (await readdir(join(outDir, 'games'))).filter((f) => f.endsWith('.json')).sort();
+for (const f of gameFiles) {
+  const g = JSON.parse(await readFile(join(outDir, 'games', f), 'utf8').catch(() => 'null'));
+  if (!g || g.season !== season || g.gameType !== 2 || g.status?.state !== 'final') continue;
+  addGame(total, linesFromDetail(g));
+}
+await mkdir(join(outDir, 'seasons'), { recursive: true });
+const seasonFile = join(outDir, 'seasons', `${season}.json`);
+const before = JSON.parse(await readFile(seasonFile, 'utf8').catch(() => 'null'));
+if (before?.games !== total.games || JSON.stringify(before?.players) !== JSON.stringify(total.players)) {
+  total.updated = new Date().toISOString();
+  total.complete = false;
+  await writeFile(seasonFile, `${JSON.stringify(total)}\n`);
+  changed++;
 }
 
 console.log(`NHL date ${today}: fetched ${fetched} days and ${boxFetched} box scores (${boxFailed} failed), ${changed} files changed`);
