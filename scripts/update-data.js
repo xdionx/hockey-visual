@@ -11,7 +11,10 @@
 // started. Finished games already saved are skipped.
 //
 // Then rolls the current season's finished regular-season games up into
-// <outDir>/seasons/<season>.json (SAT and momentum per player, see src/seasonStats.js).
+// <outDir>/seasons/<season>.json (SAT and momentum per player, see src/seasonStats.js). Each game's
+// player lines are computed from its play-by-play with today's model and kept in
+// <outDir>/lines/<gameId>.json, tagged with SEASON_VERSION: when the model changes, every game is
+// recomputed, so a season never mixes old and new momentum weights.
 // Past seasons come from scripts/backfill-seasons.js instead.
 import { mkdir, readFile, writeFile, access, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -19,7 +22,8 @@ import { getScoreboard, getGameDetailRaw } from '../src/nhlApi.js';
 import { normalizeGameDetail } from '../src/gameDetail.js';
 import { normalizeScoreboard } from '../src/normalize.js';
 import { shotAttempts } from '../src/sat.js';
-import { emptySeason, addGame, linesFromDetail, gameFromDetail, seasonOf } from '../src/seasonStats.js';
+import { emptySeason, addGame, fromPbp, linesFromDetail, seasonOf, SEASON_VERSION } from '../src/seasonStats.js';
+import { getPlayByPlay } from '../src/nhlApi.js';
 
 const args = process.argv.slice(2);
 const outDir = args.find((a) => !a.startsWith('--')) ?? 'data';
@@ -46,6 +50,15 @@ async function writeIfChanged(path, data) {
   return true;
 }
 
+/** Saves one finished game's player lines (SAT, momentum) for the season totals. */
+async function writeLines(gameId, pbp) {
+  await mkdir(join(outDir, 'lines'), { recursive: true });
+  const { lines, game } = fromPbp(pbp);
+  const out = { v: SEASON_VERSION, gameId, lines, game };
+  await writeIfChanged(join(outDir, 'lines', `${gameId}.json`), out);
+  return out;
+}
+
 const now = await getScoreboard();
 const today = now.currentDate;
 const refreshFrom = shift(today, -2);
@@ -69,9 +82,6 @@ await mkdir(join(outDir, 'games'), { recursive: true });
 await mkdir(join(outDir, 'sat'), { recursive: true });
 let boxFetched = 0;
 let boxFailed = 0;
-// Box scores saved before team momentum without goals existed are fetched once more, a few a run.
-let upgrades = 0;
-const UPGRADES_PER_RUN = 80;
 for (let date = from; date <= today; date = shift(date, 1)) {
   const day = JSON.parse(await readFile(join(outDir, 'scores', `${date}.json`), 'utf8').catch(() => 'null'));
   for (const game of day?.games ?? []) {
@@ -79,15 +89,14 @@ for (let date = from; date <= today; date = shift(date, 1)) {
     const file = join(outDir, 'games', `${game.id}.json`);
     const saved = JSON.parse(await readFile(file, 'utf8').catch(() => 'null'));
     const satFile = join(outDir, 'sat', `${game.id}.json`);
-    const stale = saved?.momentum && !saved.momentum.totalsNoGoals && upgrades < UPGRADES_PER_RUN;
-    if (saved?.status?.state === 'final' && date < refreshFrom && (await exists(satFile)) && !stale) continue;
-    if (stale && date < refreshFrom) upgrades++;
+    if (saved?.status?.state === 'final' && date < refreshFrom && (await exists(satFile))) continue;
     await new Promise((r) => setTimeout(r, 300));
     try {
       const raw = await getGameDetailRaw(game.id);
       const detail = normalizeGameDetail(raw);
       boxFetched++;
       if (raw.pbp) await writeIfChanged(satFile, shotAttempts(raw.pbp));
+      if (raw.pbp && detail.status.state === 'final' && detail.gameType === 2) await writeLines(game.id, raw.pbp);
       if (await writeIfChanged(file, detail)) changed++;
     } catch (err) {
       boxFailed++;
@@ -96,15 +105,27 @@ for (let date = from; date <= today; date = shift(date, 1)) {
   }
 }
 
-// Current season totals, rebuilt from the saved box scores (cheap: no API calls).
+// Current season totals from every finished regular-season game's player lines.
 const season = seasonOf(today);
 const total = emptySeason(season);
-const gameFiles = (await readdir(join(outDir, 'games'))).filter((f) => f.endsWith('.json')).sort();
-for (const f of gameFiles) {
+let linesFetched = 0;
+for (const f of (await readdir(join(outDir, 'games'))).filter((x) => x.endsWith('.json')).sort()) {
   const g = JSON.parse(await readFile(join(outDir, 'games', f), 'utf8').catch(() => 'null'));
   if (!g || g.season !== season || g.gameType !== 2 || g.status?.state !== 'final') continue;
-  const lines = linesFromDetail(g);
-  addGame(total, lines, gameFromDetail(g, lines));
+  let saved = JSON.parse(await readFile(join(outDir, 'lines', `${g.id}.json`), 'utf8').catch(() => 'null'));
+  if (saved?.v !== SEASON_VERSION) {
+    await new Promise((r) => setTimeout(r, 300));
+    try {
+      saved = await writeLines(g.id, await getPlayByPlay(g.id));
+      linesFetched++;
+    } catch (err) {
+      console.warn(`Player lines ${g.id} failed: ${err.message}`);
+      continue;
+    }
+  }
+  // Time on ice comes from the box score (the play-by-play doesn't carry it).
+  const toi = new Map(linesFromDetail(g).map((l) => [l.id, l.toi]));
+  addGame(total, saved.lines.map((l) => ({ ...l, toi: toi.get(l.id) ?? null })), saved.game ?? null);
 }
 await mkdir(join(outDir, 'seasons'), { recursive: true });
 const seasonFile = join(outDir, 'seasons', `${season}.json`);
@@ -116,4 +137,4 @@ if (before?.games !== total.games || JSON.stringify(before?.players) !== JSON.st
   changed++;
 }
 
-console.log(`NHL date ${today}: fetched ${fetched} days and ${boxFetched} box scores (${boxFailed} failed), ${changed} files changed`);
+console.log(`NHL date ${today}: fetched ${fetched} days, ${boxFetched} box scores (${boxFailed} failed) and ${linesFetched} player-line games, ${changed} files changed`);

@@ -19,6 +19,9 @@ test('play-by-play lines match the box score lines for SAT and momentum', () => 
     assert.equal(l.sog, d.sog, `SOG for ${l.name}`);
     assert.equal(l.mom, d.mom, `momentum for ${l.name}`);
   }
+  // Goalies: only the ones who went in count as a game played, the same as the box score.
+  const goalies = (lines) => lines.filter((l) => l.pos === 'G').map((l) => l.id).sort();
+  assert.deepEqual(goalies(linesFromPbp(raw.pbp)), goalies(linesFromDetail(normalizeGameDetail(raw))));
 });
 
 test('season totals add up and rank per game', () => {
