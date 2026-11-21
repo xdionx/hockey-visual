@@ -95,6 +95,13 @@ export function headshot(p, cls = 'mug') {
 }
 
 export const signed = (n) => (n > 0 ? `+${n}` : String(n));
+/** Faceoffs a skater took: { won, total, text: '6 / 10', pct: '60%' }, or null when they took none (so nothing is shown). */
+export function faceoffLine(p) {
+  const total = (p.fow ?? 0) + (p.fol ?? 0);
+  if (!total) return null;
+  return { won: p.fow, total, text: `${p.fow} / ${total}`, pct: `${Math.round((100 * p.fow) / total)}%` };
+}
+
 export const pct = (v, d = 3) => (v == null ? '-' : v.toFixed(d).replace(/^0/, ''));
 
 export function statusText(game) {

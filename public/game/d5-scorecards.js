@@ -1,6 +1,6 @@
 // Design 5 "Scorecards": one card per player with a game rating and what drove it.
 // A modern take on HockeyStats-style player game cards; the start of the per-player scorecard.
-import { esc, logo, teamColors, statusText, prettyDate, allSkaters, allGoalies, pct, signed, rinkMarkup, shotMark, headshot, ratingColor, GS_PARTS, on, morphInner, goalieXg, fold, penKind, elapsed } from './core.js';
+import { faceoffLine, esc, logo, teamColors, statusText, prettyDate, allSkaters, allGoalies, pct, signed, rinkMarkup, shotMark, headshot, ratingColor, GS_PARTS, on, morphInner, goalieXg, fold, penKind, elapsed } from './core.js';
 
 export const PART_COLORS = { scoring: '#6366f1', momentum: '#22c55e', shooting: '#0ea5e9', onIce: '#14b8a6', defense: '#a3a3a3', discipline: '#f59e0b', faceoffs: '#ec4899' };
 
@@ -87,6 +87,12 @@ export function disciplineChips(game, p) {
   return `<div class="s-discs">${list.map(chip).join('')}</div>`;
 }
 
+/** Faceoffs won / taken and the win %, only for players who took one. */
+function faceoffChip(p) {
+  const fo = faceoffLine(p);
+  return fo ? `<div class="s-fo"><span>Faceoffs</span><b>${fo.text}</b><em>${fo.pct}</em></div>` : '';
+}
+
 export function skaterCard(game, p, c, scale) {
   return `<article class="s-card" style="--team:${c[p.side]}">
     <div class="s-top">${headshot(p, 's-mug')}
@@ -95,6 +101,7 @@ export function skaterCard(game, p, c, scale) {
     </div>
     <div class="s-line"><span><b>${p.goals}</b>G</span><span><b>${p.assists}</b>A</span><span><b>${p.sog}</b>SOG</span><span><b>${signed(p.plusMinus)}</b>+/-</span><span title="Momentum impact: weighted plays that pushed momentum toward the player's team (swing plays count 1.5x)"><b>${p.momentum != null ? (p.momentum > 0 ? '+' : '') + p.momentum.toFixed(1) : '-'}</b>MOM</span><span><b>${esc(p.toi)}</b>TOI</span></div>
     ${p.onIce ? `<div class="s-onice" title="Shot attempts while on the ice, weighted: on goal 1, missed 0.5, blocked 0.35"><span>On-ice shots</span><b>${p.onIce.cf.toFixed(1)}</b><div class="s-oi-bar"><i style="width:${p.onIce.pct ?? 50}%"></i></div><b>${p.onIce.ca.toFixed(1)}</b><em>${p.onIce.pct != null ? `${Math.round(p.onIce.pct)}%` : ''}</em></div>` : ''}
+    ${faceoffChip(p)}
     ${disciplineChips(game, p)}
     ${p.swingPlays ? `<div class="s-swing">&#8635; ${p.swingPlays} swing play${p.swingPlays > 1 ? 's' : ''}</div>` : ''}
     <div class="s-body">
@@ -146,9 +153,10 @@ const openRows = new Set();
 /** One compact row per player; tapping it opens the momentum bar, shot map and the rest in place. */
 function playerRow(game, p, c, scale, rank) {
   const g = p.position === 'G';
+  const fo = g ? null : faceoffLine(p);
   const stats = g
     ? [[p.saves, 'SV'], [p.goalsAgainst, 'GA'], [pct(p.savePct), 'SV%'], [esc(p.toi), 'TOI']]
-    : [[p.goals, 'G'], [p.assists, 'A'], [p.sog, 'SOG'], [signed(p.plusMinus), '+/-'], [esc(p.toi), 'TOI']];
+    : [[p.goals, 'G'], [p.assists, 'A'], [p.sog, 'SOG'], [signed(p.plusMinus), '+/-'], [fo ? fo.won + '/' + fo.total : '', 'FO'], [esc(p.toi), 'TOI']];
   const sub = `#${p.number ?? ''} · ${esc(p.position)}${g && p.decision ? ` · ${esc(p.decision)}` : ''}`;
   const detail = g ? goalieCard(p, c) : skaterCard(game, p, c, scale);
   return `<details class="pr${g ? ' goalie' : ''}" data-pid="${p.id}" style="--team:${c[p.side]}"${openRows.has(p.id) ? ' open' : ''}>
@@ -156,7 +164,7 @@ function playerRow(game, p, c, scale, rank) {
       <span class="pr-rank">${rank}</span>
       ${headshot(p, 'pr-mug')}
       <span class="pr-who"><strong>${esc(p.fullName)}</strong><small>${sub}</small></span>
-      <span class="pr-stats">${stats.map(([v, l]) => `<span><b>${v}</b>${l}</span>`).join('')}</span>
+      <span class="pr-stats">${stats.map(([v, l]) => (v === '' ? `<span class="none"><b>0</b>${l}</span>` : `<span><b>${v}</b>${l}</span>`)).join('')}</span>
       ${ratingBadge(p.rating)}
       <span class="pr-chev" aria-hidden="true"></span>
       ${g ? '' : `<span class="pr-bar">${breakdownBar(p, scale)}</span>`}
@@ -324,7 +332,8 @@ function starPanel(game, c, p, i) {
   return `<div class="ss-panel ${MEDAL[i][0]}" data-panel="${i}" hidden><div class="ss-col"><h4>How the score adds up</h4>${rows}${total}</div>
     <div class="ss-col">${grp('Shooting and playmaking', [[p.attempts ?? '—', 'ATTEMPTS'], [p.sog, 'ON GOAL'], [p.homePlate ?? 0, 'FROM HOME PLATE']])}
       ${grp('Defense and puck care', [[p.blocks, 'BLOCKS'], [`${p.takeaways}/${p.giveaways}`, 'TAKE / GIVE'], [p.hits, 'HITS']])}
-      ${grp('Game flow', [[signed(p.plusMinus), '+/-'], [p.shifts, 'SHIFTS'], [`${p.penaltiesDrawn}/${p.penaltiesTaken}`, 'PEN DRAWN / TAKEN']])}</div>
+      ${grp('Game flow', [[signed(p.plusMinus), '+/-'], [p.shifts, 'SHIFTS'], [`${p.penaltiesDrawn}/${p.penaltiesTaken}`, 'PEN DRAWN / TAKEN']])}
+      ${faceoffLine(p) ? grp('Faceoffs', [[faceoffLine(p).text, 'WON / TAKEN'], [faceoffLine(p).pct, 'WIN %']]) : ''}</div>
     <div class="ss-col"><h4>Attempts and momentum</h4>
       ${p.onIce ? bars('Shot attempts while on ice', p.onIce.cf, p.onIce.ca, '#6366f1', '#64748b') : ''}
       ${bars('Momentum earned vs given up', mpos, mneg, '#22c55e', '#f43f5e', sgn(mpos, 1), sgn(-mneg, 1))}

@@ -1,6 +1,6 @@
 // Design 4 "Analytics": shot map, shot-attempt flow and heat-mapped player stats.
 // Inspired by HockeyStats and NHL EDGE style analytics pages.
-import { ZONES, esc, logo, teamColors, statusText, prettyDate, allSkaters, allGoalies, pct, signed, rinkMarkup, shotMark, elapsed, headshot, on, morphInner, goalieXg, fold } from './core.js';
+import { ZONES, faceoffLine, esc, logo, teamColors, statusText, prettyDate, allSkaters, allGoalies, pct, signed, rinkMarkup, shotMark, elapsed, headshot, on, morphInner, goalieXg, fold } from './core.js';
 
 function header(game, c) {
   const ls = game.linescore;
@@ -97,7 +97,7 @@ export function flowChart(game, c) {
 
 const HEAT_COLS = [
   ['gameScore', 'GS', (p) => p.gameScore.toFixed(2)], ['momentum', 'MOM', (p) => `${(p.momentum ?? 0) > 0 ? '+' : ''}${(p.momentum ?? 0).toFixed(1)}`], ['points', 'P'], ['goals', 'G'], ['assists', 'A'], ['sog', 'SOG'], ['attempts', 'SAT'],
-  ['plusMinus', '+/-', (p) => signed(p.plusMinus)], ['hits', 'HIT'], ['blocks', 'BLK'], ['takeaways', 'TK'], ['giveaways', 'GV'], ['toiSeconds', 'TOI', (p) => p.toi],
+  ['plusMinus', '+/-', (p) => signed(p.plusMinus)], ['fow', 'FO', (p) => faceoffLine(p)?.text.replace(' / ', '/') ?? ''], ['hits', 'HIT'], ['blocks', 'BLK'], ['takeaways', 'TK'], ['giveaways', 'GV'], ['toiSeconds', 'TOI', (p) => p.toi],
 ];
 
 export function heatTable(game, c) {

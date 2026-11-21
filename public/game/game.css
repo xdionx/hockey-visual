@@ -940,3 +940,10 @@ main { padding: 0 0 48px; }
 .ss-card { display: flex; flex-direction: column; }
 .ss-card .ss-more { margin-top: auto; }
 .ss-card .ss-leg + .ss-more, .ss-card .ss-bar + .ss-more { margin-top: auto; }
+
+/* Faceoffs: won / taken and win %, only for players who took a faceoff */
+.s-fo { display: flex; align-items: baseline; gap: 8px; margin-top: 8px; padding: 6px 10px; border-radius: 6px; background: rgba(255, 255, 255, .04); font-size: 12px; color: #aab4c5; }
+.s-fo span { font: 600 10px Inter, sans-serif; letter-spacing: .1em; text-transform: uppercase; }
+.s-fo b { font: 700 15px "Barlow Condensed", sans-serif; color: #fff; letter-spacing: .02em; }
+.s-fo em { font-style: normal; font-weight: 700; color: #ec4899; }
+.pr-stats .none { visibility: hidden; }
