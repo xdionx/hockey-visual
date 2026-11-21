@@ -71,6 +71,12 @@ jobs:
             git -C data remote add origin "$REMOTE"
           fi
 
+      - name: Check out past seasons (SAT and momentum totals, from the Backfill seasons workflow)
+        env:
+          REMOTE: https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}
+        run: |
+          git clone --quiet --depth 1 --branch seasons-data "$REMOTE" seasons || mkdir -p seasons/seasons
+
       - name: Refresh scores from the NHL API
         run: node prod/scripts/update-data.js data
 
@@ -92,6 +98,10 @@ jobs:
           cp -r data/scores data/latest.json site/data/
           if [ -d data/games ]; then cp -r data/games site/data/; fi
           if [ -d data/sat ]; then cp -r data/sat site/data/; fi
+          # Season totals: past seasons first, then the current season from data/ on top.
+          mkdir -p site/data/seasons
+          cp seasons/seasons/*.json site/data/seasons/ 2>/dev/null || true
+          cp data/seasons/*.json site/data/seasons/ 2>/dev/null || true
           if [ -d test/public ]; then
             mkdir -p site/test/data
             cp -r test/public/. site/test/
@@ -99,6 +109,7 @@ jobs:
             cp -r data/scores data/latest.json site/test/data/
             if [ -d data/games ]; then cp -r data/games site/test/data/; fi
             if [ -d data/sat ]; then cp -r data/sat site/test/data/; fi
+            cp -r site/data/seasons site/test/data/
           fi
           touch site/.nojekyll
           # Point both sites at the live data Worker once it exists (repo variable LIVE_API_URL).

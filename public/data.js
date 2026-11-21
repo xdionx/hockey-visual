@@ -22,5 +22,10 @@ export async function getData(path, base = '') {
   return get(`${base}data/${path}`);
 }
 
+/** A file only the GitHub Action saves (no live version), like the season totals. */
+export function getStatic(path, base = '') {
+  return get(`${base}data/${path}`);
+}
+
 /** How long to wait before refreshing a page that shows live games. */
 export const LIVE_REFRESH_MS = live ? 5_000 : 60_000;

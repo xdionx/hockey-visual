@@ -1,0 +1,108 @@
+/* Player links, hover buttons, quick view lightbox and the full player card. Game Story theme. */
+.pn { color: inherit; text-decoration: underline; text-decoration-color: color-mix(in srgb, currentColor 35%, transparent); text-decoration-thickness: 1px; text-underline-offset: 3px; cursor: pointer; }
+.pn:hover, .pn:focus-visible { text-decoration-color: currentColor; outline: none; }
+.pn:focus-visible { box-shadow: 0 0 0 2px #e11d48; border-radius: 2px; }
+
+.pn-chip { position: fixed; z-index: 60; display: flex; gap: 2px; padding: 2px; background: #0b1220; border: 1px solid #334155; border-radius: 6px; box-shadow: 0 6px 16px rgba(0,0,0,.45); }
+.pn-chip button, .pn-chip a { display: grid; place-items: center; width: 26px; height: 24px; border: 0; border-radius: 4px; background: none; color: #cbd5e1; cursor: pointer; padding: 0; }
+.pn-chip button:hover, .pn-chip a:hover { background: #1e293b; color: #fff; }
+.pn-chip svg, .pq svg { width: 15px; height: 15px; }
+
+/* Quick view */
+.pq { --pq-bg: #0b1220; --pq-card: #111827; --pq-line: #1f2937; --pq-ink: #f1f5f9; --pq-mute: #8b95a7; --pq-ours: #38bdf8;
+  padding: 0; border: 1px solid var(--pq-line); border-radius: 8px; background: var(--pq-bg); color: var(--pq-ink); width: min(calc(100vw - 32px), 460px); max-width: none; overflow: hidden;
+  font: 14px/1.4 Inter, system-ui, sans-serif; box-shadow: 0 24px 60px rgba(0,0,0,.6); }
+.pq::backdrop { background: rgba(2, 6, 15, .72); }
+.pq-head { --team: #334155; display: flex; align-items: center; gap: 12px; padding: 14px 10px 14px 14px; background: linear-gradient(105deg, var(--team) 0%, color-mix(in srgb, var(--team) 40%, #05080f) 100%); }
+.pq-mug { width: 64px; height: 64px; border-radius: 50%; background: rgba(255,255,255,.12); object-fit: cover; flex: none; border: 2px solid rgba(255,255,255,.25); }
+.pq-mug-fb { display: grid; place-items: center; font: 800 22px "Barlow Condensed", sans-serif; color: #fff; }
+.pq-who { flex: 1; min-width: 0; }
+.pq-who h2 { margin: 0; font: 800 28px/1 "Barlow Condensed", sans-serif; text-transform: uppercase; letter-spacing: .02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pq-who span { font-size: 13px; color: rgba(255,255,255,.8); }
+.pq-icon { display: grid; place-items: center; width: 34px; height: 34px; flex: none; border: 0; border-radius: 50%; background: rgba(0,0,0,.28); color: #fff; font-size: 22px; line-height: 1; cursor: pointer; text-decoration: none; }
+.pq-icon:hover { background: rgba(0,0,0,.5); }
+.pq-body { padding: 14px; }
+.pq-loading { min-height: 220px; background: linear-gradient(90deg, transparent, rgba(255,255,255,.04), transparent) 0 0 / 200% 100%; animation: pq-shine 1.2s linear infinite; }
+@keyframes pq-shine { to { background-position: -200% 0; } }
+.pq-label { font: 700 13px "Barlow Condensed", sans-serif; letter-spacing: .1em; text-transform: uppercase; color: var(--pq-mute); margin-bottom: 8px; }
+.pq-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.pq-t { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; padding: 10px 4px 8px; background: var(--pq-card); border: 1px solid var(--pq-line); border-radius: 4px; text-align: center; min-width: 0; }
+.pq-v { font: 800 26px/1 "Barlow Condensed", sans-serif; font-variant-numeric: tabular-nums; }
+.pq-k { font: 700 12px "Barlow Condensed", sans-serif; letter-spacing: .08em; color: var(--pq-mute); text-transform: uppercase; }
+.pq-s { font-size: 11px; color: var(--pq-mute); display: flex; flex-direction: column; align-items: center; gap: 3px; width: 100%; }
+.pq-hl .pq-v { color: #fbbf24; }
+.pq-ours { border-color: color-mix(in srgb, var(--pq-ours) 35%, var(--pq-line)); background: color-mix(in srgb, var(--pq-ours) 7%, var(--pq-card)); }
+.pq-ours .pq-k { color: var(--pq-ours); }
+.pq-bar { display: block; width: 70%; height: 3px; border-radius: 2px; background: #1e293b; overflow: hidden; }
+.pq-bar b { display: block; height: 100%; background: var(--pq-ours); }
+.pq-note { margin: 10px 0 0; font-size: 12px; color: var(--pq-mute); }
+.pq-full { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 12px; padding: 10px; border-radius: 4px; background: #e11d48; color: #fff; font: 700 16px "Barlow Condensed", sans-serif; letter-spacing: .06em; text-transform: uppercase; text-decoration: none; }
+.pq-full:hover { background: #be123c; }
+@media (max-width: 420px) { .pq-v { font-size: 22px; } .pq-who h2 { font-size: 24px; } }
+
+/* Full player card */
+body.pc-page { --page: #0a0e17; --ink: #e8edf5; --mute: #8b95a7; --line: #1f2937; --surface: #111827; background: var(--page); color: var(--ink); }
+.pc-page .pq-t { --pq-card: #111827; --pq-line: #1f2937; --pq-mute: #8b95a7; --pq-ours: #38bdf8; }
+.pc-page { --pq-card: #111827; --pq-line: #1f2937; --pq-mute: #8b95a7; --pq-ours: #38bdf8; }
+.pc-wrap { max-width: 1100px; margin: 0 auto; padding: 16px 16px 56px; }
+.pc-hero { --team: #334155; display: flex; align-items: center; gap: 24px; padding: 24px; border-radius: 6px; background: linear-gradient(105deg, var(--team) 0%, color-mix(in srgb, var(--team) 40%, #05080f) 100%); color: #fff; }
+.pc-mug { width: 148px; height: 148px; border-radius: 50%; flex: none; object-fit: cover; background: rgba(255,255,255,.12); border: 3px solid rgba(255,255,255,.25); font-size: 44px !important; }
+.pc-id { min-width: 0; }
+.pc-kicker { font: 700 15px "Barlow Condensed", sans-serif; letter-spacing: .1em; text-transform: uppercase; opacity: .85; }
+.pc-hero h1 { margin: 2px 0; font: 600 52px/0.95 "Barlow Condensed", sans-serif; text-transform: uppercase; }
+.pc-hero h1 b { font-weight: 800; }
+.pc-team { font-size: 15px; opacity: .85; }
+.pc-facts { display: flex; flex-wrap: wrap; gap: 6px 22px; margin: 14px 0 0; }
+.pc-facts div { display: flex; flex-direction: column; }
+.pc-facts dt { font: 700 12px "Barlow Condensed", sans-serif; letter-spacing: .1em; text-transform: uppercase; opacity: .7; }
+.pc-facts dd { margin: 0; font-weight: 600; font-size: 14px; }
+.pc-cols { display: grid; gap: 16px; margin-top: 16px; }
+.pc-card { background: #111827; border: 1px solid #1f2937; border-radius: 4px; padding: 16px; min-width: 0; }
+.pc-card h2 { margin: 0 0 12px; font: 800 20px "Barlow Condensed", sans-serif; letter-spacing: .05em; text-transform: uppercase; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.pc-card h2::before { content: ""; align-self: center; width: 6px; height: 18px; background: #e11d48; transform: skewX(-15deg); }
+.pc-card h2 small { font: 400 12px Inter, sans-serif; color: var(--mute); text-transform: none; letter-spacing: 0; }
+.pc-sub { margin: 16px 0 8px; font: 700 15px "Barlow Condensed", sans-serif; letter-spacing: .08em; text-transform: uppercase; color: #38bdf8; }
+.pc-sub small { font: 400 12px Inter, sans-serif; color: var(--mute); text-transform: none; letter-spacing: 0; }
+.pc-grid { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); }
+.pc-scroll { overflow-x: auto; }
+.pc-table { width: 100%; font-size: 14px; }
+.pc-table th { font: 700 14px "Barlow Condensed", sans-serif; letter-spacing: .05em; text-transform: uppercase; color: var(--mute); text-align: right; padding: 6px 8px; border-bottom: 1px solid #1f2937; white-space: nowrap; }
+.pc-table td { text-align: right; padding: 7px 8px; border-bottom: 1px solid #172031; white-space: nowrap; }
+.pc-table .l { text-align: left; }
+.pc-table tbody tr:hover { background: #162032; }
+.pc-table th.pc-o { color: #38bdf8; }
+.pc-table td.pc-o { color: #bae6fd; font-weight: 600; }
+.pc-table td.pc-o.up { color: #4ade80; }
+.pc-table td.pc-o.down { color: #f87171; }
+.pc-table td.pc-na { color: #475569; }
+.pc-table .pc-tot td { border-top: 2px solid #334155; font-weight: 700; }
+.pc-table a { color: #93c5fd; text-decoration: none; }
+.pc-rate { display: inline-block; min-width: 36px; padding: 1px 6px; border-radius: 3px; background: #1e293b; font-weight: 700; text-align: center; }
+.pc-fold summary { cursor: pointer; list-style: none; }
+.pc-fold summary::-webkit-details-marker { display: none; }
+.pc-fold summary h2 { margin: 0; }
+.pc-fold[open] summary h2 { margin-bottom: 12px; }
+.pc-fold summary h2::after { content: "\25BE"; font-size: 14px; color: var(--mute); }
+
+/* Season trend bars */
+.pt-wrap { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+.pt { margin: 0; min-width: 0; }
+.pt figcaption { font: 700 14px "Barlow Condensed", sans-serif; letter-spacing: .08em; text-transform: uppercase; color: #38bdf8; margin-bottom: 4px; }
+.pt-scroll { overflow-x: auto; }
+.pt svg { display: block; }
+.pt-up { fill: #38bdf8; }
+.pt-down { fill: #f87171; }
+.pt-pend { fill: none; stroke: #475569; stroke-dasharray: 3 2; }
+.pt-zero { stroke: #334155; }
+.pt-v { fill: #cbd5e1; font: 600 10px Inter, sans-serif; text-anchor: middle; }
+.pt-y { fill: #64748b; font: 600 9px Inter, sans-serif; text-anchor: middle; }
+.pt-part rect { opacity: .45; }
+.pc-table td.pc-part { color: #64748b !important; font-weight: 400; }
+
+@media (max-width: 640px) {
+  .pc-hero { flex-direction: column; text-align: center; padding: 20px 16px; gap: 12px; }
+  .pc-mug { width: 112px; height: 112px; }
+  .pc-hero h1 { font-size: 40px; }
+  .pc-facts { justify-content: center; }
+  .pc-card { padding: 12px; }
+}
