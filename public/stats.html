@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="icons/favicon.svg?v=hv2" type="image/svg+xml">
+  <link rel="icon" href="icons/favicon.ico?v=hv2" sizes="any">
+  <link rel="icon" href="icons/favicon-32.png?v=hv2" type="image/png" sizes="32x32">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=hv2">
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#0a0e17">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="NHL Scores">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Momentum stats</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap">
+  <link rel="stylesheet" href="game/game.css">
+  <link rel="stylesheet" href="player/player.css" data-player-css>
+  <link rel="stylesheet" href="stats/stats.css">
+</head>
+<body class="pc-page ms-page">
+  <header class="bar">
+    <a class="back" href="./">&#8249; Scores</a>
+    <span class="ms-bar-title">Momentum stats</span>
+  </header>
+  <main id="stats" class="pc-wrap ms-wrap" aria-live="polite"><p class="msg">Loading…</p></main>
+  <script type="module" src="stats/page.js"></script>
+</body>
+</html>
