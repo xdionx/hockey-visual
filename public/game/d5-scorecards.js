@@ -218,7 +218,7 @@ export default {
 
 // ---- Top performers: gold, silver and bronze cards with an expandable full scorecard ----
 // The top three players by our own game score (not the NHL's official three stars).
-const MEDAL = [['gold', 'Top Performer'], ['silver', '2nd Best'], ['bronze', '3rd Best']];
+const MEDAL = [['gold', 'Top Performer'], ['silver', ''], ['bronze', '']];
 const sgn = (v, d = 2) => `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v).toFixed(d)}`;
 const tile = (v, l) => `<div><b>${v}</b><small>${esc(l)}</small></div>`;
 const bars = (l, a, b, ca, cb, fa = a, fb = b) => `<div class="ss-cmp"><div><span>${esc(l)}</span><b>${esc(fa)} <em>vs</em> ${esc(fb)}</b></div><div class="ss-bar"><i style="flex:${Math.max(Math.abs(a), 0.01)};background:${ca}"></i><i style="flex:${Math.max(Math.abs(b), 0.01)};background:${cb}"></i></div></div>`;
@@ -253,7 +253,7 @@ function starBar(p, scale) {
 
 function starCard(game, c, p, i) {
   const [tier, kicker] = MEDAL[i];
-  return `<article class="ss-card ${tier}" style="--team:${c[p.side]}"><span class="ss-medal">${kicker}</span>
+  return `<article class="ss-card ${tier}" style="--team:${c[p.side]}">${kicker ? `<span class="ss-medal">${kicker}</span>` : ''}
     <div class="ss-top">${headshot(p, 'ss-mug')}<div class="ss-who"><strong>${esc(p.fullName)}</strong><span>#${p.number ?? ''} · ${esc(p.position)} · ${esc(game[p.side].name)}</span></div>
       <div class="ss-rate" style="--r:${ratingColor(p.rating)}">${p.rating.toFixed(1)}<small>GAME SCORE ${sgn(p.gameScore, 1)}</small></div></div>
     <div class="ss-tiles">${starTiles(p).map(([v, l]) => tile(v, l)).join('')}</div>
