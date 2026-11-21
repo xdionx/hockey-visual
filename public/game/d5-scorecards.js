@@ -1,5 +1,7 @@
 // Design 5 "Scorecards": one card per player with a game rating and what drove it.
 // A modern take on HockeyStats-style player game cards; the start of the per-player scorecard.
+import { hero } from './d2-broadcast.js';
+import { colors, header as secHeader } from './d6-story.js';
 import { faceoffLine, esc, logo, teamColors, statusText, prettyDate, allSkaters, allGoalies, pct, signed, rinkMarkup, shotMark, headshot, ratingColor, GS_PARTS, on, morphInner, goalieXg, fold, penKind, elapsed } from './core.js';
 
 export const PART_COLORS = { scoring: '#6366f1', momentum: '#22c55e', shooting: '#0ea5e9', onIce: '#14b8a6', defense: '#a3a3a3', discipline: '#f59e0b', faceoffs: '#ec4899' };
@@ -244,22 +246,29 @@ export function mountScorecards(root, game, c) {
 export default {
   id: 'scorecards',
   name: 'Scorecards',
-  inspiration: 'Per-player game cards with a rating and what drove it: a modern take on HockeyStats player cards',
+  inspiration: 'Per-player game cards with a rating and what drove it',
+  classes: 'd-story d-broadcast d-analytics d-scorecards',
   render(game) {
-    const c = teamColors(game);
+    const c = colors(game);
     const sk = allSkaters(game);
     const all = [...sk, ...allGoalies(game)].sort((a, b) => b.rating - a.rating || b.gameScore - a.gameScore);
-    const scale = Math.max(1.5, ...sk.map((p) => Object.values(p.gameScoreParts).reduce((a, v) => a + Math.max(0, v), 0))) * 1.05;
-    return `<div class="s-wrap">
-      ${header(game, c)}
-      ${spotlight(game, c, all, scale)}
-      ${scorecardControls(game)}
-      <section class="s-grid" id="s-grid" data-js></section>
-      ${scorecardKey()}
+    const scale = Math.max(1.5, ...sk.map((p) => Object.values(p.gameScoreParts).reduce((t, v) => t + Math.max(0, v), 0))) * 1.05;
+    const started = game.status.state === 'live' || game.status.state === 'final';
+    return `<div class="b-wrap st-wrap">
+      ${hero(game, c, { strip: false, shots: true })}
+      ${started ? `
+      ${game.status.state === 'final' ? starsRow(game, c, all) : `<section class="st-sec">${secHeader(1, 'top', 'Top performers')}${spotlight(game, c, all, scale)}</section>`}
+      <section class="st-sec">
+        ${secHeader(1, 'players', 'Player scorecards', 'Each player’s rating and what drove it. Tap a row to expand.')}
+        ${scorecardControls(game)}
+        <div class="s-grid" id="s-grid" data-js></div>
+        ${scorecardKey()}
+      </section>` : '<p class="st-empty">Scorecards appear once the game starts.</p>'}
     </div>`;
   },
   mount(root, game) {
-    mountScorecards(root, game, teamColors(game));
+    if (root.querySelector('#s-grid')) mountScorecards(root, game, colors(game));
+    mountStars(root);
   },
 };
 

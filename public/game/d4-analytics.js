@@ -1,5 +1,7 @@
 // Design 4 "Analytics": shot map, shot-attempt flow and heat-mapped player stats.
 // Inspired by HockeyStats and NHL EDGE style analytics pages.
+import { hero, statBars } from './d2-broadcast.js';
+import { colors, header as secHeader, lineScore } from './d6-story.js';
 import { ZONES, faceoffLine, esc, logo, teamColors, statusText, prettyDate, allSkaters, allGoalies, pct, signed, rinkMarkup, shotMark, elapsed, headshot, on, morphInner, goalieXg, fold } from './core.js';
 
 function header(game, c) {
@@ -334,15 +336,21 @@ export function mountShotMap(root, game, c) {
 
 export default {
   id: 'analytics',
-  name: 'Analytics',
-  inspiration: 'Shot map, shot-attempt flow and heat-mapped stats, inspired by HockeyStats and NHL EDGE',
+  name: 'Game Stats',
+  inspiration: 'Team stats, shot map and the skater and goalie box score',
+  classes: 'd-story d-broadcast d-analytics d-scorecards',
   render(game) {
-    const c = teamColors(game, { dark: true });
-    return `<div class="a-wrap">${header(game, c)}${kpis(game, c)}
-      <div class="a-cols">${shotMap(game, c)}${flowChart(game, c)}</div>
-      ${goalies(game, c)}${heatTable(game, c)}</div>`;
+    const c = colors(game);
+    const started = game.status.state === 'live' || game.status.state === 'final';
+    return `<div class="b-wrap st-wrap">
+      ${hero(game, c, { strip: false, shots: true })}
+      ${started ? `
+      <section class="st-sec">${secHeader(1, 'team', 'Team stats')}${statBars(game, c)}</section>
+      <section class="st-sec">${secHeader(2, 'shots', 'Shot map', 'Switch between every attempt and the zone map.')}${shotMap(game, c)}</section>
+      <section class="st-sec">${secHeader(3, 'box', 'Box score')}${lineScore(game, c)}${heatTable(game, c)}${goalieTable(game, c)}</section>` : '<p class="st-empty">Stats appear once the game starts.</p>'}
+    </div>`;
   },
   mount(root, game) {
-    mountShotMap(root, game, teamColors(game, { dark: true }));
+    if (root.querySelector('#a-shots')) mountShotMap(root, game, colors(game));
   },
 };
