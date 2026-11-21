@@ -248,7 +248,7 @@ function render() {
   const { list, season, pos, showAll } = state;
   const sel = list.find((s) => s.season === season);
   const total = sel?.total;
-  const head = `<section class="ms-hero"><span class="pc-kicker">Our model · regular season</span><h1>Momentum <b>stats</b></h1>
+  const head = `<section class="ms-hero"><span class="pc-kicker">Our model${total?.v ? ` v${total.v}` : ''} · regular season</span><h1>Momentum <b>stats</b></h1>
     <p>How the momentum model rates players and teams, and how well it lines up with winning, season by season.</p>${chips(list, season)}</section>`;
   if (!total) {
     main.innerHTML = `${head}<section class="pc-card"><p class="pq-note">${fmt.season(season)} hasn't been built yet. Seasons are rebuilt from the NHL play-by-play a few at a time; pick another season above.</p></section>${trendsCard(list)}`;
