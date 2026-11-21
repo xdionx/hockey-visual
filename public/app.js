@@ -1,6 +1,7 @@
 import { getData, LIVE_REFRESH_MS } from './data.js';
 import { teamColors, strengthBadge, contrastRatio } from './game/core.js';
 import { hornToggles, watchGoals } from './horn.js';
+import { playerIndex, linkPlayers, installPlayerLinks } from './player/link.js';
 
 const $ = (s) => document.querySelector(s);
 const dateInput = $('#date');
@@ -214,12 +215,27 @@ const stripPos = new Map();
 function saveStrips() { gamesEl.querySelectorAll('.cd').forEach((c) => { const st = c.querySelector('.gstrip'); if (st) stripPos.set(c.dataset.id, st.scrollLeft); }); }
 function restoreStrips() { gamesEl.querySelectorAll('.cd').forEach((c) => { const st = c.querySelector('.gstrip'); if (st && stripPos.has(c.dataset.id)) st.scrollLeft = stripPos.get(c.dataset.id); }); }
 
+/** Goal scorers and assists in one game, so their names link to player cards. */
+const namesCache = new Map();
+function gameNames(game) {
+  const key = `${game.id}:${(game.goals ?? []).length}`;
+  if (!namesCache.has(key)) {
+    const people = (game.goals ?? []).flatMap((g) => [
+      { ...g.scorer, fullName: [g.scorer.firstName, g.scorer.lastName].filter(Boolean).join(' ') },
+      ...(g.assists ?? []),
+    ]);
+    const avoid = ['away', 'home'].flatMap((s) => [game[s]?.name, game[s]?.placeName, game[s]?.commonName, game[s]?.abbrev]);
+    namesCache.set(key, playerIndex(people, { avoid }));
+  }
+  return namesCache.get(key);
+}
+
 function render(data) {
   saveStrips();
   $('#dateLabel').textContent = prettyDate(data.date);
   setTitle(data.date);
   gamesEl.innerHTML = data.games.length
-    ? data.games.map(gameHtml).join('')
+    ? data.games.map((g) => linkPlayers(gameHtml(g), gameNames(g))).join('')
     : '<p class="msg">No games scheduled on this date.</p>';
   restoreStrips();
 }
@@ -325,3 +341,4 @@ $('#next').addEventListener('click', () => current && load(shiftDate(current.dat
 $('#today').addEventListener('click', () => load());
 
 load(new URLSearchParams(location.search).get('date'));
+installPlayerLinks();
