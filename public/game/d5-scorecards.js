@@ -140,6 +140,31 @@ export function spotlight(game, c, players, scale) {
   return players.slice(0, 3).map((p, i) => spot(game, c, p, scale, i + 1)).join('');
 }
 
+// Rows the viewer opened (by player id). Kept outside the render so live refreshes don't close them.
+const openRows = new Set();
+
+/** One compact row per player; tapping it opens the momentum bar, shot map and the rest in place. */
+function playerRow(game, p, c, scale, rank) {
+  const g = p.position === 'G';
+  const stats = g
+    ? [[p.saves, 'SV'], [p.goalsAgainst, 'GA'], [pct(p.savePct), 'SV%'], [esc(p.toi), 'TOI']]
+    : [[p.goals, 'G'], [p.assists, 'A'], [p.sog, 'SOG'], [signed(p.plusMinus), '+/-'], [esc(p.toi), 'TOI']];
+  const sub = `#${p.number ?? ''} · ${esc(p.position)}${g && p.decision ? ` · ${esc(p.decision)}` : ''}`;
+  const detail = g ? goalieCard(p, c) : skaterCard(game, p, c, scale);
+  return `<details class="pr${g ? ' goalie' : ''}" data-pid="${p.id}" style="--team:${c[p.side]}"${openRows.has(p.id) ? ' open' : ''}>
+    <summary>
+      <span class="pr-rank">${rank}</span>
+      ${headshot(p, 'pr-mug')}
+      <span class="pr-who"><strong>${esc(p.fullName)}</strong><small>${sub}</small></span>
+      <span class="pr-stats">${stats.map(([v, l]) => `<span><b>${v}</b>${l}</span>`).join('')}</span>
+      ${ratingBadge(p.rating)}
+      <span class="pr-chev" aria-hidden="true"></span>
+      ${g ? '' : `<span class="pr-bar">${breakdownBar(p, scale)}</span>`}
+    </summary>
+    <div class="pr-detail">${detail}</div>
+  </details>`;
+}
+
 export function grid(game, c, state) {
   const sk = allSkaters(game);
   const gs = allGoalies(game);
@@ -151,7 +176,15 @@ export function grid(game, c, state) {
   const key = { rating: (p) => p.rating, points: (p) => (p.points ?? -1) * 100 + p.rating, toi: (p) => p.toiSeconds }[state.sort];
   list.sort((a, b) => key(b) - key(a));
   const scale = Math.max(1.5, ...sk.map((p) => Object.values(p.gameScoreParts).reduce((a, v) => a + Math.max(0, v), 0)), ...sk.map((p) => -Object.values(p.gameScoreParts).reduce((a, v) => a + Math.min(0, v), 0))) * 1.05;
-  return list.map((p) => (p.position === 'G' ? goalieCard(p, c) : skaterCard(game, p, c, scale))).join('') || '<p class="s-muted">No players match.</p>';
+  if (!list.length) return '<p class="s-muted">No players match.</p>';
+  // One ranked column per team, so each side's best players come to the top.
+  const col = (side) => {
+    const mine = list.filter((p) => p.side === side);
+    if (!mine.length) return '';
+    return `<section class="pr-col" style="--team:${c[side]}"><h3>${esc(game[side].name)}<small>${esc(game[side].abbrev)}</small></h3>${mine.map((p, i) => playerRow(game, p, c, scale, i + 1)).join('')}</section>`;
+  };
+  const cols = ['away', 'home'].map(col).join('');
+  return `<div class="pr-cols${state.team === 'all' ? '' : ' one'}">${cols}</div>`;
 }
 
 export function scorecardControls(game) {
@@ -183,6 +216,12 @@ export function mountScorecards(root, game, c) {
   });
   const el = root.querySelector('#s-grid');
   const draw = () => morphInner(el, grid(game, c, state));
+  // 'toggle' doesn't bubble, so listen in the capture phase.
+  on(el, 'toggle', (e) => {
+    const id = Number(e.target.dataset?.pid);
+    if (!id) return;
+    if (e.target.open) openRows.add(id); else openRows.delete(id);
+  }, { capture: true });
   on(root.querySelector('#s-controls'), 'click', (e) => {
     const b = e.target.closest('button[data-v]');
     if (!b) return;
