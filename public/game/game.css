@@ -935,3 +935,8 @@ main { padding: 0 0 48px; }
 @media (max-width: 1000px) { .pr-cols { grid-template-columns: 1fr; } }
 @media (max-width: 520px) { .pr summary { grid-template-columns: 20px 34px minmax(0, 1fr) 46px 12px; } .pr-stats { display: none; } .pr-bar { grid-column: 3 / 5; } }
 #s-grid.s-grid { display: block; }
+/* The three top-performer cards stay the same height; the Full scorecard button sits at the bottom */
+.ss-cards { align-items: stretch; }
+.ss-card { display: flex; flex-direction: column; }
+.ss-card .ss-more { margin-top: auto; }
+.ss-card .ss-leg + .ss-more, .ss-card .ss-bar + .ss-more { margin-top: auto; }
