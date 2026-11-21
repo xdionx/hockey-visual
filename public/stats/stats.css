@@ -1,0 +1,60 @@
+/* Momentum stats page. Builds on the player card styles (Game Story theme). */
+.ms-bar-title { font: 700 16px "Barlow Condensed", sans-serif; letter-spacing: .08em; text-transform: uppercase; color: var(--mute); }
+.ms-hero { padding: 20px 0 4px; }
+.ms-hero .pc-kicker { color: #38bdf8; }
+.ms-hero h1 { margin: 2px 0 6px; font: 600 48px/0.95 "Barlow Condensed", sans-serif; text-transform: uppercase; display: flex; align-items: center; gap: 12px; }
+.ms-hero h1::before { content: ""; width: 8px; height: 34px; background: #e11d48; transform: skewX(-15deg); }
+.ms-hero h1 b { font-weight: 800; }
+.ms-hero p { margin: 0 0 14px; color: var(--mute); max-width: 680px; }
+.ms-seasons { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 6px; scrollbar-width: thin; }
+.ms-chip { flex: none; padding: 6px 11px; border-radius: 4px; background: #111827; border: 1px solid #1f2937; color: var(--ink); text-decoration: none; font: 700 15px "Barlow Condensed", sans-serif; letter-spacing: .04em; }
+.ms-chip:hover { border-color: #38bdf8; }
+.ms-chip[aria-current="true"] { background: #e11d48; border-color: #e11d48; color: #fff; }
+.ms-chip i { font-style: normal; color: #fbbf24; margin-left: 2px; }
+.ms-chip[aria-current="true"] i { color: #fff; }
+.ms-off { color: #475569; border-style: dashed; background: none; cursor: default; }
+.ms-off:hover { border-color: #1f2937; }
+.ms-banner { margin: 12px 0 0; padding: 10px 14px; border-radius: 4px; border-left: 4px solid #fbbf24; background: color-mix(in srgb, #fbbf24 8%, #111827); font-size: 14px; }
+.ms-banner.ms-now { border-left-color: #38bdf8; background: color-mix(in srgb, #38bdf8 8%, #111827); }
+.ms-lede { margin: 0 0 14px; color: #cbd5e1; max-width: 820px; font-size: 14px; }
+
+.ms-wins { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px; }
+.ms-win { display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; background: #0b1220; border: 1px solid #1f2937; border-top: 3px solid var(--c); border-radius: 4px; }
+.ms-win.ms-hl { background: color-mix(in srgb, var(--c) 9%, #0b1220); border-color: color-mix(in srgb, var(--c) 40%, #1f2937); border-top-color: var(--c); }
+.ms-win-k { font: 700 13px "Barlow Condensed", sans-serif; letter-spacing: .08em; text-transform: uppercase; color: var(--mute); }
+.ms-win-v { font: 800 38px/1 "Barlow Condensed", sans-serif; font-variant-numeric: tabular-nums; }
+.ms-win-s { font-size: 12px; color: var(--mute); }
+.ms-meter { position: relative; display: block; height: 6px; border-radius: 3px; background: #1e293b; }
+.ms-meter b { display: block; height: 100%; border-radius: 3px; background: var(--c); }
+.ms-meter i { position: absolute; top: -3px; width: 2px; height: 12px; background: #94a3b8; }
+.ms-corr { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+
+.ms-scroll { overflow-x: auto; }
+.ms-chart { display: block; width: 100%; min-width: 480px; height: auto; }
+.ms-grid { stroke: #1f2937; stroke-width: 1; }
+.ms-half { stroke: #475569; stroke-dasharray: 4 3; }
+.ms-ax { fill: #8b95a7; font: 600 11px Inter, sans-serif; }
+.ms-dot { fill: #cbd5e1; font: 700 10px Inter, sans-serif; pointer-events: none; }
+.ms-fit { stroke: #64748b; stroke-width: 1.5; stroke-dasharray: 5 4; }
+.ms-hit:hover circle:last-of-type, .ms-hit:hover path { filter: brightness(1.25); }
+.ms-legend { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 0 0 8px; font-size: 13px; color: #cbd5e1; }
+.ms-legend span::before { content: ""; display: inline-block; width: 12px; height: 12px; border-radius: 3px; background: var(--c); margin-right: 6px; vertical-align: -1px; }
+.ms-fold { margin-top: 8px; font-size: 13px; }
+.ms-fold summary { cursor: pointer; color: #93c5fd; }
+
+.ms-toggle { display: inline-flex; flex-wrap: wrap; gap: 4px; padding: 3px; margin-bottom: 12px; background: #0b1220; border: 1px solid #1f2937; border-radius: 6px; }
+.ms-toggle button { border: 0; background: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font: 700 14px "Barlow Condensed", sans-serif; letter-spacing: .05em; text-transform: uppercase; color: var(--mute); }
+.ms-toggle button small { font: 500 11px Inter, sans-serif; text-transform: none; letter-spacing: 0; margin-left: 4px; opacity: .8; }
+.ms-toggle button[aria-pressed="true"] { background: #1e293b; color: #fff; }
+.ms-team { border-left: 4px solid var(--team); padding-left: 10px !important; font-weight: 700; }
+.ms-players td:nth-child(2) { font-weight: 600; }
+.ms-more { display: block; margin: 12px auto 0; padding: 8px 18px; border: 1px solid #334155; border-radius: 4px; background: #0b1220; color: #e8edf5; cursor: pointer; font: 700 15px "Barlow Condensed", sans-serif; letter-spacing: .06em; text-transform: uppercase; }
+.ms-more:hover { border-color: #38bdf8; }
+.pc-table small { color: var(--mute); font-size: 11px; }
+
+@media (max-width: 640px) {
+  .ms-hero h1 { font-size: 34px; }
+  .ms-hero h1::before { height: 26px; }
+  .ms-win-v { font-size: 32px; }
+  .ms-wins { grid-template-columns: 1fr 1fr; }
+}
