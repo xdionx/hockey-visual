@@ -36,12 +36,24 @@ const ATTEMPTS = new Set(['goal', 'shot-on-goal', 'missed-shot', 'blocked-shot']
 /**
  * Order of the values in a game row (total.g): game number, away and home team, goals, team momentum
  * (every push), team momentum without goals, team shot attempts, how it ended ('REG' | 'OT' | 'SO'), and
- * each team's starting goalie id (null when unknown).
+ * each team's starting goalie id (null when unknown), then team finishing: expected goals from shots on a
+ * goalie (axg, hxg) and goals scored on a goalie (agg, hgg). addGame fills the last four from the player
+ * lines, so rows saved before they existed simply leave them out.
  */
-export const GAME_FIELDS = ['n', 'away', 'home', 'ag', 'hg', 'am', 'hm', 'an', 'hn', 'as', 'hs', 'end', 'ags', 'hgs'];
+export const GAME_FIELDS = ['n', 'away', 'home', 'ag', 'hg', 'am', 'hm', 'an', 'hn', 'as', 'hs', 'end', 'ags', 'hgs', 'axg', 'hxg', 'agg', 'hgg'];
+const FIN_AT = GAME_FIELDS.indexOf('axg');
 export const gameObj = (row) => Object.fromEntries(GAME_FIELDS.map((k, i) => [k, row[i]]));
 
 const teamSat = (lines, team) => lines.reduce((n, l) => n + (l.team === team && l.pos !== 'G' ? l.sat ?? 0 : 0), 0);
+const teamSum = (lines, team, k) => lines.reduce((n, l) => n + (l.team === team && l.pos !== 'G' ? l[k] ?? 0 : 0), 0);
+
+/** A game row with team finishing appended (from the skaters' xg/xgg), when the lines carry it. */
+export function withFinishing(game, lines) {
+  if (!game || game.length > FIN_AT || !lines.some((l) => l.pos !== 'G' && l.xg != null)) return game;
+  const [a, h] = [game[1], game[2]];
+  const r2 = (n) => Math.round(n * 100) / 100;
+  return [...game, ...Array(FIN_AT - game.length).fill(null), r2(teamSum(lines, a, 'xg')), r2(teamSum(lines, h, 'xg')), teamSum(lines, a, 'xgg'), teamSum(lines, h, 'xgg')];
+}
 const gameNo = (id) => Number(String(id).slice(-4));
 
 /** A game row from a box score we built, or null when it has no momentum. */
@@ -172,7 +184,7 @@ export function emptySeason(season, gameType = 2) {
 /** Adds one game's lines (and its game row, when given) into a season total (in place) and returns it. */
 export function addGame(total, lines, game = null) {
   total.games++;
-  if (game) (total.g ??= []).push(game);
+  if (game) (total.g ??= []).push(withFinishing(game, lines));
   for (const l of lines) {
     const key = String(l.id);
     const p = total.players[key] ?? (total.players[key] = { n: l.name, t: l.team, p: l.pos, gp: 0 });
