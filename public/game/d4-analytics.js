@@ -98,15 +98,15 @@ export function flowChart(game, c) {
 }
 
 const HEAT_COLS = [
-  ['gameScore', 'GS', (p) => p.gameScore.toFixed(2)], ['momentum', 'MOM', (p) => `${(p.momentum ?? 0) > 0 ? '+' : ''}${(p.momentum ?? 0).toFixed(1)}`], ['points', 'P'], ['goals', 'G'], ['assists', 'A'], ['sog', 'SOG'], ['attempts', 'SAT'], ['xg', 'xG', (p) => (p.xg == null ? '' : p.xg.toFixed(2))], ['finPct', 'FIN%', (p) => (p.finPct == null || p.finPct < 0 ? '' : `${p.finPct}%`)],
+  ['gameScore', 'GS', (p) => p.gameScore.toFixed(2)], ['momentum', 'MOM', (p) => `${(p.momentum ?? 0) > 0 ? '+' : ''}${(p.momentum ?? 0).toFixed(1)}`], ['points', 'P'], ['goals', 'G'], ['assists', 'A'], ['sog', 'SOG'], ['attempts', 'SAT'], ['xg', 'xG', (p) => (p.xg == null ? '' : (p.avgGoals ?? p.xg).toFixed(2))], ['gaa', 'G vs avg', (p) => (p.gaa == null ? '' : signed(Math.round(p.gaa * 100) / 100))],
   ['plusMinus', '+/-', (p) => signed(p.plusMinus)], ['foPct', 'FO%', (p) => { const fo = faceoffLine(p); return fo ? `${fo.pct}<small class="a-fo">${fo.won}/${fo.total}</small>` : ''; }, true], ['hits', 'HIT'], ['blocks', 'BLK'], ['takeaways', 'TK'], ['giveaways', 'GV'], ['toiSeconds', 'TOI', (p) => p.toi],
 ];
 
 export function heatTable(game, c) {
   // Box scores saved before finishing numbers existed have no xG: leave those columns out.
-  const cols = allSkaters(game).some((p) => p.xg != null) ? HEAT_COLS : HEAT_COLS.filter(([k]) => k !== 'xg' && k !== 'finPct');
+  const cols = allSkaters(game).some((p) => p.xg != null) ? HEAT_COLS : HEAT_COLS.filter(([k]) => k !== 'xg' && k !== 'gaa');
   // Players with no faceoffs get -1 so they sort last and stay blank.
-  const list = allSkaters(game).map((p) => ({ ...p, foPct: p.foPct ?? -1, xg: p.xg ?? 0, finPct: p.finPct ?? -1 })).sort((a, b) => b.gameScore - a.gameScore);
+  const list = allSkaters(game).map((p) => ({ ...p, foPct: p.foPct ?? -1, xg: p.avgGoals ?? p.xg ?? 0, gaa: p.gaa ?? 0 })).sort((a, b) => b.gameScore - a.gameScore);
   const range = Object.fromEntries(cols.map(([k]) => [k, [Math.min(...list.map((p) => p[k])), Math.max(...list.map((p) => p[k]))]]));
   const heat = (k, v) => {
     const [lo, hi] = range[k];
@@ -124,7 +124,7 @@ export function heatTable(game, c) {
       <thead><tr><th class="l" data-sort>Player</th><th data-sort>Tm</th><th data-sort>Pos</th>${cols.map(([, l]) => `<th data-sort>${l}</th>`).join('')}</tr></thead>
       <tbody>${list.map((p) => `<tr><td class="l" data-v="${esc(p.lastName)}">${esc(p.name)}</td><td><span class="a-tm" style="background:${c[p.side]}">${esc(p.team)}</span></td><td>${esc(p.position)}</td>${cols.map((col) => cell(col)(p)).join('')}</tr>`).join('')}</tbody>
     </table></div>
-    ${fold('What GS and SAT mean', `GS = Game Score (goals, primary and secondary assists, shots, blocks, penalties drawn and taken, faceoffs and on-ice +/-). SAT = the player's own shot attempts (on goal, missed or blocked). xG = expected goals from his shots on a goalie (our own estimate from distance, angle and shot type). FIN% = goals on a goalie per expected goal (100% = average; blank with no shots on goal).`, { cls: 'a-note' })}
+    ${fold('What GS and SAT mean', `GS = Game Score (goals, primary and secondary assists, shots, blocks, penalties drawn and taken, faceoffs and on-ice +/-). SAT = the player's own shot attempts (on goal, missed or blocked). xG = expected goals: what an average NHL shooter would score from the player's shots on a goalie (our own estimate from distance, angle and shot type). G vs avg = goals on a goalie minus that.`, { cls: 'a-note' })}
   </section>`;
 }
 
