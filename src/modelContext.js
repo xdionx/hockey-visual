@@ -15,7 +15,8 @@ const GOALIE_SHRINK = 40;
 const GOALIE_COEF = 1.38 / 17.9;
 const B2B_COEF = -0.48 / 17.9;
 
-export function contextModel() {
+/** finishing: false leaves shots at face value (only the goalie and back-to-back parts, like the live pick). */
+export function contextModel({ finishing = true } = {}) {
   const shooters = new Map(); // id -> [goals, xG]
   const goalies = new Map(); // id -> [goals against, xG against]
   const lastDate = new Map(); // team id -> 'YYYY-MM-DD'
@@ -35,6 +36,7 @@ export function contextModel() {
     /** Multiplier for a shot push (sog, miss, block-attempt, goal as a shot) by its shooter's record. */
     shotMult(e) {
       const id = e.credits?.[0]?.id;
+      if (!finishing) return 1;
       return id ? Math.min(1.6, Math.max(0.6, 1 + FIN_WEIGHT * (talent(id) - 1))) : 1;
     },
     /** Away-minus-home adjustment to the season-to-date share gap, from facts known before the game. */
