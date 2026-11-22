@@ -5,7 +5,11 @@ import { setHtmlFilter, filterHtml, esc, initVideo, makeSortable, makeTabs, upgr
 import { loadSeason } from '../player/store.js';
 import { leagueRate } from '../src/seasonStats.js';
 import { tierVsSeason } from '../src/impact.js';
-import { getData, LIVE_REFRESH_MS } from '../data.js';
+import { getData, getStatic, LIVE_REFRESH_MS } from '../data.js';
+import { predictGame } from '../src/predict.js';
+import { topPlayers, missingTop } from '../src/lineupAlert.js';
+import { teamTable, goalieLine, teamGoalies, teamSkaters } from '../src/matchup.js';
+import { noVigAway, BOOK_NAMES } from '../src/odds.js';
 import { startSim } from './sim.js';
 import momentum from './d3-momentum.js';
 import analytics from './d4-analytics.js';
@@ -126,11 +130,69 @@ function withTiers(g, r) {
   return g;
 }
 
-function showGame(data) {
+// Before puck drop: our pick (same model as the Scores page), the books and the lineup check.
+let pickP = null;
+function loadPick(g) {
+  pickP ??= (async () => {
+    if (String(g.id).slice(4, 6) !== '02' || !seasonTotal) return null;
+    const season = Number(`${startYear}${startYear + 1}`);
+    const day = new Date(`${g.gameDate}T12:00:00Z`);
+    day.setUTCDate(day.getUTCDate() - 1);
+    const [prev, yesterday, odds] = await Promise.all([
+      loadSeason(season - 10001).catch(() => null),
+      getData(`scores/${day.toISOString().slice(0, 10)}.json`).catch(() => null),
+      getStatic('odds.json').catch(() => null),
+    ]);
+    const played = new Set((yesterday?.games ?? []).filter((x) => x.status.state !== 'postponed').flatMap((x) => [x.away.abbrev, x.home.abbrev]));
+    const pick = predictGame({ total: seasonTotal, prev, away: g.away.abbrev, home: g.home.abbrev, n: Number(String(g.id).slice(-4)), b2b: { away: played.has(g.away.abbrev), home: played.has(g.home.abbrev) } });
+    const books = Object.entries(odds?.games?.[g.id]?.books ?? {}).map(([k, b]) => ({ name: BOOK_NAMES[k], short: k.toUpperCase(), p: noVigAway(b.a, b.h) })).filter((x) => x.name && x.p != null);
+    return { pick, books, prev };
+  })().catch(() => null);
+  return pickP;
+}
+
+function withPregame(g, info) {
+  if (g.status.state !== 'pre') return g;
+  const side = (k) => {
+    const top = topPlayers(seasonTotal, info?.prev, g[k].abbrev);
+    return { top, out: g[k].scratches?.length ? missingTop(top, g[k].scratches, g[k].scratchIds) : [] };
+  };
+  const n = Number(String(g.id).slice(-4));
+  const table = seasonTotal ? teamTable(seasonTotal, rate, n) : null;
+  const team = (k) => {
+    if (!seasonTotal) return null;
+    const ab = g[k].abbrev;
+    // Our pick's probable starter, unless he's scratched: then the dressed goalie with the most starts.
+    let probable = info?.pick?.parts.goalie[k]?.id;
+    let replaced = null;
+    const dressed = (g.players?.[k]?.goalies ?? []).map((x) => goalieLine(seasonTotal, x.id, rate) ?? { id: x.id, name: x.fullName ?? x.name, gs: 0, gsax: null });
+    if (probable && g[k].scratchIds?.includes(probable) && dressed.length) {
+      replaced = goalieLine(seasonTotal, probable, rate);
+      probable = dressed.sort((a, b) => (b.gs ?? 0) - (a.gs ?? 0))[0].id;
+    }
+    const starter = probable ? goalieLine(seasonTotal, probable, rate) : null;
+    return {
+      m: table.get(ab) ?? null,
+      starter: starter && { ...starter, replaced },
+      goalies: teamGoalies(seasonTotal, ab, rate),
+      skaters: teamSkaters(seasonTotal, ab, rate),
+    };
+  };
+  g.pregame = {
+    pick: info?.pick ?? null,
+    books: info?.books ?? [],
+    lineup: seasonTotal ? { away: side('away'), home: side('home') } : null,
+    teams: table ? { away: team('away'), home: team('home'), of: table.teams } : null,
+  };
+  return g;
+}
+
+async function showGame(data) {
+  const info = data.status?.state === 'pre' && !params.has('sim') ? await loadPick(data) : null;
   watchGoals([data]);
   const text = JSON.stringify(data) + (radioOpen(data) ? '1' : '0'); // redraw when the pregame radio buttons appear
   if (text === lastText) return;
-  game = withTiers(withFinishRate(upgradeShots(data), rate), rate);
+  game = withPregame(withTiers(withFinishRate(upgradeShots(data), rate), rate), info);
   lastText = text;
   names = gameNames(game);
   setHtmlFilter((html) => linkPlayers(html, names));
@@ -187,8 +249,8 @@ async function load(quiet = false) {
       box.innerHTML = '<p class="msg">This box score isn\'t ready yet. Box scores appear once a game starts.</p>';
       return;
     }
-    showGame(data);
-    if (game.status.state === 'live') timer = setTimeout(() => load(true), LIVE_REFRESH_MS);
+    await showGame(data);
+    if (game.status.state === 'live' || game.status.imminent) timer = setTimeout(() => load(true), LIVE_REFRESH_MS);
     else if (game.status.state === 'pre' || game.status.settling) timer = setTimeout(() => load(true), 60_000);
   } catch (err) {
     if (!quiet) box.innerHTML = `<p class="msg">Couldn't load this box score: ${esc(err.message)}</p>`;

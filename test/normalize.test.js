@@ -140,3 +140,16 @@ test('a game that just ended (OVER) shows as final, not scheduled', async () => 
   assert.deepEqual(gameStatus({ gameType: 2, gameState: 'OVER', gameOutcome: { lastPeriodType: 'SO' } }).label, 'Final/SO');
   assert.equal(gameStatus({ gameType: 2, gameState: 'FINAL', gameOutcome: { lastPeriodType: 'REG' } }).settling, undefined);
 });
+
+test('gameStatus: LIVE on the feed but the clock never started is still pregame', async () => {
+  const { gameStatus } = await import('../src/normalize.js');
+  const g = {
+    gameState: 'LIVE', startTimeUTC: '2026-11-22T22:00:00Z',
+    periodDescriptor: { number: 1, periodType: 'REG' },
+    clock: { timeRemaining: '20:00', secondsRemaining: 1200, running: false, inIntermission: false },
+  };
+  assert.deepEqual(gameStatus(g), { state: 'pre', label: 'Pregame', startTimeUTC: '2026-11-22T22:00:00Z', imminent: true });
+  assert.equal(gameStatus({ ...g, clock: { ...g.clock, running: true } }).state, 'live');
+  assert.equal(gameStatus({ ...g, clock: { ...g.clock, timeRemaining: '19:58', secondsRemaining: 1198 } }).label, '1st 19:58');
+  assert.equal(gameStatus({ ...g, periodDescriptor: { number: 2, periodType: 'REG' } }).state, 'live');
+});
