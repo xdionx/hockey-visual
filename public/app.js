@@ -236,7 +236,6 @@ const openWhy = new Set(); // "Why" sections the viewer opened, kept across refr
 const fmtGsax = (v) => (v == null ? '' : `(${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v).toFixed(1)})`);
 
 const playIcon = '<svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 1.5v9l8-4.5z" fill="currentColor"/></svg>';
-const playIconBig = '<svg width="18" height="18" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 1.5v9l8-4.5z" fill="currentColor"/></svg>';
 
 /** Link attributes that open a goal in the video lightbox (same as the other video links). */
 function goalAttrs(game, g) {
@@ -273,7 +272,7 @@ function goalChip(game, g, tc) {
   const when = so ? 'SO' : `${ordPeriod(g.period)} ${g.time}`;
   const assists = so ? 'Shootout' : g.assists.length ? g.assists.map(assistText).join(', ') : 'Unassisted';
   const tag = attrs ? 'a' : 'div';
-  return `<${tag} class="gc${attrs ? ' has-play' : ''}"${attrs ? ` ${attrs}` : ''} style="--team:${color}"><span class="gc-txt"><b>${esc(g.scorer.lastName || g.scorer.name)}${g.scorer.goalsToDate != null ? ` <span class="cnt">(${g.scorer.goalsToDate})</span>` : ''}</b><small>${esc(when)}${strengthTags(g).map((t) => ` <em class="st">${t}</em>`).join('')}${nth ? ` <em class="nth">${nthLabel(nth)}</em>` : ''}</small><small>${assists}</small></span>${attrs ? `<span class="gc-play">${playIconBig}</span>` : ''}</${tag}>`;
+  return `<${tag} class="gc${attrs ? ' has-play' : ''}"${attrs ? ` ${attrs}` : ''} style="--team:${color}"><span class="gc-txt"><b>${esc(g.scorer.lastName || g.scorer.name)}${g.scorer.goalsToDate != null ? ` <span class="cnt">(${g.scorer.goalsToDate})</span>` : ''}</b><small>${esc(when)}${strengthTags(g).map((t) => ` <em class="st">${t}</em>`).join('')}${nth ? ` <em class="nth">${nthLabel(nth)}</em>` : ''}</small><small>${assists}</small></span>${attrs ? `<span class="gc-play">${playIcon}</span>` : ''}</${tag}>`;
 }
 
 /** A goal tile: who, assists, the running score and a play button. */
