@@ -27,3 +27,20 @@ export function tierOf(line, pos, rate = IMPACT.rate) {
   if (v < mean - IMPACT.band * sd) return -1;
   return 0;
 }
+
+/** A player's average impact per game this season (season file row), or null with too few games. */
+export function seasonImpact(row, rate = IMPACT.rate, minGp = 5) {
+  if (!row || (row.gp ?? 0) < minGp || row.xg == null) return null;
+  return ((row.mom ?? 0) * IMPACT.momGoals + ((row.xgg ?? 0) - row.xg * rate)) / row.gp;
+}
+
+/** 1 above the player's own season average, -1 below it, 0 close to it (same band as tierOf), null when unknown. */
+export function tierVsSeason(line, pos, row, rate = IMPACT.rate) {
+  const v = gameImpact(line, rate);
+  const avg = seasonImpact(row, rate);
+  if (v == null || avg == null) return null;
+  const { sd } = pos === 'D' ? IMPACT.D : IMPACT.F;
+  if (v > avg + IMPACT.band * sd) return 1;
+  if (v < avg - IMPACT.band * sd) return -1;
+  return 0;
+}

@@ -4,7 +4,7 @@ import { hornToggles, watchGoals } from '../horn.js';
 import { setHtmlFilter, filterHtml, esc, initVideo, makeSortable, makeTabs, upgradeShots, morphInner, setMountSignal, resetRinkIds, withFinishRate } from './core.js';
 import { loadSeason } from '../player/store.js';
 import { leagueRate } from '../src/seasonStats.js';
-import { tierOf } from '../src/impact.js';
+import { tierVsSeason } from '../src/impact.js';
 import { getData, LIVE_REFRESH_MS } from '../data.js';
 import { startSim } from './sim.js';
 import momentum from './d3-momentum.js';
@@ -20,8 +20,9 @@ const gameId = params.get('id');
 // League goals per expected goal for this game's season, so finishing reads against an average shooter.
 const FALLBACK_RATE = 1.17;
 const startYear = Number(String(gameId).slice(0, 4));
-const finRate = (/^\d{10}$/.test(gameId ?? '') ? loadSeason(Number(`${startYear}${startYear + 1}`)) : Promise.resolve(null))
-  .then((t) => (t ? leagueRate(t) : FALLBACK_RATE)).catch(() => FALLBACK_RATE);
+const seasonP = (/^\d{10}$/.test(gameId ?? '') ? loadSeason(Number(`${startYear}${startYear + 1}`)) : Promise.resolve(null)).catch(() => null);
+const finRate = seasonP.then((t) => (t ? leagueRate(t) : FALLBACK_RATE)).catch(() => FALLBACK_RATE);
+let seasonTotal = null; // this season's totals, so each skater's game is read against the player's own season average
 let rate = FALLBACK_RATE;
 const box = document.querySelector('#box');
 const switcher = document.querySelector('#switcher');
@@ -119,7 +120,7 @@ let simStarted = false;
 function withTiers(g, r) {
   for (const side of ['away', 'home']) {
     for (const k of ['forwards', 'defense']) {
-      for (const p of g.players?.[side]?.[k] ?? []) p.tier = tierOf({ mom: p.momentum, xg: p.xg, xgg: p.xgGoals }, p.position === 'D' ? 'D' : 'F', r);
+      for (const p of g.players?.[side]?.[k] ?? []) p.tier = tierVsSeason({ mom: p.momentum, xg: p.xg, xgg: p.xgGoals }, p.position === 'D' ? 'D' : 'F', seasonTotal?.players?.[String(p.id)], r);
     }
   }
   return g;
@@ -164,6 +165,7 @@ async function load(quiet = false) {
     return;
   }
   rate = await finRate;
+  seasonTotal = await seasonP;
   if (params.has('sim')) {
     if (simStarted) return;
     simStarted = true;
