@@ -135,6 +135,7 @@ function gameNames(g) {
 
 async function load(quiet = false) {
   clearTimeout(timer);
+  if (window.__radioShell) return; // this page now only hosts the radio; the page on screen is in the frame
   if (!gameId || !/^\d{10}$/.test(gameId)) {
     box.innerHTML = '<p class="msg">No game selected. <a href="./">Back to scores</a></p>';
     return;

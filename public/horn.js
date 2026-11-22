@@ -32,19 +32,34 @@ const gamePage = (game) => {
 function listenButtons(game) {
   if (game.status?.state !== 'live' || !game.season || /[?&]sim\b/.test(location.search)) return '';
   return ['away', 'home'].map((s) => game[s].abbrev).filter((a) => HORNS.has(a)).map((a) =>
-    `<button type="button" class="horn-btn listen-btn${radio?.abbrev === a ? ' on' : ''}" data-listen="${esc(a)}" data-listen-game="${game.id}" data-listen-season="${esc(game.season)}" data-listen-page="${esc(gamePage(game))}" title="Listen to the ${esc(a)} radio broadcast here">${radio?.abbrev === a ? '■' : '🎧'} ${esc(a)} radio</button>`).join('');
+    `<button type="button" class="horn-btn listen-btn${playing() === a ? ' on' : ''}" data-listen="${esc(a)}" data-listen-game="${game.id}" data-listen-season="${esc(game.season)}" data-listen-page="${esc(gamePage(game))}" title="Listen to the ${esc(a)} radio broadcast here">${playing() === a ? '■' : '🎧'} ${esc(a)} radio</button>`).join('');
 }
 
-let radio = null; // { abbrev, audio, hls }
+let radio = null; // { abbrev, audio, hls }, only ever in the top window
+// Inside the radio shell (see below) the page is in an iframe and the top window owns the audio.
+const host = (() => { try { return window.top !== window ? window.top.__radioHost ?? null : null; } catch { return null; } })();
+const playing = () => (host ? host.abbrev() : radio?.abbrev ?? null);
+
 function radioBar() {
   let bar = document.getElementById('radio-bar');
   if (!bar) { bar = document.createElement('div'); bar.id = 'radio-bar'; document.body.append(bar); }
   return bar;
 }
+/** Repaint every Listen button, here and in the page shown inside the shell. */
+function syncButtons() {
+  const docs = [document];
+  try { const d = shellFrame?.contentDocument; if (d) docs.push(d); } catch { /* cross-origin page */ }
+  const on = radio?.abbrev ?? null;
+  for (const d of docs) d.querySelectorAll('.listen-btn').forEach((b) => {
+    const is = on === b.dataset.listen;
+    b.classList.toggle('on', is);
+    b.textContent = `${is ? '■' : '🎧'} ${b.dataset.listen} radio`;
+  });
+}
 function stopRadio() {
   if (radio) { radio.hls?.destroy(); radio.audio.pause(); radio.audio.removeAttribute('src'); radio.audio.load(); radio = null; }
   document.getElementById('radio-bar')?.remove();
-  document.querySelectorAll('.listen-btn.on').forEach((b) => { b.classList.remove('on'); b.textContent = `🎧 ${b.dataset.listen} radio`; });
+  syncButtons();
 }
 function radioFailed(abbrev, page) {
   const bar = radioBar();
@@ -54,13 +69,14 @@ function loadHls() {
   if (window.Hls) return Promise.resolve(window.Hls);
   return new Promise((ok, no) => { const s = document.createElement('script'); s.src = HLS_JS; s.onload = () => ok(window.Hls); s.onerror = no; document.head.append(s); });
 }
-async function startRadio(btn) {
-  const abbrev = btn.dataset.listen; const page = btn.dataset.listenPage;
-  const url = RADIO(abbrev, btn.dataset.listenSeason);
+/** d: a Listen button's dataset ({ listen, listenSeason, listenPage }). */
+async function startRadio(d) {
+  const abbrev = d.listen; const page = d.listenPage;
+  const url = RADIO(abbrev, d.listenSeason);
   stopRadio();
   const audio = new Audio(); audio.autoplay = true;
   radio = { abbrev, audio, hls: null };
-  document.querySelectorAll(`.listen-btn[data-listen="${abbrev}"]`).forEach((b) => { b.classList.add('on'); b.textContent = `■ ${abbrev} radio`; });
+  syncButtons();
   radioBar().innerHTML = `<span>🎧 ${esc(abbrev)} radio · connecting…</span> <button type="button" data-radio-stop>Stop</button>`;
   const ok = () => { if (radio?.audio === audio) radioBar().innerHTML = `<span>🎧 ${esc(abbrev)} radio · live</span> <button type="button" data-radio-stop>Stop</button>`; };
   const fail = () => { if (radio?.audio !== audio) return; stopRadio(); radioFailed(abbrev, page); };
@@ -78,11 +94,79 @@ async function startRadio(btn) {
   } catch { fail(); }
 }
 document.addEventListener('click', (e) => {
-  if (e.target.closest('[data-radio-stop]')) return stopRadio();
+  if (e.target.closest('[data-radio-stop]')) return host ? host.stop() : stopRadio();
   const b = e.target.closest('[data-listen]');
   if (!b) return;
-  if (b.classList.contains('on')) stopRadio(); else startRadio(b);
+  const on = playing() === b.dataset.listen;
+  if (host) return on ? host.stop() : host.start({ ...b.dataset });
+  if (on) stopRadio(); else startRadio({ ...b.dataset });
 });
+
+// ── Keep the radio playing while moving between pages ──
+// Every page is its own HTML file, and a normal page load would kill the audio. So the first time someone
+// follows a link on this site while the radio is on, this page turns into a "shell": it hides its own
+// content, stops refreshing, and shows the next page in a full-window iframe. The audio and the radio bar
+// stay here in the top window, and every later page opens inside the iframe, so the sound never stops.
+// The address bar and tab title follow the page in the frame, so reloading or sharing still works.
+let shellFrame = null;
+const sameSite = (u) => u.origin === location.origin;
+function enterShell(href) {
+  window.__radioShell = true; // app.js and game.js stop refreshing this hidden copy
+  stopAll();
+  for (const el of document.body.children) if (el.id !== 'radio-bar') el.style.display = 'none';
+  document.documentElement.style.overflow = 'hidden';
+  const f = document.createElement('iframe');
+  f.id = 'radio-shell';
+  f.title = 'Page';
+  f.allow = 'autoplay; fullscreen; clipboard-write';
+  f.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;border:0;margin:0;z-index:9990;background:#0b1020';
+  shellFrame = f;
+  history.pushState(null, '', href);
+  f.src = href;
+  document.body.insertBefore(f, document.getElementById('radio-bar'));
+  f.addEventListener('load', () => { followFrame(); hookFrame(); syncButtons(); });
+  setInterval(followFrame, 1000); // pages update their own URL (?date=, ?season=) without a load event
+  // Back past the first page in the frame lands on our own history entry: show that URL in the frame.
+  window.addEventListener('popstate', () => {
+    try { if (f.contentWindow.location.href !== location.href) f.contentWindow.location.replace(location.href); } catch { /* ignore */ }
+  });
+}
+function followFrame() {
+  try {
+    const w = shellFrame.contentWindow;
+    const u = w.location.href;
+    if (u && u !== 'about:blank' && u !== location.href && sameSite(new URL(u))) history.replaceState(null, '', u);
+    if (w.document.title && w.document.title !== document.title) document.title = w.document.title;
+  } catch { /* left the site */ }
+}
+/** Links to other sites can't load in the frame (most refuse to be framed): open them in a new tab. */
+function hookFrame() {
+  let doc; try { doc = shellFrame.contentDocument; } catch { return; }
+  if (!doc || doc.__radioHooked) return;
+  doc.__radioHooked = true;
+  doc.addEventListener('click', (e) => {
+    const a = e.target.closest?.('a[href]');
+    if (!a) return;
+    const t = a.getAttribute('target');
+    if (t === '_top' || t === '_parent') { a.target = '_self'; return; }
+    if (t && t !== '_self') return;
+    try { if (!sameSite(new URL(a.href))) { a.target = '_blank'; a.rel = 'noopener'; } } catch { /* ignore */ }
+  }, true);
+}
+if (!host && window.top === window) {
+  window.__radioHost = { start: (d) => startRadio(d), stop: () => stopRadio(), abbrev: () => radio?.abbrev ?? null };
+  // On window, bubbling: runs after the page's own handlers, so links they take over (player cards) are left alone.
+  window.addEventListener('click', (e) => {
+    if (!radio || shellFrame || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    const a = e.target.closest?.('a[href]');
+    if (!a || a.hasAttribute('download') || (a.getAttribute('target') && a.getAttribute('target') !== '_self')) return;
+    let u; try { u = new URL(a.href); } catch { return; }
+    if (!sameSite(u) || !/^https?:$/.test(u.protocol)) return;
+    if (u.hash && u.pathname === location.pathname && u.search === location.search) return; // a jump within this page
+    e.preventDefault();
+    enterShell(u.href);
+  });
+}
 
 let audio = null;
 let alertTimer = null;
