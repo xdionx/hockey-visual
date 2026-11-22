@@ -150,9 +150,6 @@ function predictionLine(game, tc) {
   if (!p) return '';
   const e = edgeOf(game);
   const { share, goalie, b2b } = p.parts;
-  const rested = b2b.away || b2b.home
-    ? [b2b.away ? game.away.abbrev : '', b2b.home ? game.home.abbrev : ''].filter(Boolean).join(' and ') + ' played yesterday'
-    : 'Both rested';
   // One bar per source, away on the left like the shot bars above: us first, then each book (margin removed).
   const bar = (label, pAway, title) => {
     const a = Math.round(pAway * 100);
@@ -161,10 +158,14 @@ function predictionLine(game, tc) {
   const ourTitle = 'Our pre-game pick: each team\'s momentum share so far this season (goals left out), its probable starting goalie\'s goals saved above expected, and back-to-backs. Right about 57% of the time on past seasons.';
   const bars = bar('US', p.away, ourTitle) + books.map((b) => bar(b.name === 'DraftKings' ? 'DK' : b.name === 'FanDuel' ? 'FD' : b.name, b.p, `${b.name}'s line with its margin removed`)).join('');
   const row = (k, v) => `<dt>${k}</dt><dd>${v}</dd>`;
+  // One line per team (away first, like the bars), each led by a chip in the team's color.
+  const chip = (side) => `<span class="tchip" style="background:${tc[side]}">${esc(game[side].abbrev)}</span>`;
+  const lines = (fn) => ['away', 'home'].map((side) => `<span class="tl">${chip(side)}${fn(side)}</span>`).join('');
+  const gname = (side) => (goalie[side].name ? esc(lastName(goalie[side].name)) : 'Unknown goalie');
   const why = [
-    row('Momentum', `${esc(game.away.abbrev)} ${Math.round(share.away * 100)}% · ${esc(game.home.abbrev)} ${Math.round(share.home * 100)}%`),
-    goalie.away.name && goalie.home.name ? row('Goalies', `${esc(lastName(goalie.away.name))} ${fmtGsax(goalie.away.gsax)} · ${esc(lastName(goalie.home.name))} ${fmtGsax(goalie.home.gsax)}`) : '',
-    row('Rest', esc(rested)),
+    row('Momentum<small>share of play this season</small>', lines((side) => `<b>${Math.round(share[side] * 100)}%</b>`)),
+    goalie.away.name && goalie.home.name ? row('Goalies<small>probable starter, goals saved above expected</small>', lines((side) => `${gname(side)} <b>${fmtGsax(goalie[side].gsax).replace(/[()]/g, '')}</b>`)) : '',
+    row('Rest', lines((side) => (b2b[side] ? 'Played yesterday' : 'Rested'))),
   ].join('');
   return `<div class="pred">
     <div class="pr-head"><span>Win chance</span>${e ? edgeTag(e) : ''}</div>
