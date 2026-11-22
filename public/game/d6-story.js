@@ -267,7 +267,7 @@ export function momentumChart(game, c) {
       <line class="st-mc-cross" x1="0" x2="0" y1="${P.t}" y2="${H - P.b}" visibility="hidden"/><circle class="st-mc-dot" r="4" visibility="hidden"/>
       ${goals}${swings}${labels}
     </svg><div class="st-tip" hidden></div>
-    ${fold('How momentum is calculated', `Momentum weighs every play: goals 3, shots on goal 1, missed shots 0.35, blocked attempts 0.2, faceoff wins 0.25 to 0.6 (more in the offensive zone), takeaways and opponents' giveaways 0.15 (kept low because rinks score them inconsistently), hits 0.2, drawing a penalty 1 plus steady pressure through the power play, and 1.5 for killing a penalty. The player who took the penalty is charged for all of it, plus 1.5 more if the power play scores; the player who drew it is credited with it, plus 0.75 if it scores. Each push fades with a 75-second half-life. Shaded bands are power plays; numbered circles are momentum swings.`, { cls: 'st-note' })}
+    ${fold('How momentum is calculated', `Momentum weighs shots and penalties: goals 3, shots on goal 1, missed shots 0.35, blocked attempts 0.2, with shots from the home plate area (in front of the net out to the top of the circles) counting 3x. Faceoffs, hits, takeaways and giveaways don't count: over 6 seasons they added nothing to predicting wins, and rinks record them very differently. Drawing a penalty is worth 1 plus steady pressure through the power play, and 1.5 for killing a penalty. The player who took the penalty is charged for all of it, plus 1.5 more if the power play scores; the player who drew it is credited with it, plus 0.75 if it scores. Each push fades with a 75-second half-life. Shaded bands are power plays; numbered circles are momentum swings.`, { cls: 'st-note' })}
   </div>`;
 }
 
