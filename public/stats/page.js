@@ -1,3 +1,4 @@
+import '../horn.js'; // goal horns for games with a horn on, on every page
 // Momentum stats: how the momentum model does, season by season. stats.html?season=<20252026>
 //
 // Everything comes from the season files (data/seasons/<season>.json, see src/seasonStats.js):

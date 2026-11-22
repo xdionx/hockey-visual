@@ -1,10 +1,14 @@
+import { getData, later, cancelLater, LIVE_REFRESH_MS } from './data.js';
+import { delayScores, getDelay, delayable, onDelayChange } from './delay.js';
+
 // Goal horns: per team and per game, off by default, remembered in this browser.
 // Shared by the Scores page and the box score. Horn files live in audio/horns/<ABBREV>.mp3.
 const HORNS = new Set(['ANA', 'BOS', 'BUF', 'CGY', 'CAR', 'CHI', 'COL', 'CBJ', 'DAL', 'DET', 'EDM', 'FLA', 'LAK', 'MIN', 'MTL', 'NSH', 'NJD', 'NYI', 'NYR', 'OTT', 'PHI', 'PIT', 'SJS', 'SEA', 'STL', 'TBL', 'TOR', 'UTA', 'VAN', 'VGK', 'WSH', 'WPG']); // every team has a horn file
 const KEY = (id, abbrev) => `horn:${id}:${abbrev}`;
 const store = (k, v) => { try { return v === undefined ? localStorage.getItem(k) : (v === null ? localStorage.removeItem(k) : localStorage.setItem(k, v)); } catch { return null; } };
 
-export const hornOn = (id, abbrev) => store(KEY(id, abbrev)) === '1';
+// The stored value is the game's date (so horns can be watched from any page or date), or '1' from before that.
+export const hornOn = (id, abbrev) => { const v = store(KEY(id, abbrev)); return v != null && v !== ''; };
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
@@ -16,7 +20,7 @@ const listenFace = (a, is, ico) => (ico ? '🎧' : `${is ? '■' : '🎧'} ${a} 
 const listenTitle = (a, is) => (is ? `Stop the ${a} radio` : `Listen to the ${a} radio broadcast here`);
 function hornButton(game, a, ico) {
   const on = hornOn(game.id, a);
-  return `<button type="button" class="horn-btn${ico ? ' ico' : ''}${on ? ' on' : ''}" data-horn-game="${game.id}" data-horn-team="${esc(a)}" aria-pressed="${on}" title="${esc(hornTitle(a, on))}" aria-label="${esc(hornTitle(a, on))}">${hornFace(a, on, ico)}</button>`;
+  return `<button type="button" class="horn-btn${ico ? ' ico' : ''}${on ? ' on' : ''}" data-horn-game="${game.id}" data-horn-team="${esc(a)}"${game.gameDate ? ` data-horn-date="${esc(game.gameDate)}"` : ''} aria-pressed="${on}" title="${esc(hornTitle(a, on))}" aria-label="${esc(hornTitle(a, on))}">${hornFace(a, on, ico)}</button>`;
 }
 
 /** Toggle buttons for the teams in this game that have a horn. */
@@ -440,9 +444,10 @@ document.addEventListener('click', (e) => {
   if (!b) return;
   const id = b.dataset.hornGame; const a = b.dataset.hornTeam;
   const on = !hornOn(id, a);
-  store(KEY(id, a), on ? '1' : null);
+  store(KEY(id, a), on ? (/^\d{4}-\d{2}-\d{2}$/.test(b.dataset.hornDate ?? '') ? b.dataset.hornDate : '1') : null);
   // Tapping is the browser's permission to play sound later: unlock audio now.
   if (on) primeHorn(); else stopAll();
+  watchSoon();
   document.querySelectorAll(`[data-horn-game="${id}"][data-horn-team="${a}"]`).forEach((x) => {
     x.classList.toggle('on', on);
     x.setAttribute('aria-pressed', String(on));
@@ -451,13 +456,142 @@ document.addEventListener('click', (e) => {
   });
 });
 
-const seen = new Map();
-/** Forget the goal counts, so the next frame is a fresh baseline (after a seek or restart, or a game's data delay changed). */
+// ── Watching for goals, on every page of the site ──
+// Horns are per game and remembered in this browser, so the watcher below runs on every page that loads this
+// file (Scores on any date, box scores, stats, player pages) and follows every game with a horn on, whatever is
+// on screen. It polls scores/<date>.json for those games' dates and is the only thing that sounds a live horn.
+// Goal counts are saved in localStorage with a time, so a goal scored while moving between pages still honks,
+// another open tab doesn't honk the same goal twice, and opening the site after a while never honks old goals.
+const FRESH_MS = 10 * 60_000; // a saved count older than this is a fresh baseline
+const SEEN = (id, abbrev) => `hornSeen:${id}:${abbrev}`;
+const seenMem = new Map(); // used when localStorage isn't available
+function readSeen(k) {
+  const v = store(k) ?? seenMem.get(k);
+  try { const o = JSON.parse(v); return Number.isFinite(o?.n) && Number.isFinite(o?.t) ? o : null; } catch { return null; }
+}
+function writeSeen(k, n, t) { const v = JSON.stringify({ n, t }); seenMem.set(k, v); store(k, v); }
+const goalCount = (g, a) => (g.goals ?? g.scoring ?? []).filter((x) => x.period !== 'SO' && x.team === a).length;
+const isoDay = (ms) => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(ms));
+
+/** Games with a horn on, grouped by date: Map(date -> Set of game ids). Old dates are forgotten. */
+function hornedByDate(now = Date.now()) {
+  const out = new Map();
+  const oldest = isoDay(now - 3 * 86400_000);
+  const recent = [isoDay(now), isoDay(now - 86400_000)]; // for horns saved before dates were stored
+  let keys = [];
+  try { keys = Object.keys(localStorage).filter((k) => k.startsWith('horn:')); } catch { return out; }
+  for (const k of keys) {
+    const [, id] = k.split(':');
+    const v = store(k);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(v ?? '')) {
+      if (v < oldest) { store(k, null); store(SEEN(id, k.split(':')[2]), null); continue; } // long over: tidy up
+      if (!out.has(v)) out.set(v, new Set());
+      out.get(v).add(id);
+    } else for (const d of recent) { if (!out.has(d)) out.set(d, new Set()); out.get(d).add(id); }
+  }
+  return out;
+}
+
+// With several tabs open, the one on screen sounds the horn and shows the alert; a background tab only steps in
+// when no tab is on screen. Tabs on screen say so here every few seconds.
+const FRONT = 'hornFront';
+const FRONT_MS = 12_000;
+let frontId = Math.random().toString(36).slice(2);
+function markFront() { if (!document.hidden) store(FRONT, JSON.stringify({ id: frontId, t: Date.now() })); }
+function otherTabOnScreen(now) {
+  try { const f = JSON.parse(store(FRONT)); return f?.id !== frontId && now - f.t < FRONT_MS; } catch { return false; }
+}
+
+/** Compare each horned game with its saved goal counts and sound the horn for new goals. */
+export function checkGoals(games, now = Date.now()) {
+  const yield_ = document.hidden && otherTabOnScreen(now);
+  for (const g of games ?? []) {
+    const state = g.status?.state;
+    if (state !== 'live' && state !== 'final') continue; // final too: an overtime winner can land as the game ends
+    for (const side of ['away', 'home']) {
+      const a = g[side].abbrev;
+      if (!hornOn(g.id, a)) continue;
+      const k = SEEN(g.id, a);
+      const n = goalCount(g, a);
+      const before = readSeen(k);
+      const fresh = before && now - before.t < FRESH_MS;
+      if (fresh && n > before.n && yield_) continue; // leave this goal to the tab on screen
+      writeSeen(k, n, now);
+      if (fresh && n > before.n && HORNS.has(a)) play(alertFor(g, side));
+    }
+  }
+}
+
+let watchTimer = null;
+let dueTimer = null;
+const doneDates = new Map(); // date -> when every horned game on it was found final
+const watching = new Map(); // date -> Set of horned game ids, from the last fetch
+/** The games as this viewer sees them (after any data delay), checked for goals. data = null re-reads the buffer. */
+function checkDate(date, ids, data) {
+  const view = delayScores(date, data);
+  const games = view.games.filter((g) => ids.has(String(g.id)));
+  checkGoals(games);
+  return games;
+}
+// A delayed game's goals come due between fetches: look every second, so the horn lands with the video.
+function checkDue() {
+  cancelLater(dueTimer); dueTimer = null;
+  if (window.__radioShell) return;
+  let any = false;
+  for (const [date, ids] of watching) {
+    const games = checkDate(date, ids, null);
+    if (games.some((g) => getDelay(g.id) && delayable(g))) any = true;
+  }
+  if (any) dueTimer = later(checkDue, 1000);
+}
+async function watchTick() {
+  cancelLater(watchTimer); watchTimer = null;
+  if (window.__radioShell) return; // the page in the radio frame watches instead
+  if (/[?&]sim\b/.test(location.search)) return; // replays sound their own horns
+  markFront();
+  const now = Date.now();
+  let wait = 15_000; // nothing to watch: look again in a bit (a horn may be turned on in another tab)
+  watching.clear();
+  for (const [date, ids] of hornedByDate(now)) {
+    if (now - (doneDates.get(date) ?? -Infinity) < 10 * 60_000) continue;
+    let data = null;
+    try { data = await getData(`scores/${date}.json`); } catch { wait = Math.min(wait, LIVE_REFRESH_MS); continue; }
+    if (!data?.games?.some((g) => ids.has(String(g.id)))) continue;
+    const fresh = data.games.filter((g) => ids.has(String(g.id)));
+    const games = checkDate(date, ids, data);
+    watching.set(date, ids);
+    const on = (g) => g.status?.state === 'live' || g.status?.imminent || g.status?.settling;
+    if (fresh.some(on) || games.some(on)) wait = Math.min(wait, LIVE_REFRESH_MS);
+    else if (fresh.some((g) => g.status?.state === 'pre')) wait = Math.min(wait, 60_000);
+    else doneDates.set(date, now);
+  }
+  checkDue();
+  if (!window.__radioShell && !watchTimer) watchTimer = later(watchTick, wait);
+}
+function watchSoon() { cancelLater(watchTimer); watchTimer = later(watchTick, 0); }
+if (typeof document !== 'undefined' && typeof localStorage !== 'undefined') {
+  watchSoon();
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') watchSoon();
+    else { try { if (JSON.parse(store(FRONT))?.id === frontId) store(FRONT, null); } catch { /* ignore */ } }
+  });
+  // A horn turned on or off in another tab.
+  window.addEventListener('storage', (e) => { if (e.key?.startsWith('horn:')) { doneDates.clear(); watchSoon(); } });
+  // A game's data delay changed: what's on screen jumps, so start its goal counts over (no honk for the jump).
+  onDelayChange((id) => {
+    try { for (const k of Object.keys(localStorage)) if (k.startsWith(`hornSeen:${id}:`)) store(k, null); } catch { /* storage off */ }
+    for (const k of [...seenMem.keys()]) if (k.startsWith(`hornSeen:${id}:`)) seenMem.delete(k);
+    checkDue();
+  });
+}
+
+// ── Replays (box score ?sim) feed their own frames here and keep their counts in memory ──
+const seen = new Map(); // `${gameId}:${abbrev}` -> goals counted so far
+/** Forget the goal counts, so the next frame is a fresh baseline (after a seek or restart). */
 export function resetGoals(gameId) {
   if (gameId == null) { seen.clear(); return; }
   for (const k of [...seen.keys()]) if (k.startsWith(`${gameId}:`)) seen.delete(k);
 }
- // `${gameId}:${abbrev}` -> goals counted so far
 /** Call with every game on each refresh. The first sight of a game sets the baseline, so opening the page never honks. */
 export function watchGoals(games) {
   for (const g of games ?? []) {
