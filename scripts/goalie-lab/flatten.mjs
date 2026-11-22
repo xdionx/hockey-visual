@@ -32,7 +32,7 @@ for (const f of (await readdir(dir)).filter((f) => f.endsWith('.ndjson.gz')).sor
       if (k === 's' || k === 'g' || k === 'm') {
         e.x = d.xCoord; e.y = d.yCoord; e.hp = inHomePlate(d.xCoord, d.yCoord) ? 1 : 0;
         e.xg = shotXg({ x: d.xCoord, y: d.yCoord, shotType: d.shotType });
-        e.gid = d.goalieInNetId ?? null; e.st = d.shotType;
+        e.gid = d.goalieInNetId ?? null; e.st = d.shotType; e.pid = d.shootingPlayerId ?? d.scoringPlayerId ?? null;
       }
       ev.push(e);
     }
