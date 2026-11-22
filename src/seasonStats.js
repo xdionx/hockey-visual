@@ -17,6 +17,7 @@
 // against results: who won, team momentum with and without goals, team shot attempts.
 import { computeMomentum } from './momentum.js';
 import { shotXg, finishingPct } from './xg.js';
+import { tierOf } from './impact.js';
 
 // Bump when how a game line is computed changes (momentum weights, what counts as an attempt):
 // the backfill then rebuilds the saved seasons instead of mixing old and new numbers.
@@ -196,7 +197,15 @@ export function addGame(total, lines, game = null) {
     if (l.pos !== 'G') {
       p.sat = (p.sat ?? 0) + (l.sat ?? 0);
       p.sog = (p.sog ?? 0) + (l.sog ?? 0);
-      if (l.xg != null) { p.xg = Math.round(((p.xg ?? 0) + l.xg) * 100) / 100; p.xgg = (p.xgg ?? 0) + (l.xgg ?? 0); }
+      if (l.xg != null) {
+        p.xg = Math.round(((p.xg ?? 0) + l.xg) * 100) / 100;
+        p.xgg = (p.xgg ?? 0) + (l.xgg ?? 0);
+        // Game tiers (src/impact.js): tg games rated, ab above average, bl below average.
+        const tier = tierOf(l, l.pos);
+        p.tg = (p.tg ?? 0) + 1;
+        if (tier === 1) p.ab = (p.ab ?? 0) + 1;
+        if (tier === -1) p.bl = (p.bl ?? 0) + 1;
+      }
       p.mom = round1((p.mom ?? 0) + (l.mom ?? 0));
       p.mp = round1((p.mp ?? 0) + (l.mp ?? 0));
       p.mn = round1((p.mn ?? 0) + (l.mn ?? 0));
@@ -252,6 +261,9 @@ export function perGame(row, rate = 1) {
     xg: skater && row.xg != null ? row.xg : null,
     finPct: skater && row.xg != null ? finishingPct(row.xgg ?? 0, row.xg) : null,
     gax: skater && row.xg != null ? (row.xgg ?? 0) - row.xg : null,
+    // Share of rated games above / below average for the position (src/impact.js).
+    abovePct: skater && row.tg ? (row.ab ?? 0) / row.tg : null,
+    belowPct: skater && row.tg ? (row.bl ?? 0) / row.tg : null,
     // The same against an average NHL shooter that season (what the pages show).
     ...(skater ? finishingLine(row.xgg ?? 0, row.xg, row.sog ?? 0, rate) : { shPct: null, xShPct: null, gaa: null }),
   };

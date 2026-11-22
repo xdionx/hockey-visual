@@ -54,6 +54,7 @@ function body(id, p, ours, season) {
       tile('PIM', now?.pim ?? '-'), tile('TOI/GP', fmt.toi(now?.toiPerGame ?? ours?.toiPerGame)),
       tile('SAT/GP', fmt.dec(ours?.satPerGame), rankBit(ours?.satRank), 'pq-ours'),
       tile('MOM/GP', fmt.signed(ours?.momPerGame, 1), rankBit(ours?.momRank), 'pq-ours'),
+      ...(ours?.abovePct != null ? [tile('Above avg', fmt.pct(ours.abovePct, 0), `below ${fmt.pct(ours.belowPct, 0)}`, 'pq-ours')] : []),
       ...(ours?.gaa != null ? [tile('Goals vs avg', fmt.signed(ours.gaa, 1), rankBit(ours.finRank), 'pq-ours')] : []),
     ];
   }
