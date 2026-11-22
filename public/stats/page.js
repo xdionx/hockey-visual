@@ -7,6 +7,8 @@ import { installPlayerLinks, playerLink } from '../player/link.js';
 import { esc, makeSortable, teamColor } from '../game/core.js';
 import { leaderboard, minGames, FIRST_FULL_SEASON } from '../src/seasonStats.js';
 import { seasonModel } from '../src/momentumModel.js';
+import { compare, BOOK_NAMES } from '../src/odds.js';
+import { getStatic } from '../data.js';
 
 installPlayerLinks();
 const main = document.querySelector('#stats');
@@ -242,6 +244,29 @@ function trendsCard(list) {
       <tbody>${rows}</tbody></table></div>`);
 }
 
+// Our pre-game pick against DraftKings and FanDuel (data/odds.json, saved by the data script before each puck drop).
+function marketCard(odds) {
+  const c = odds ? compare(odds) : null;
+  if (!c?.games) {
+    return card('Us vs the market', 'DraftKings and FanDuel', '<p class="pq-note">We started saving sportsbook lines and our own pre-game pick for every regular-season game on Nov 22, 2026. Results show up here as games finish; the comparison means little before a few hundred games.</p>');
+  }
+  const f = (v, d = 3) => (v == null ? '-' : v.toFixed(d));
+  const row = (label, sc, cls = '') => `<tr class="${cls}"><td class="l">${label}</td><td>${sc?.n ?? '-'}</td><td>${sc ? `${(sc.accuracy * 100).toFixed(1)}%` : '-'}</td><td>${f(sc?.brier)}</td><td>${f(sc?.logLoss)}</td></tr>`;
+  const tbl = (rows) => `<div class="pc-scroll"><table class="pc-table"><thead><tr><th class="l">Source</th><th>Games</th><th title="How often the favorite won">Right</th><th title="Brier score: lower is better">Brier</th><th title="Log loss: lower is better">Log loss</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  const base = c.same ?? { us: c.us, dk: c.dk, fd: c.fd };
+  const gaps = c.gaps.map((g) => {
+    const us = Math.round(g.s.us * 100);
+    const mk = Math.round(g.s.market * 100);
+    const won = g.result === 'away' ? 'away won' : 'home won';
+    return `<tr><td class="l">${esc(g.date)} · game ${esc(g.id.slice(-4))}</td><td>${us}%</td><td>${mk}%</td><td>${won}</td></tr>`;
+  }).join('');
+  return card('Us vs the market', `${c.games} finished games`, `
+    <p class="ms-lede">Each game's lines are saved shortly before puck drop, next to our own pick, and judged once it's over. Sportsbook prices include the book's margin, so it is removed first. Lower Brier and log loss mean better-calibrated win chances.</p>
+    ${tbl(`${row('Our pick', base.us, 'ml-live')}${row(BOOK_NAMES.dk, base.dk)}${row(BOOK_NAMES.fd, base.fd)}${base.market ? row('Both books averaged', base.market) : ''}`)}
+    <p class="pq-note">${c.same ? `Scored on the ${c.both} games every source covers, so the rows compare directly.` : 'Each source is scored on every game it has.'} Hockey is close to a coin flip: markets are usually right about 58-60% of the time, so a gap of a point or two needs hundreds of games to mean anything.</p>
+    ${gaps ? `<details class="ms-fold"><summary>Biggest disagreements</summary><div class="pc-scroll"><table class="pc-table"><thead><tr><th class="l">Game</th><th>Our away %</th><th>Market away %</th><th>Result</th></tr></thead><tbody>${gaps}</tbody></table></div></details>` : ''}`);
+}
+
 // Model versions side by side (public/model-lab.json, written by scripts/model-lab.js over past seasons).
 const LAB_CHECKS = [
   ['pickNg', 'pickSat', 'Same game', 'Team with more momentum (goals left out) won the game', pct],
@@ -291,7 +316,7 @@ function render() {
   const head = `<section class="ms-hero"><span class="pc-kicker">Our model${total?.v ? ` v${total.v}` : ''} · regular season</span><h1>Momentum <b>stats</b></h1>
     <p>How the momentum model rates players and teams, and how well it lines up with winning, season by season.</p>${chips(list, season)}</section>`;
   if (!total) {
-    main.innerHTML = `${head}<section class="pc-card"><p class="pq-note">${fmt.season(season)} hasn't been built yet. Seasons are rebuilt from the NHL play-by-play a few at a time; pick another season above.</p></section>${trendsCard(list)}${labCard(state.lab, state.labView)}`;
+    main.innerHTML = `${head}<section class="pc-card"><p class="pq-note">${fmt.season(season)} hasn't been built yet. Seasons are rebuilt from the NHL play-by-play a few at a time; pick another season above.</p></section>${trendsCard(list)}${marketCard(state.odds)}${labCard(state.lab, state.labView)}`;
     return;
   }
   const m = sel.model;
@@ -305,6 +330,7 @@ function render() {
       ${teamsCard(m)}
       ${playersCard(total, pos, showAll)}
       ${trendsCard(list)}
+      ${marketCard(state.odds)}
       ${labCard(state.lab, state.labView)}
     </div>`;
   makeSortable(main);
@@ -344,7 +370,7 @@ main.addEventListener('click', (e) => {
 
 async function start() {
   const seasons = allSeasons();
-  const [totals, lab] = await Promise.all([Promise.all(seasons.map((s) => loadSeason(s))), fetch('model-lab.json').then((r) => (r.ok ? r.json() : null)).catch(() => null)]);
+  const [totals, lab, odds] = await Promise.all([Promise.all(seasons.map((s) => loadSeason(s))), fetch('model-lab.json').then((r) => (r.ok ? r.json() : null)).catch(() => null), getStatic('odds.json').catch(() => null)]);
   const list = seasons.map((season, i) => {
     const total = totals[i];
     return { season, total, state: stateOf(season, total), model: total ? seasonModel(total) : null };
@@ -352,7 +378,7 @@ async function start() {
   const asked = Number(params.get('season'));
   // Default: the current season once it has a few weeks of games, else the newest finished one.
   const fallback = list.find((s) => s.state === 'current' && s.total.games >= 150) ?? list.find((s) => s.state === 'complete') ?? list.find((s) => s.total);
-  state = { list, lab, labView: 'all', season: list.some((s) => s.season === asked) ? asked : fallback?.season ?? seasons[0], pos: null, showAll: false };
+  state = { list, lab, odds, labView: 'all', season: list.some((s) => s.season === asked) ? asked : fallback?.season ?? seasons[0], pos: null, showAll: false };
   render();
 }
 
