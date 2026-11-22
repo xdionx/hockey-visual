@@ -4,6 +4,7 @@ import { hornToggles, watchGoals } from '../horn.js';
 import { setHtmlFilter, filterHtml, esc, initVideo, makeSortable, makeTabs, upgradeShots, morphInner, setMountSignal, resetRinkIds, withFinishRate } from './core.js';
 import { loadSeason } from '../player/store.js';
 import { leagueRate } from '../src/seasonStats.js';
+import { tierOf } from '../src/impact.js';
 import { getData, LIVE_REFRESH_MS } from '../data.js';
 import { startSim } from './sim.js';
 import momentum from './d3-momentum.js';
@@ -114,11 +115,21 @@ function shortDate(d) {
 let lastText = '';
 let simStarted = false;
 
+/** Each skater's tier for this game: 1 above, 0 average, -1 below a typical game for the position. */
+function withTiers(g, r) {
+  for (const side of ['away', 'home']) {
+    for (const k of ['forwards', 'defense']) {
+      for (const p of g.players?.[side]?.[k] ?? []) p.tier = tierOf({ mom: p.momentum, xg: p.xg, xgg: p.xgGoals }, p.position === 'D' ? 'D' : 'F', r);
+    }
+  }
+  return g;
+}
+
 function showGame(data) {
   watchGoals([data]);
   const text = JSON.stringify(data);
   if (text === lastText) return;
-  game = withFinishRate(upgradeShots(data), rate);
+  game = withTiers(withFinishRate(upgradeShots(data), rate), rate);
   lastText = text;
   names = gameNames(game);
   setHtmlFilter((html) => linkPlayers(html, names));

@@ -7,6 +7,7 @@ import { kpis, shotMap, heatTable, goalieTable, shotSummary, mountShotMap } from
 import { spotlight, scorecardControls, scorecardKey, mountScorecards, starsRow, mountStars } from './d5-scorecards.js';
 import { storyChapters, momentumTimeline } from './d6-chapters.js';
 import { storyBeats } from './d6-narrative.js';
+import { howWon } from './d6-won.js';
 
 /** One Story beat: a label and short points; "How it unfolded" adds the period-by-period goal list. */
 function beatHtml(d, c) {
@@ -375,6 +376,7 @@ export default {
         ${header(1, 'story', 'The story')}
         <div class="st-lede"><h1>${esc(story.headline)}</h1>${story.dek.map((d) => beatHtml(d, c)).join('')}</div>
         ${storyChapters(game, c)}
+        ${started ? howWon(game, c) : ''}
         ${started ? `<div class="b-cols st-cols"><div>${scoringCards(game, c)}</div><div>${stars(game)}${statBars(game, c)}</div></div>` : ''}
       </section>
 
