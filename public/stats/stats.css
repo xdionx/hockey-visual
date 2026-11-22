@@ -46,6 +46,12 @@
 .ms-toggle button { border: 0; background: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font: 700 14px "Barlow Condensed", sans-serif; letter-spacing: .05em; text-transform: uppercase; color: var(--mute); }
 .ms-toggle button small { font: 500 11px Inter, sans-serif; text-transform: none; letter-spacing: 0; margin-left: 4px; opacity: .8; }
 .ms-toggle button[aria-pressed="true"] { background: #1e293b; color: #fff; }
+.ms-filters { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px 10px; margin-bottom: 12px; }
+.ms-filters .ms-toggle { margin-bottom: 0; }
+.ms-select { display: inline-flex; align-items: center; gap: 8px; padding: 3px 3px 3px 10px; background: #0b1220; border: 1px solid #1f2937; border-radius: 6px; font: 700 14px "Barlow Condensed", sans-serif; letter-spacing: .05em; text-transform: uppercase; color: var(--mute); }
+.ms-select.ms-on { border-color: var(--team, #334155); box-shadow: inset 4px 0 0 var(--team, #334155); }
+.ms-select select { appearance: none; -webkit-appearance: none; border: 0; border-radius: 4px; background: #1e293b url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%2394a3b8'/%3E%3C/svg%3E") no-repeat right 9px center; color: #fff; padding: 6px 28px 6px 10px; font: inherit; cursor: pointer; min-height: 32px; }
+.ms-select select:focus-visible { outline: 2px solid #60a5fa; outline-offset: 1px; }
 .ms-team { border-left: 4px solid var(--team); padding-left: 10px !important; font-weight: 700; }
 .ms-players td:nth-child(2) { font-weight: 600; }
 .ms-more { display: block; margin: 12px auto 0; padding: 8px 18px; border: 1px solid #334155; border-radius: 4px; background: #0b1220; color: #e8edf5; cursor: pointer; font: 700 15px "Barlow Condensed", sans-serif; letter-spacing: .06em; text-transform: uppercase; }
