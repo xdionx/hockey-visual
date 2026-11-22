@@ -497,3 +497,47 @@ export function goalieXg(g) {
 export function teamColor(abbrev) {
   return readable((TEAM_COLORS[abbrev] ?? ['#64748b'])[0]);
 }
+
+/**
+ * Finishing the way a fan reads it, using the season's league rate (goals per expected goal; our xG runs a
+ * little low, so it is scaled to real scoring): each skater gets shPct (goals on a goalie per shot on goal),
+ * xShPct (what an average NHL shooter scores from the same shots) and gaa (goals vs that average shooter).
+ * The team stats swap "Finishing %" (goals per xG, which read like 167% of chances) for Shooting % and
+ * Avg shooter %, and expected goals are scaled the same way. Returns a new game object.
+ */
+export function withFinishRate(game, rate = 1) {
+  if (!game?.players) return game;
+  const team = { away: { g: 0, xg: 0, sog: 0 }, home: { g: 0, xg: 0, sog: 0 } };
+  const players = {};
+  for (const side of ['away', 'home']) {
+    const p = game.players[side] ?? {};
+    const fix = (s) => {
+      if (s.xg == null) return s;
+      const avg = s.xg * rate;
+      const goals = s.xgGoals ?? 0;
+      team[side].g += goals;
+      team[side].xg += s.xg;
+      team[side].sog += s.sog ?? 0;
+      return { ...s, avgGoals: avg, gaa: goals - avg, shPct: s.sog ? goals / s.sog : null, xShPct: s.sog ? avg / s.sog : null };
+    };
+    players[side] = { ...p, forwards: (p.forwards ?? []).map(fix), defense: (p.defense ?? []).map(fix) };
+  }
+  const pctOf = (n, d) => (d ? (100 * n) / d : null);
+  const teamStats = (game.teamStats ?? []).flatMap((s) => {
+    if (s.key === 'xg') {
+      const a = s.awayNum * rate;
+      const h = s.homeNum * rate;
+      return [{ ...s, label: 'Expected goals', away: a.toFixed(1), home: h.toFixed(1), awayNum: a, homeNum: h }];
+    }
+    if (s.key !== 'finPct') return [s];
+    const [a, h] = [team.away, team.home];
+    const sh = [pctOf(a.g, a.sog), pctOf(h.g, h.sog)];
+    const xs = [pctOf(a.xg * rate, a.sog), pctOf(h.xg * rate, h.sog)];
+    const txt = (v) => (v == null ? '-' : `${v.toFixed(1)}%`);
+    return [
+      { key: 'shPct', label: 'Shooting %', away: txt(sh[0]), home: txt(sh[1]), awayNum: sh[0] ?? 0, homeNum: sh[1] ?? 0 },
+      { key: 'xShPct', label: 'Avg shooter %', away: txt(xs[0]), home: txt(xs[1]), awayNum: xs[0] ?? 0, homeNum: xs[1] ?? 0 },
+    ];
+  });
+  return { ...game, players, teamStats, finishRate: rate };
+}

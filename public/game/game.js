@@ -1,7 +1,9 @@
 // Box score page: loads one game's data/games/<id>.json and renders it in the chosen design.
 // Switch designs with the bar at the top, keys 1-4, or ?design=<name> in the URL.
 import { hornToggles, watchGoals } from '../horn.js';
-import { setHtmlFilter, filterHtml, esc, initVideo, makeSortable, makeTabs, upgradeShots, morphInner, setMountSignal, resetRinkIds } from './core.js';
+import { setHtmlFilter, filterHtml, esc, initVideo, makeSortable, makeTabs, upgradeShots, morphInner, setMountSignal, resetRinkIds, withFinishRate } from './core.js';
+import { loadSeason } from '../player/store.js';
+import { leagueRate } from '../src/seasonStats.js';
 import { getData, LIVE_REFRESH_MS } from '../data.js';
 import { startSim } from './sim.js';
 import momentum from './d3-momentum.js';
@@ -14,6 +16,12 @@ import { playerIndex, linkPlayers, installPlayerLinks } from '../player/link.js'
 const DESIGNS = [story, momentum, analytics, scorecards];
 const params = new URLSearchParams(location.search);
 const gameId = params.get('id');
+// League goals per expected goal for this game's season, so finishing reads against an average shooter.
+const FALLBACK_RATE = 1.17;
+const startYear = Number(String(gameId).slice(0, 4));
+const finRate = (/^\d{10}$/.test(gameId ?? '') ? loadSeason(Number(`${startYear}${startYear + 1}`)) : Promise.resolve(null))
+  .then((t) => (t ? leagueRate(t) : FALLBACK_RATE)).catch(() => FALLBACK_RATE);
+let rate = FALLBACK_RATE;
 const box = document.querySelector('#box');
 const switcher = document.querySelector('#switcher');
 let game = null;
@@ -110,7 +118,7 @@ function showGame(data) {
   watchGoals([data]);
   const text = JSON.stringify(data);
   if (text === lastText) return;
-  game = upgradeShots(data);
+  game = withFinishRate(upgradeShots(data), rate);
   lastText = text;
   names = gameNames(game);
   setHtmlFilter((html) => linkPlayers(html, names));
@@ -144,6 +152,7 @@ async function load(quiet = false) {
     timer = setTimeout(() => load(true), LIVE_REFRESH_MS);
     return;
   }
+  rate = await finRate;
   if (params.has('sim')) {
     if (simStarted) return;
     simStarted = true;
