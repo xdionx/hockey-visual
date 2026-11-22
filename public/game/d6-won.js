@@ -26,6 +26,17 @@ export function wonNumbers(game) {
       players: sk.map((p) => ({ p, tier: p.tier ?? null })),
     };
   }
+  // Goals by strength (from the scoring summary) and power plays (from team stats, "1/4").
+  const pp = (game.teamStats ?? []).find((r) => r.key === 'powerPlay');
+  for (const side of ['away', 'home']) {
+    const goals = (game.scoring ?? []).filter((g) => g.period !== 'SO' && g.team === sides[side].abbrev);
+    const has = (g, t) => (g.tags ?? []).includes(t);
+    sides[side].evGoals = goals.filter((g) => !has(g, 'PPG') && !has(g, 'SHG') && !has(g, 'EN')).length;
+    sides[side].ppGoals = goals.filter((g) => has(g, 'PPG')).length;
+    sides[side].shGoals = goals.filter((g) => has(g, 'SHG')).length;
+    const opps = String(pp?.[side] ?? '').split('/')[1];
+    sides[side].ppOpps = opps == null || opps === '' ? null : Number(opps);
+  }
   const m = game.momentum?.totalsNoGoals;
   const tot = m ? (m.away ?? 0) + (m.home ?? 0) : 0;
   for (const [side, other] of [['away', 'home'], ['home', 'away']]) {
@@ -49,14 +60,20 @@ function sentence(game, s) {
   const lost = [];
   if (w.momShare != null && w.momShare < 0.5) lost.push(`more of the play (${Math.round((1 - w.momShare) * 100)}% of momentum)`);
   if (l.chances > w.chances + 0.2) lost.push(`the better chances (${l.chances.toFixed(1)} expected goals to ${w.chances.toFixed(1)})`);
+  // Even strength (5v5, 4v4, 3v3) decides most games; say so when special teams made the difference.
+  const stNet = (t, o) => t.ppGoals + t.shGoals - o.ppGoals - o.shGoals;
+  if (w.evGoals <= l.evGoals && stNet(w, l) > 0) {
+    txt += ` Special teams made the difference: ${w.evGoals === l.evGoals ? `even strength finished ${w.evGoals}-${l.evGoals}` : `${esc(l.abbrev)} won even strength ${l.evGoals}-${w.evGoals}`}, but ${esc(w.abbrev)} scored ${w.ppGoals} on the power play${w.shGoals ? ` and ${w.shGoals} shorthanded` : ''}${l.ppGoals + l.shGoals ? ` to ${esc(l.abbrev)}'s ${l.ppGoals + l.shGoals}` : ''}.`;
+  }
   if (lost.length) txt += ` ${esc(l.abbrev)} had ${lost.join(' and ')} but couldn't turn it into goals.`;
   else if (w.momShare != null) txt += ` ${esc(w.abbrev)} also had more of the play (${Math.round(w.momShare * 100)}% of momentum).`;
   return txt;
 }
 
-function row(label, tip, a, h, fmt, better = 'high') {
+function row(label, tip, a0, h0, fmt, better = 'high', num = (v) => v) {
+  const [a, h] = [num(a0), num(h0)];
   const cls = (x, y) => (Math.abs(x - y) < 0.05 ? '' : (better === 'high' ? x > y : x < y) ? ' hw-win' : '');
-  return `<tr title="${esc(tip)}"><td class="hw-a${cls(a, h)}">${fmt(a)}</td><th>${label}</th><td class="hw-h${cls(h, a)}">${fmt(h)}</td></tr>`;
+  return `<tr title="${esc(tip)}"><td class="hw-a${cls(a, h)}">${fmt(a0)}</td><th>${label}</th><td class="hw-h${cls(h, a)}">${fmt(h0)}</td></tr>`;
 }
 
 function tierList(t, c) {
@@ -84,6 +101,9 @@ export function howWon(game, c) {
       <thead><tr><th class="hw-a" style="--team:${c.away}">${esc(a.abbrev)}</th><th></th><th class="hw-h" style="--team:${c.home}">${esc(h.abbrev)}</th></tr></thead>
       <tbody>
         ${row('Goals', 'Final score', a.score, h.score, (v) => v)}
+        ${row('Even-strength goals', '5 on 5, 4 on 4 and 3 on 3, with both goalies in: where about 70% of NHL goals come from', a.evGoals, h.evGoals, (v) => v)}
+        ${a.ppOpps != null && h.ppOpps != null ? row('Power play', 'Power-play goals out of power-play chances', [a.ppGoals, a.ppOpps], [h.ppGoals, h.ppOpps], ([g, n]) => `${g} of ${n}`, 'high', ([g]) => g) : ''}
+        ${a.shGoals || h.shGoals ? row('Shorthanded goals', 'Goals scored while killing a penalty', a.shGoals, h.shGoals, (v) => v) : ''}
         ${a.momShare != null ? row('Momentum', 'Share of the momentum both teams built, goals left out', a.momShare, h.momShare, pctf) : ''}
         ${row('Chances', 'Expected goals: what average NHL shooters would score from these shots on goal', a.chances, h.chances, (v) => v.toFixed(1))}
         ${row('Shooters vs avg', 'Goals scored on the goalie minus expected goals', a.shooters, h.shooters, (v) => sgn(v))}
