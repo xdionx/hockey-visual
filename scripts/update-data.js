@@ -1,6 +1,6 @@
 // Saves NHL scores as static JSON files for the GitHub Pages site.
 //
-//   node scripts/update-data.js <outDir> [--from YYYY-MM-DD] [--ahead N]
+//   node scripts/update-data.js <outDir> [--from YYYY-MM-DD] [--ahead N] [--seasons <dir of past season files>]
 //
 // Writes <outDir>/scores/<date>.json for every date from --from through N days
 // after the NHL's current date, plus <outDir>/latest.json ({ date }) so the page
@@ -24,6 +24,8 @@ import { normalizeScoreboard } from '../src/normalize.js';
 import { shotAttempts } from '../src/sat.js';
 import { emptySeason, addGame, fromPbp, linesFromDetail, seasonOf, SEASON_VERSION } from '../src/seasonStats.js';
 import { getPlayByPlay } from '../src/nhlApi.js';
+import { parsePartner, mergeOdds } from '../src/odds.js';
+import { predictGame } from '../src/predict.js';
 
 const args = process.argv.slice(2);
 const outDir = args.find((a) => !a.startsWith('--')) ?? 'data';
@@ -135,6 +137,47 @@ if (before?.games !== total.games || JSON.stringify(before?.players) !== JSON.st
   total.complete = false;
   await writeFile(seasonFile, `${JSON.stringify(total)}\n`);
   changed++;
+}
+
+// Sportsbook lines (DraftKings US, FanDuel Canada) and our pre-game pick, kept for the "us vs the market" card.
+// Lines and picks keep updating until puck drop, then freeze as the closing line. Results are filled in once final.
+try {
+  const prev = JSON.parse(await readFile(join(opt('seasons', 'seasons/seasons'), `${season - 10001}.json`), 'utf8').catch(() => 'null'));
+  const snaps = [];
+  for (const c of ['US', 'CA']) {
+    const res = await fetch(`https://api-web.nhle.com/v1/partner-game/${c}/now`, { headers: { accept: 'application/json' } }).catch(() => null);
+    if (res?.ok) snaps.push(...parsePartner(await res.json()));
+    await new Promise((r) => setTimeout(r, 300));
+  }
+  const oddsFile = join(outDir, 'odds.json');
+  const saved = JSON.parse(await readFile(oddsFile, 'utf8').catch(() => 'null'));
+  const nowMs = Date.now();
+  const board = JSON.parse(await readFile(join(outDir, 'scores', `${today}.json`), 'utf8').catch(() => 'null'));
+  const yest = JSON.parse(await readFile(join(outDir, 'scores', `${shift(today, -1)}.json`), 'utf8').catch(() => 'null'));
+  const played = new Set((yest?.games ?? []).filter((g) => g.status.state !== 'postponed').flatMap((g) => [g.away.abbrev, g.home.abbrev]));
+  const picks = new Map();
+  const dateOf = {};
+  for (const g of board?.games ?? []) {
+    dateOf[g.id] = g.gameDate;
+    if (g.gameType !== 2 || Date.parse(g.startTimeUTC) <= nowMs) continue;
+    const p = predictGame({ total, prev, away: g.away.abbrev, home: g.home.abbrev, n: Number(String(g.id).slice(-4)), b2b: { away: played.has(g.away.abbrev), home: played.has(g.home.abbrev) } });
+    if (p) picks.set(g.id, p.away);
+  }
+  const odds = mergeOdds(saved, snaps, picks, nowMs, dateOf);
+  // Results for saved games that have finished (scores files are refreshed for the last two days).
+  const finals = new Map();
+  for (const g of Object.values(odds.games).filter((x) => !x.result && x.date <= today)) {
+    if (!finals.has(g.date)) finals.set(g.date, JSON.parse(await readFile(join(outDir, 'scores', `${g.date}.json`), 'utf8').catch(() => 'null')));
+  }
+  for (const [id, g] of Object.entries(odds.games)) {
+    if (g.result) continue;
+    const f = finals.get(g.date)?.games?.find((x) => String(x.id) === id);
+    if (f?.status.state === 'final') g.result = f.linescore.totals.away > f.linescore.totals.home ? 'away' : 'home';
+  }
+  const same = saved && JSON.stringify({ ...odds, updated: 0 }) === JSON.stringify({ ...saved, updated: 0 });
+  if (!same) { await writeFile(oddsFile, `${JSON.stringify(odds)}\n`); changed++; }
+} catch (err) {
+  console.warn(`Odds step failed: ${err.message}`);
 }
 
 console.log(`NHL date ${today}: fetched ${fetched} days, ${boxFetched} box scores (${boxFailed} failed) and ${linesFetched} player-line games, ${changed} files changed`);

@@ -42,6 +42,9 @@ const server = http.createServer(async (req, res) => {
     const pl = url.pathname.match(/^\/data\/players\/(\d{7,8})\.json$/);
     if (pl) return sendJson(res, 200, normalizePlayer(await getPlayer(pl[1])));
     // Season totals: whatever the data scripts saved under ./data/seasons (see scripts/update-data.js).
+    if (url.pathname === '/data/odds.json') {
+      try { return sendJson(res, 200, JSON.parse(await readFile(join(ROOT, 'data', 'odds.json'), 'utf8'))); } catch { return sendJson(res, 404, { error: 'no odds saved yet' }); }
+    }
     const se = url.pathname.match(/^\/data\/seasons\/(\d{8})\.json$/);
     if (se) return sendJson(res, 200, JSON.parse(await readFile(join(ROOT, 'data', 'seasons', `${se[1]}.json`), 'utf8')));
     const r = url.pathname.match(/^\/data\/raw\/(\d{10})\.json$/);
