@@ -513,6 +513,28 @@ function team(boxTeam, info) {
   };
 }
 
+/** Before puck drop: each team's record, league special-teams numbers with ranks, and last 10 (newest first). */
+function preview(landing, rightRail) {
+  const ts = rightRail?.teamSeasonStats;
+  const l10 = rightRail?.last10Record;
+  const side = (k) => {
+    const s = ts?.[k] ?? {};
+    const l = l10?.[k];
+    return {
+      record: landing?.[k]?.record ?? null,
+      pp: s.ppPctg ?? null, ppRank: s.ppPctgRank ?? null,
+      pk: s.pkPctg ?? null, pkRank: s.pkPctgRank ?? null,
+      fo: s.faceoffWinningPctg ?? null, foRank: s.faceoffWinningPctgRank ?? null,
+      gf: s.goalsForPerGamePlayed ?? null, gfRank: s.goalsForPerGamePlayedRank ?? null,
+      ga: s.goalsAgainstPerGamePlayed ?? null, gaRank: s.goalsAgainstPerGamePlayedRank ?? null,
+      last10: l?.record ?? null,
+      streak: l?.streakType ? `${l.streakType}${l.streak}` : null,
+      results: (l?.pastGameResults ?? []).map((r) => r.gameResult),
+    };
+  };
+  return { away: side('awayTeam'), home: side('homeTeam') };
+}
+
 /** One game's box score from the raw endpoint responses. Any of landing/rightRail/pbp may be missing. */
 export function normalizeGameDetail({ box, landing = null, rightRail = null, pbp = null, shifts = null }) {
   const counts = eventCounts(pbp);
@@ -553,6 +575,7 @@ export function normalizeGameDetail({ box, landing = null, rightRail = null, pbp
     status,
     outcome: box.gameOutcome?.lastPeriodType ?? null,
     strength,
+    preview: status.state === 'pre' ? preview(landing, rightRail) : null,
     away: team(box.awayTeam, info.awayTeam),
     home: team(box.homeTeam, info.homeTeam),
     linescore: linescore(box, rightRail),
