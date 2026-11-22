@@ -8,6 +8,7 @@ import { spotlight, scorecardControls, scorecardKey, mountScorecards, starsRow, 
 import { storyChapters, momentumTimeline } from './d6-chapters.js';
 import { storyBeats } from './d6-narrative.js';
 import { howWon } from './d6-won.js';
+import { pregameDek, pregameCards } from './d6-pregame.js';
 
 /** One Story beat: a label and short points; "How it unfolded" adds the period-by-period goal list. */
 function beatHtml(d, c) {
@@ -45,7 +46,7 @@ export function storyline(game) {
   const { away, home } = game;
   const state = game.status.state;
   if (state === 'pre' || state === 'postponed') {
-    return { headline: `${away.commonName} at ${home.commonName}`, dek: [state === 'pre' ? 'The game hasn’t started yet. The story fills in once the puck drops.' : game.status.label] };
+    return { headline: `${away.commonName} at ${home.commonName}`, dek: state === 'pre' ? pregameDek(game) : [game.status.label] };
   }
   const t = ls.totals;
   const lead = t.away === t.home ? null : t.away > t.home ? 'away' : 'home';
@@ -366,16 +367,16 @@ export default {
         ${miniScore(game, c)}
         <div class="st-bar-body">
         ${started ? momentumStrip(game, c) : ''}
-        <nav class="st-nav" aria-label="Sections">${SECTIONS.map(([id, label], i) => `<a href="#st-${id}" data-sec="${id}"><span>${String(i + 1).padStart(2, '0')}</span>${esc(label)}</a>`).join('')}</nav>
+        ${started ? `<nav class="st-nav" aria-label="Sections">${SECTIONS.map(([id, label], i) => `<a href="#st-${id}" data-sec="${id}"><span>${String(i + 1).padStart(2, '0')}</span>${esc(label)}</a>`).join('')}</nav>` : ''}
         </div>
       </div>
 
       ${game.status.state === 'final' ? starsRow(game, c, all) : ''}
 
       <section class="st-sec" id="st-story">
-        ${header(1, 'story', 'The story')}
+        ${header(1, 'story', started ? 'The story' : 'Before the game')}
         <div class="st-lede"><h1>${esc(story.headline)}</h1>${story.dek.map((d) => beatHtml(d, c)).join('')}</div>
-        ${storyChapters(game, c)}
+        ${game.status.state === 'pre' ? pregameCards(game, c) : storyChapters(game, c)}
         ${started ? howWon(game, c) : ''}
         ${started ? `<div class="b-cols st-cols"><div>${scoringCards(game, c)}</div><div>${stars(game)}${statBars(game, c)}</div></div>` : ''}
       </section>

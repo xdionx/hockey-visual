@@ -37,7 +37,7 @@ export function ttlFor(state, gameDate, today, settling = false) {
 /** Scoreboard TTL: the shortest of its games (an empty date counts as finished). */
 export function scoreboardTtl(board, today) {
   const states = board.games.map((g) => g.status.state);
-  if (states.includes('live')) return 5 * SECOND;
+  if (states.includes('live') || board.games.some((g) => g.status.imminent)) return 5 * SECOND;
   if (states.includes('pre') || board.games.some((g) => g.status.settling)) return 60 * SECOND;
   return ttlFor('final', board.date, today);
 }
@@ -112,7 +112,7 @@ async function build(path) {
     }
     const game = normalizeGameDetail({ box, landing, rightRail, pbp, shifts });
     const today = new Date(Date.now() - 10 * HOUR * 1000).toISOString().slice(0, 10); // close enough to the NHL day for ageing
-    return { body: game, ttl: ttlFor(game.status.state, game.gameDate, today, game.status.settling) };
+    return { body: game, ttl: ttlFor(game.status.imminent ? 'live' : game.status.state, game.gameDate, today, game.status.settling) };
   }
   return null;
 }

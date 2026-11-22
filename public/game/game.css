@@ -983,3 +983,31 @@ main { padding: 0 0 48px; }
 .st-td-p b.neg { color: #f87171; }
 .st-lbl-low { display: block; margin-top: 14px; }
 .st-td-note { display: block; margin-top: 10px; color: #8d98ab; font-size: 11px; line-height: 1.4; }
+
+/* Game Story before puck drop (d6-pregame.js) */
+.pg { display: grid; gap: 16px; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); max-width: 1168px; }
+.pg > .b-card { margin: 0; }
+.pg-lead { margin: 0 0 12px; font: 15px/1.4 Inter, sans-serif; color: #cbd5e1; }
+.pg-bars { display: grid; gap: 8px; margin-bottom: 14px; }
+.pg-bar { display: flex; align-items: center; gap: 8px; }
+.pg-bar b { min-width: 38px; font: 700 18px/1 "Barlow Condensed", sans-serif; font-variant-numeric: tabular-nums; text-align: right; }
+.pg-bar b:nth-of-type(2) { text-align: left; }
+.pg-track { flex: 1; display: flex; gap: 2px; height: 8px; }
+.pg-track i { display: block; height: 100%; border-radius: 4px; }
+.pg-bar em { width: 26px; font: 600 10px Inter, sans-serif; font-style: normal; letter-spacing: .1em; color: var(--b-mute); }
+.pg dl { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; margin: 0; font: 500 13px/1.45 Inter, sans-serif; }
+.pg dt { color: var(--b-mute); }
+.pg dt small { display: block; font-size: 10px; line-height: 1.25; color: #6f7a8d; max-width: 130px; }
+.pg dd { margin: 0; color: #d6dde8; display: grid; gap: 4px; min-width: 0; }
+.pg-tl { display: flex; align-items: center; gap: 8px; }
+.pg-chip { min-width: 36px; padding: 1px 6px; border-radius: 4px; text-align: center; font: 700 11px Inter, sans-serif; color: #fff; }
+.pg-note { margin: 10px 0 0; font: 500 11px Inter, sans-serif; color: var(--b-mute); }
+.pg-teams { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.pg-team { border-top: 3px solid var(--team); padding-top: 10px; min-width: 0; }
+.pg-team h3 { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; font: 700 18px/1.1 "Barlow Condensed", sans-serif; text-transform: uppercase; letter-spacing: .03em; }
+.pg-logo { width: 28px; height: 28px; }
+.pg .muted { color: #6f7a8d; }
+.pg-alert { margin: 0 0 10px; padding: 4px 8px; border-left: 3px solid #ffb020; border-radius: 4px; background: rgba(255, 176, 32, .1); color: #ffcf70; font: 600 12px/1.35 Inter, sans-serif; }
+@media (max-width: 860px) { .pg, .pg-teams { grid-template-columns: 1fr; } }
+.pg dd.pg-list { display: block; }
+.pg-tl { flex-wrap: wrap; }
