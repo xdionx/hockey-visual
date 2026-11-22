@@ -1,3 +1,4 @@
+import '../horn.js'; // goal horns for games with a horn on, on every page
 // Pick a finished game to replay: choose a date, then a game.
 import { getData } from '../data.js';
 

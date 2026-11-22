@@ -214,7 +214,7 @@ onDelayChange((id) => { if (id === String(gameId)) { resetGoals(id); showDue(tru
 
 async function showGame(data) {
   const info = data.status?.state === 'pre' && !params.has('sim') ? await loadPick(data) : null;
-  watchGoals([data]);
+  if (params.has('sim')) watchGoals([data]); // live horns come from horn.js's own watcher, on every page
   // Redraw when the pregame radio buttons appear, or the delay chip changes.
   const text = JSON.stringify(data) + (radioOpen(data) ? '1' : '0') + getDelay(gameId) + Math.ceil(wait / 1000);
   if (text === lastText) return;
