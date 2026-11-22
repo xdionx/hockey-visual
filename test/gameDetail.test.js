@@ -203,10 +203,29 @@ test('team colors stay real brand colors: valid hex, no grey fallbacks for Utah 
         for (const v of [c.away, c.home]) assert.match(v, /^#[0-9a-fA-F]{6}$/);
         const mine = g.away.abbrev === t ? c.away : c.home;
         const [r, gg, b] = [1, 3, 5].map((i) => parseInt(mine.slice(i, i + 2), 16));
-        assert.ok(Math.max(r, gg, b) - Math.min(r, gg, b) >= 40, `${t} vs ${o} looks grey: ${mine}`);
+        // A real color, or white-silver as the deliberate clash fallback, never a mid grey.
+        assert.ok(Math.max(r, gg, b) - Math.min(r, gg, b) >= 40 || Math.min(r, gg, b) >= 220, `${t} vs ${o} looks grey: ${mine}`);
       }
     }
   }
+});
+
+test('away team swaps to a color from another family when both teams look alike', async () => {
+  const { teamColors, colorsClash } = await import('../public/game/core.js');
+  const T = 'ANA BOS BUF CGY CAR CHI COL CBJ DAL DET EDM FLA LAK MIN MTL NSH NJD NYI NYR OTT PHI PIT SJS SEA STL TBL TOR UTA VAN VGK WSH WPG'.split(' ');
+  for (const x of T) {
+    for (const y of T.filter((t) => t !== x)) {
+      const c = teamColors({ away: { abbrev: x }, home: { abbrev: y } }, { dark: true });
+      assert.ok(!colorsClash(c.away, c.home), `${x} at ${y}: ${c.away} vs ${c.home} look alike`);
+      // The home team always keeps its own primary.
+      assert.equal(c.home, teamColors({ away: { abbrev: 'ZZZ' }, home: { abbrev: y } }, { dark: true }).home);
+    }
+  }
+  // Sharks vs Kraken: teal vs teal before; reds vs reds too.
+  assert.ok(colorsClash('#008f99', '#68A2B9'));
+  assert.ok(colorsClash('#ef3856', '#e35968'));
+  const sea = teamColors({ away: { abbrev: 'SEA' }, home: { abbrev: 'SJS' } }, { dark: true });
+  assert.notEqual(sea.away, '#68A2B9');
 });
 
 test('a fight is not charged to the fighters and sparks the team that was behind', async () => {
