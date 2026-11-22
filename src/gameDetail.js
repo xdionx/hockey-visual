@@ -6,7 +6,7 @@ import { gameStatus, periodLabel, periodName, nhlVideoUrl, videoId } from './nor
 import { computeMomentum, onIceAttempts, inHomePlate } from './momentum.js';
 import { penaltyKind, SEVERITY_SCORE } from './penalties.js';
 import { strengthOf, penaltyRunning, gameElapsed } from './strength.js';
-import { goalieExpected, shooterExpected, finishingPct, shotXg } from './xg.js';
+import { goalieExpected } from './xg.js';
 
 const t = (v) => (v && typeof v === 'object' ? v.default : v) ?? '';
 const clockTime = (s) => (s ?? '').replace(/^0(?=\d:)/, '');
@@ -83,25 +83,6 @@ function momentumStats(momentum) {
   return [
     { key: 'momentum', label: 'Momentum', away: momentum.totals.away.toFixed(1), home: momentum.totals.home.toFixed(1), awayNum: momentum.totals.away, homeNum: momentum.totals.home },
     { key: 'momentumControl', label: 'Momentum control', away: `${mins(ctl.away)} min`, home: `${mins(ctl.home)} min`, awayNum: ctl.away, homeNum: ctl.home },
-  ];
-}
-
-/** Team expected goals and finishing % (goals on a goalie per expected goal), from our own xG. */
-function finishingStats(shots, pbp) {
-  if (!pbp || !shots?.length) return [];
-  const t = { away: { g: 0, xg: 0 }, home: { g: 0, xg: 0 } };
-  for (const s of shots) {
-    if ((s.kind !== 'sog' && s.kind !== 'goal') || !s.goalieId) continue;
-    const p = shotXg(s);
-    if (p == null) continue;
-    t[s.team].xg += p;
-    if (s.kind === 'goal') t[s.team].g++;
-  }
-  const fa = finishingPct(t.away.g, t.away.xg);
-  const fh = finishingPct(t.home.g, t.home.xg);
-  return [
-    { key: 'xg', label: 'Expected goals', away: t.away.xg.toFixed(1), home: t.home.xg.toFixed(1), awayNum: round(t.away.xg, 2), homeNum: round(t.home.xg, 2) },
-    { key: 'finPct', label: 'Finishing %', away: fa == null ? '-' : `${fa}%`, home: fh == null ? '-' : `${fh}%`, awayNum: fa ?? 0, homeNum: fh ?? 0 },
   ];
 }
 
@@ -299,7 +280,7 @@ export function rosterMap(pbp) {
   }]));
 }
 
-function skater(raw, counts, roster, momentum, onIce, finish) {
+function skater(raw, counts, roster, momentum, onIce) {
   const c = counts.get(raw.playerId) ?? { a1: 0, a2: 0, fow: 0, fol: 0, penaltiesDrawn: 0, penaltiesTaken: 0, severity: 0, discipline: [], missed: 0, blockedAgainst: 0, homePlate: 0, keyGoalBonus: 0 };
   const r = roster.get(raw.playerId);
   const s = {
@@ -337,13 +318,6 @@ function skater(raw, counts, roster, momentum, onIce, finish) {
     severity: c.severity,
     discipline: c.discipline,
   };
-  // Finishing: goals on a goalie against the expected goals from the player's shots (our xG).
-  const f = finish?.get(raw.playerId);
-  if (finish) {
-    s.xg = round(f?.xg ?? 0, 2);
-    s.xgGoals = f?.goals ?? 0;
-    s.finPct = finishingPct(s.xgGoals, f?.xg ?? 0);
-  }
   const mom = momentum?.players?.[raw.playerId] ?? { impact: 0, swingPlays: 0 };
   s.momentum = mom.impact;
   s.momentumParts = { pos: mom.pos ?? Math.max(0, mom.impact), neg: mom.neg ?? Math.min(0, mom.impact), kinds: mom.kinds ?? {} };
@@ -393,11 +367,11 @@ function goalie(raw, roster, expected) {
   return g;
 }
 
-function teamPlayers(stats, counts, roster, momentum, onIce, expected, finish) {
+function teamPlayers(stats, counts, roster, momentum, onIce, expected) {
   if (!stats) return { forwards: [], defense: [], goalies: [] };
   return {
-    forwards: (stats.forwards ?? []).map((p) => skater(p, counts, roster, momentum, onIce, finish)),
-    defense: (stats.defense ?? []).map((p) => skater(p, counts, roster, momentum, onIce, finish)),
+    forwards: (stats.forwards ?? []).map((p) => skater(p, counts, roster, momentum, onIce)),
+    defense: (stats.defense ?? []).map((p) => skater(p, counts, roster, momentum, onIce)),
     goalies: (stats.goalies ?? []).map((p) => goalie(p, roster, expected)),
   };
 }
@@ -526,7 +500,6 @@ export function normalizeGameDetail({ box, landing = null, rightRail = null, pbp
   const status = gameStatus(box);
   const shots = shotList(pbp, box.awayTeam.id, roster);
   const expected = goalieExpected(shots);
-  const finish = pbp ? shooterExpected(shots) : null;
   const lastPlay = (pbp?.plays ?? []).at(-1);
   const strength = status.state === 'live'
     ? strengthOf({
@@ -555,14 +528,14 @@ export function normalizeGameDetail({ box, landing = null, rightRail = null, pbp
     away: team(box.awayTeam, info.awayTeam),
     home: team(box.homeTeam, info.homeTeam),
     linescore: linescore(box, rightRail),
-    teamStats: [...teamStats(rightRail), ...finishingStats(shots, pbp), ...momentumStats(momentum)],
+    teamStats: [...teamStats(rightRail), ...momentumStats(momentum)],
     scoring: scoring(landing),
     shootout: shootout(landing),
     penalties: penalties(landing),
     threeStars: threeStars(landing),
     players: {
-      away: teamPlayers(box.playerByGameStats?.awayTeam, counts, roster, momentum, onIce, expected, finish),
-      home: teamPlayers(box.playerByGameStats?.homeTeam, counts, roster, momentum, onIce, expected, finish),
+      away: teamPlayers(box.playerByGameStats?.awayTeam, counts, roster, momentum, onIce, expected),
+      home: teamPlayers(box.playerByGameStats?.homeTeam, counts, roster, momentum, onIce, expected),
     },
     hasShifts: Boolean(onIce),
     shots,

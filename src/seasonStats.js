@@ -16,15 +16,12 @@
 // `g` keeps one short row per game (see GAME_FIELDS) so the momentum stats page can test the model
 // against results: who won, team momentum with and without goals, team shot attempts.
 import { computeMomentum } from './momentum.js';
-import { shotXg, finishingPct } from './xg.js';
 
 // Bump when how a game line is computed changes (momentum weights, what counts as an attempt):
 // the backfill then rebuilds the saved seasons instead of mixing old and new numbers.
 // 2: backup goalies who never went in no longer count as a game played. 3: game rows (`g`).
 // 4: momentum model v4 (shots and penalties only, home plate 3x, goals count as shots in "no goals").
-// 5: finishing (xg = expected goals from the player's shots on a goalie, xgg = goals on a goalie), goalie
-//    goals against vs expected (ga, xga, gs = games started), and each game's starting goalies (ags, hgs).
-export const SEASON_VERSION = 5;
+export const SEASON_VERSION = 4;
 
 /** First season the NHL play-by-play has every event with rink coordinates (needed for momentum). */
 export const FIRST_FULL_SEASON = 20092010;
@@ -35,10 +32,9 @@ const ATTEMPTS = new Set(['goal', 'shot-on-goal', 'missed-shot', 'blocked-shot']
 
 /**
  * Order of the values in a game row (total.g): game number, away and home team, goals, team momentum
- * (every push), team momentum without goals, team shot attempts, how it ended ('REG' | 'OT' | 'SO'), and
- * each team's starting goalie id (null when unknown).
+ * (every push), team momentum without goals, team shot attempts, and how it ended ('REG' | 'OT' | 'SO').
  */
-export const GAME_FIELDS = ['n', 'away', 'home', 'ag', 'hg', 'am', 'hm', 'an', 'hn', 'as', 'hs', 'end', 'ags', 'hgs'];
+export const GAME_FIELDS = ['n', 'away', 'home', 'ag', 'hg', 'am', 'hm', 'an', 'hn', 'as', 'hs', 'end'];
 export const gameObj = (row) => Object.fromEntries(GAME_FIELDS.map((k, i) => [k, row[i]]));
 
 const teamSat = (lines, team) => lines.reduce((n, l) => n + (l.team === team && l.pos !== 'G' ? l.sat ?? 0 : 0), 0);
@@ -53,10 +49,8 @@ export function gameFromDetail(detail, lines = linesFromDetail(detail)) {
   const labels = (detail.linescore?.periods ?? []).map((p) => p.label);
   const end = detail.outcome ?? (labels.includes('SO') ? 'SO' : labels.some((l) => /OT/.test(l)) ? 'OT' : 'REG');
   return [gameNo(detail.id), a, h, detail.away?.score ?? 0, detail.home?.score ?? 0, m.totals.away, m.totals.home,
-    m.totalsNoGoals?.away ?? null, m.totalsNoGoals?.home ?? null, teamSat(lines, a), teamSat(lines, h), end,
-    starterOf(detail.players?.away?.goalies), starterOf(detail.players?.home?.goalies)];
+    m.totalsNoGoals?.away ?? null, m.totalsNoGoals?.home ?? null, teamSat(lines, a), teamSat(lines, h), end];
 }
-const starterOf = (goalies) => (goalies ?? []).find((g) => g.starter)?.id ?? (goalies ?? []).find((g) => g.played)?.id ?? null;
 
 /** "20262027" -> "2026-27" */
 export function seasonLabel(season) {
@@ -83,16 +77,12 @@ export function linesFromDetail(detail) {
     for (const s of [...(p.forwards ?? []), ...(p.defense ?? [])]) {
       out.push({
         id: s.id, name: s.fullName ?? s.name, team, pos: s.position,
-        sat: s.attempts ?? 0, sog: s.sog ?? 0, ...(s.xg != null ? { xg: s.xg, xgg: s.xgGoals ?? 0 } : {}),
+        sat: s.attempts ?? 0, sog: s.sog ?? 0,
         mom: s.momentum ?? 0, mp: s.momentumParts?.pos ?? Math.max(0, s.momentum ?? 0), mn: s.momentumParts?.neg ?? Math.min(0, s.momentum ?? 0),
         toi: s.toiSeconds ?? null,
       });
     }
-    for (const g of p.goalies ?? []) {
-      if (!g.played) continue;
-      out.push({ id: g.id, name: g.fullName ?? g.name, team, pos: 'G', toi: g.toiSeconds ?? null,
-        ...(g.xga != null ? { ga: g.goalsAgainst ?? 0, xga: g.xga } : {}), st: g.starter ? 1 : 0 });
-    }
+    for (const g of p.goalies ?? []) if (g.played) out.push({ id: g.id, name: g.fullName ?? g.name, team, pos: 'G', toi: g.toiSeconds ?? null });
   }
   return out;
 }
@@ -117,51 +107,25 @@ export function fromPbp(pbp) {
     if (!ATTEMPTS.has(e.typeDescKey) || e.periodDescriptor?.periodType === 'SO') continue;
     const id = e.details?.shootingPlayerId ?? e.details?.scoringPlayerId;
     if (!id) continue;
-    const a = att.get(id) ?? { sat: 0, sog: 0, xg: 0, xgg: 0 };
+    const a = att.get(id) ?? { sat: 0, sog: 0 };
     a.sat++;
-    if (e.typeDescKey === 'goal' || e.typeDescKey === 'shot-on-goal') {
-      a.sog++;
-      // Finishing only counts shots with a goalie in net (an empty-net goal says nothing about finishing).
-      const p = e.details?.goalieInNetId ? shotXg({ x: e.details.xCoord, y: e.details.yCoord, shotType: e.details.shotType }) : null;
-      if (p != null) { a.xg += p; if (e.typeDescKey === 'goal') a.xgg++; }
-    }
+    if (e.typeDescKey === 'goal' || e.typeDescKey === 'shot-on-goal') a.sog++;
     att.set(id, a);
   }
   // A dressed backup goalie who never went in didn't play (the NHL doesn't count that as a game).
   const inNet = new Set(pbp.plays.map((e) => e.details?.goalieInNetId).filter(Boolean));
-  // Goals against and expected goals against per goalie, and who started for each team.
-  const gk = new Map();
-  const starters = {};
-  const teamOf = new Map((pbp.rosterSpots ?? []).map((r) => [r.playerId, r.teamId]));
-  for (const e of [...pbp.plays].sort((x, y) => (x.sortOrder ?? 0) - (y.sortOrder ?? 0))) {
-    if ((e.typeDescKey !== 'goal' && e.typeDescKey !== 'shot-on-goal') || e.periodDescriptor?.periodType === 'SO') continue;
-    const d = e.details ?? {};
-    if (!d.goalieInNetId) continue;
-    const team = teamOf.get(d.goalieInNetId);
-    if (team != null && starters[team] == null) starters[team] = d.goalieInNetId;
-    const p = shotXg({ x: d.xCoord, y: d.yCoord, shotType: d.shotType });
-    if (p == null) continue;
-    const g = gk.get(d.goalieInNetId) ?? { ga: 0, xga: 0 };
-    g.xga += p;
-    if (e.typeDescKey === 'goal') g.ga++;
-    gk.set(d.goalieInNetId, g);
-  }
   const lines = (pbp.rosterSpots ?? []).filter((r) => r.positionCode !== 'G' || inNet.has(r.playerId)).map((r) => {
     const base = { id: r.playerId, name: `${t(r.firstName)} ${t(r.lastName)}`.trim(), team: abbrev[r.teamId] ?? '', pos: r.positionCode };
-    if (r.positionCode === 'G') {
-      const g = gk.get(r.playerId) ?? { ga: 0, xga: 0 };
-      return { ...base, toi: null, ga: g.ga, xga: Math.round(g.xga * 100) / 100, st: starters[r.teamId] === r.playerId ? 1 : 0 };
-    }
+    if (r.positionCode === 'G') return { ...base, toi: null };
     const m = momentum[r.playerId];
-    const a = att.get(r.playerId) ?? { sat: 0, sog: 0, xg: 0, xgg: 0 };
-    return { ...base, sat: a.sat, sog: a.sog, xg: Math.round(a.xg * 100) / 100, xgg: a.xgg, mom: m?.impact ?? 0, mp: m?.pos ?? 0, mn: m?.neg ?? 0, toi: null };
+    const a = att.get(r.playerId) ?? { sat: 0, sog: 0 };
+    return { ...base, sat: a.sat, sog: a.sog, mom: m?.impact ?? 0, mp: m?.pos ?? 0, mn: m?.neg ?? 0, toi: null };
   });
   const a = pbp.awayTeam?.abbrev;
   const h = pbp.homeTeam?.abbrev;
   const game = [gameNo(pbp.id), a, h, pbp.awayTeam?.score ?? 0, pbp.homeTeam?.score ?? 0, mom.totals.away, mom.totals.home,
     mom.totalsNoGoals.away, mom.totalsNoGoals.home, teamSat(lines, a), teamSat(lines, h),
-    pbp.gameOutcome?.lastPeriodType ?? pbp.plays.at(-1)?.periodDescriptor?.periodType ?? 'REG',
-    starters[pbp.awayTeam?.id] ?? null, starters[pbp.homeTeam?.id] ?? null];
+    pbp.gameOutcome?.lastPeriodType ?? pbp.plays.at(-1)?.periodDescriptor?.periodType ?? 'REG'];
   return { lines, game };
 }
 
@@ -183,14 +147,9 @@ export function addGame(total, lines, game = null) {
     if (l.pos !== 'G') {
       p.sat = (p.sat ?? 0) + (l.sat ?? 0);
       p.sog = (p.sog ?? 0) + (l.sog ?? 0);
-      if (l.xg != null) { p.xg = Math.round(((p.xg ?? 0) + l.xg) * 100) / 100; p.xgg = (p.xgg ?? 0) + (l.xgg ?? 0); }
       p.mom = round1((p.mom ?? 0) + (l.mom ?? 0));
       p.mp = round1((p.mp ?? 0) + (l.mp ?? 0));
       p.mn = round1((p.mn ?? 0) + (l.mn ?? 0));
-    } else if (l.xga != null) {
-      p.ga = (p.ga ?? 0) + (l.ga ?? 0);
-      p.xga = Math.round(((p.xga ?? 0) + l.xga) * 100) / 100;
-      p.gs = (p.gs ?? 0) + (l.st ?? 0);
     }
     if (l.toi != null) p.toi = (p.toi ?? 0) + l.toi;
   }
@@ -212,10 +171,6 @@ export function perGame(row) {
     satPer60: skater && row.toi ? ((row.sat ?? 0) * 3600) / row.toi : null,
     momPer60: skater && row.toi ? ((row.mom ?? 0) * 3600) / row.toi : null,
     toiPerGame: row.toi ? row.toi / row.gp : null,
-    // Finishing: goals on a goalie per expected goal x 100 (100 = average), and goals above expected.
-    xg: skater && row.xg != null ? row.xg : null,
-    finPct: skater && row.xg != null ? finishingPct(row.xgg ?? 0, row.xg) : null,
-    gax: skater && row.xg != null ? (row.xgg ?? 0) - row.xg : null,
   };
 }
 
@@ -227,12 +182,12 @@ export function minGames(total) {
 
 /**
  * Skaters ranked by a per-game number ('satPerGame', 'momPerGame', ...), best first.
- * Options: pos 'F' | 'D' | null, minGp (defaults to minGames), minXg (fewest expected goals, for finishing ranks).
+ * Options: pos 'F' | 'D' | null, minGp (defaults to minGames).
  */
-export function leaderboard(total, key, { pos = null, minGp = minGames(total), minXg = 0 } = {}) {
+export function leaderboard(total, key, { pos = null, minGp = minGames(total) } = {}) {
   const rows = [];
   for (const [id, row] of Object.entries(total?.players ?? {})) {
-    if (row.p === 'G' || row.gp < minGp || (minXg && (row.xg ?? 0) < minXg)) continue;
+    if (row.p === 'G' || row.gp < minGp) continue;
     if (pos === 'D' && row.p !== 'D') continue;
     if (pos === 'F' && row.p === 'D') continue;
     const avg = perGame(row);

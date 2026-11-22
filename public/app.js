@@ -2,9 +2,6 @@ import { getData, LIVE_REFRESH_MS } from './data.js';
 import { teamColors, strengthBadge, contrastRatio } from './game/core.js';
 import { hornToggles, watchGoals } from './horn.js';
 import { playerIndex, linkPlayers, installPlayerLinks } from './player/link.js';
-import { loadSeason } from './player/store.js';
-import { seasonOf } from './src/seasonStats.js';
-import { predictGame } from './src/predict.js';
 
 const $ = (s) => document.querySelector(s);
 const dateInput = $('#date');
@@ -15,21 +12,6 @@ let current = null; // last scoreboard response
 // Cards: goals are a scrolling strip; the button opens the full list (remembered per game).
 const store = (k, v) => { try { return v === undefined ? localStorage.getItem(k) : localStorage.setItem(k, v); } catch { return null; } };
 const openGames = new Set(); // cards the user expanded
-
-// Favorite teams (any number), saved only in this browser. Their games always sit at the top.
-const FAV_KEY = 'favTeams';
-const favorites = new Set((() => { try { return JSON.parse(store(FAV_KEY) || '[]'); } catch { return []; } })());
-const isFav = (game) => favorites.has(game.away.abbrev) || favorites.has(game.home.abbrev);
-function toggleFavorite(abbrev) {
-  if (favorites.has(abbrev)) favorites.delete(abbrev); else favorites.add(abbrev);
-  store(FAV_KEY, JSON.stringify([...favorites]));
-}
-/** Live games first, then upcoming, finished last; favorite teams' games above all of them. Ties keep the schedule order. */
-const STATE_ORDER = { live: 0, pre: 1, postponed: 2, final: 3 };
-function ordered(games) {
-  return games.map((g, i) => ({ g, i })).sort((a, b) => (isFav(b.g) - isFav(a.g))
-    || ((STATE_ORDER[a.g.status.state] ?? 1) - (STATE_ORDER[b.g.status.state] ?? 1)) || a.i - b.i).map((x) => x.g);
-}
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
@@ -100,48 +82,6 @@ function statLines(game, tc) {
   const ls = game.linescore.shots;
   return `<div class="sxs">${row('SOG', ls.away, ls.home)}${row('SAT', sat?.away, sat?.home)}</div>`;
 }
-
-// Pre-game predictions from our model: season-to-date momentum share, probable starting goalies
-// (goals saved above expected) and back-to-backs. Regular season only, before and during the game.
-const predictions = new Map(); // date -> Map(gameId -> prediction)
-async function loadPredictions(data) {
-  if (predictions.has(data.date)) return false;
-  const games = data.games.filter((g) => String(g.id).slice(4, 6) === '02' && g.status.state !== 'final' && g.status.state !== 'postponed');
-  if (!games.length) { predictions.set(data.date, new Map()); return false; }
-  const season = seasonOf(data.date);
-  const [total, prev, yesterday] = await Promise.all([
-    loadSeason(season), loadSeason(season - 10001),
-    getData(`scores/${shiftDate(data.date, -1)}.json`).catch(() => null),
-  ]);
-  const played = new Set((yesterday?.games ?? []).filter((g) => g.status.state !== 'postponed').flatMap((g) => [g.away.abbrev, g.home.abbrev]));
-  const out = new Map();
-  for (const g of games) {
-    const p = total && predictGame({ total, prev, away: g.away.abbrev, home: g.home.abbrev, n: Number(String(g.id).slice(-4)), b2b: { away: played.has(g.away.abbrev), home: played.has(g.home.abbrev) } });
-    if (p) out.set(g.id, p);
-  }
-  predictions.set(data.date, out);
-  return out.size > 0;
-}
-
-const lastName = (n) => String(n ?? '').split(' ').slice(1).join(' ') || n;
-/** "Our pick" bar: each team's win chance, with what went into it underneath. */
-function predictionLine(game, tc) {
-  if (game.status.state === 'final') return '';
-  const p = predictions.get(current?.date)?.get(game.id);
-  if (!p) return '';
-  const a = Math.round(p.away * 100);
-  const fav = a >= 50 ? game.away.abbrev : game.home.abbrev;
-  const { share, goalie, b2b } = p.parts;
-  const why = [
-    `Momentum share ${esc(game.away.abbrev)} ${Math.round(share.away * 100)}%, ${esc(game.home.abbrev)} ${Math.round(share.home * 100)}%`,
-    goalie.away.name && goalie.home.name ? `Goalies ${esc(lastName(goalie.away.name))} ${fmtGsax(goalie.away.gsax)} vs ${esc(lastName(goalie.home.name))} ${fmtGsax(goalie.home.gsax)}` : '',
-    b2b.away ? `${esc(game.away.abbrev)} played yesterday` : '', b2b.home ? `${esc(game.home.abbrev)} played yesterday` : '',
-  ].filter(Boolean).join(' · ');
-  const title = 'Our pre-game pick: each team\'s momentum share so far this season (goals left out), its probable starting goalie\'s goals saved above expected, and back-to-backs. Right about 57% of the time on past seasons.';
-  return `<div class="pred" title="${esc(title)}"><div class="sx"><b>${a}%</b><span class="bar"><i style="width:${a}%;background:${tc.away}"></i><i style="flex:1;background:${tc.home}"></i></span><b>${100 - a}%</b><em>PICK</em></div>
-    <small>Our pick: <strong>${esc(fav)}</strong> · ${why}</small></div>`;
-}
-const fmtGsax = (v) => (v == null ? '' : `(${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v).toFixed(1)})`);
 
 const playIcon = '<svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 1.5v9l8-4.5z" fill="currentColor"/></svg>';
 
@@ -239,7 +179,6 @@ function teamBlock(game, side, tc, big) {
   return `<div class="tb ${side}${loser ? ' loser' : ''}${big ? ' big' : ''}" style="--team:${tc[side]}">
     <img src="${esc(team.logo.replace('_light.', '_dark.'))}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">
     <span class="nm">${esc(team.name || team.abbrev)}${team.record && big ? `<small>${esc(team.record)}</small>` : ''}</span>
-    <button type="button" class="fav${favorites.has(team.abbrev) ? ' on' : ''}" data-fav="${esc(team.abbrev)}" aria-pressed="${favorites.has(team.abbrev)}" title="${favorites.has(team.abbrev) ? 'Remove from' : 'Add to'} favorites: ${esc(team.abbrev)} games stay at the top (saved in this browser)" aria-label="Favorite ${esc(team.name || team.abbrev)}">${favorites.has(team.abbrev) ? '★' : '☆'}</button>
     <b class="tot">${started(game) ? ls.totals[side] : ''}</b>
   </div>`;
 }
@@ -265,7 +204,6 @@ function gameHtml(game) {
     <div class="status ${game.status.state}"><span class="label">${esc(statusText(game))}${strengthBadge(game, tc)}</span><span class="venue">${esc(game.venue)}</span></div>
     <div class="tbs">${teamBlock(game, 'away', tc, true)}${teamBlock(game, 'home', tc, true)}</div>
     ${statLines(game, tc)}
-    ${predictionLine(game, tc)}
     ${goals}
     <div class="cd-foot"><span class="videos">${links}</span>${hasBox ? `<a class="cg-box" href="game.html?id=${game.id}" aria-label="Box score: ${esc(game.away.abbrev)} at ${esc(game.home.abbrev)}">Box score ›</a>` : ''}${horns(game)}</div>
   </article>`;
@@ -297,14 +235,12 @@ function render(data) {
   $('#dateLabel').textContent = prettyDate(data.date);
   setTitle(data.date);
   gamesEl.innerHTML = data.games.length
-    ? ordered(data.games).map((g) => linkPlayers(gameHtml(g), gameNames(g))).join('')
+    ? data.games.map((g) => linkPlayers(gameHtml(g), gameNames(g))).join('')
     : '<p class="msg">No games scheduled on this date.</p>';
   restoreStrips();
 }
 
 gamesEl.addEventListener('click', (e) => {
-  const fav = e.target.closest('button[data-fav]');
-  if (fav) { toggleFavorite(fav.dataset.fav); if (current?.games) render(current); return; }
   const more = e.target.closest('.cd .more');
   if (!more) return;
   const id = Number(more.dataset.id);
@@ -391,7 +327,6 @@ async function load(date, { quiet = false } = {}) {
     if (text !== lastText) render(data); // only redraw when something changed
     lastText = text;
     loadSat(data.games).then((changed) => { if (changed && current === data) render(data); });
-    loadPredictions(data).then((changed) => { if (changed && current === data) render(data); }).catch(() => {});
     // Keep live games fresh: every few seconds while a game is on, every minute before puck drop.
     const states = data.games.map((g) => g.status.state);
     if (states.includes('live')) refreshTimer = setTimeout(() => load(data.date, { quiet: true }), LIVE_REFRESH_MS);
