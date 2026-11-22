@@ -39,21 +39,96 @@ export function radioOpen(game, now = Date.now()) {
   const start = Date.parse(game.startTimeUTC ?? game.status?.startTimeUTC ?? '');
   return Number.isFinite(start) && now >= start - RADIO_PREGAME_MS;
 }
+const teamName = (game, a) => { const t = game.away.abbrev === a ? game.away : game.home; return t.name || t.abbrev; };
 function listenButtons(game) {
   if (!radioOpen(game) || !game.season || /[?&]sim\b/.test(location.search)) return '';
   return ['away', 'home'].map((s) => game[s].abbrev).filter((a) => HORNS.has(a)).map((a) =>
-    `<button type="button" class="horn-btn listen-btn${playing() === a ? ' on' : ''}" data-listen="${esc(a)}" data-listen-game="${game.id}" data-listen-season="${esc(game.season)}" data-listen-page="${esc(gamePage(game))}"${game.status?.state === 'pre' ? ' data-listen-pre="1"' : ''} title="Listen to the ${esc(a)} radio broadcast here">${playing() === a ? '■' : '🎧'} ${esc(a)} radio</button>`).join('');
+    `<button type="button" class="horn-btn listen-btn${playing() === a ? ' on' : ''}" data-listen="${esc(a)}" data-listen-game="${game.id}" data-listen-name="${esc(teamName(game, a))}" data-listen-matchup="${esc(`${teamName(game, game.away.abbrev)} at ${teamName(game, game.home.abbrev)}`)}" data-listen-season="${esc(game.season)}" data-listen-page="${esc(gamePage(game))}"${game.status?.state === 'pre' ? ' data-listen-pre="1"' : ''} title="Listen to the ${esc(a)} radio broadcast here">${playing() === a ? '■' : '🎧'} ${esc(a)} radio</button>`).join('');
 }
 
-let radio = null; // { abbrev, audio, hls }, only ever in the top window
+let radio = null; // { abbrev, name, matchup, url, page, pre, hls, state, played, tries, … }, only ever in the top window
 // Inside the radio shell (see below) the page is in an iframe and the top window owns the audio.
 const host = (() => { try { return window.top !== window ? window.top.__radioHost ?? null : null; } catch { return null; } })();
 const playing = () => (host ? host.abbrev() : radio?.abbrev ?? null);
+
+// ── Playing on in the background (phone in a pocket, screen locked, another app open) ──
+// Phones keep a page's sound going in the background only for a real media element that the reader started
+// with a tap, so the radio uses one <audio> element for the whole visit (started by the Listen tap, then
+// reused for every reconnect, which the phone then allows without another tap). Nothing here pauses on
+// visibilitychange or pagehide. Media Session puts the game on the lock screen / notification with
+// play, pause and stop, and Safari's audioSession "playback" type tells iOS this is listening audio.
+const STALL_MS = 15000; // stuck buffering this long: reconnect
+const RESUME_FRESH_MS = 20000; // paused longer than this: reconnect at the live edge instead of resuming behind
+const MAX_TRIES = 6; // reconnect attempts in a row (2s, 4s, 8s, 16s, 20s, 20s) before giving up
+let radioEl = null;
+function radioAudio() {
+  if (radioEl) return radioEl;
+  const el = radioEl = document.createElement('audio');
+  el.id = 'radio-audio';
+  el.preload = 'none';
+  el.hidden = true;
+  el.setAttribute('playsinline', '');
+  el.setAttribute('x-webkit-airplay', 'allow');
+  document.body.append(el);
+  let lastT = -1;
+  el.addEventListener('playing', () => { const r = radio; if (!r) return; r.played = true; r.tries = 0; clearTimeout(r.stallTimer); setState('live'); });
+  el.addEventListener('waiting', armStall);
+  el.addEventListener('stalled', armStall);
+  el.addEventListener('pause', () => {
+    // A pause we didn't ask for: a phone call, Siri, headphones pulled, or another app taking the sound.
+    if (radio?.state === 'live') { radio.pausedAt = Date.now(); setState('paused'); }
+  });
+  el.addEventListener('error', () => { if (radio && el.getAttribute('src')) lost(); });
+  // Watchdog: some stalls never fire 'waiting' (seen in background tabs). If time stops moving, reconnect.
+  setInterval(() => {
+    const r = radio;
+    if (!r || r.state !== 'live' || el.paused) { lastT = -1; return; }
+    if (el.currentTime === lastT) armStall(); else { lastT = el.currentTime; clearTimeout(r.stallTimer); }
+  }, 5000);
+  return el;
+}
+function armStall() {
+  const r = radio;
+  if (!r || r.state !== 'live' || r.stallTimer) return;
+  r.stallTimer = setTimeout(() => { r.stallTimer = null; if (radio === r && r.state === 'live') lost(); }, STALL_MS);
+}
 
 function radioBar() {
   let bar = document.getElementById('radio-bar');
   if (!bar) { bar = document.createElement('div'); bar.id = 'radio-bar'; document.body.append(bar); }
   return bar;
+}
+const STATE_TEXT = { connecting: 'connecting…', live: 'live', paused: 'paused', reconnecting: 'reconnecting…' };
+function setState(state) {
+  const r = radio;
+  if (!r) return;
+  r.state = state;
+  const resume = state === 'paused' ? '<button type="button" data-radio-resume>Resume</button> ' : '';
+  radioBar().innerHTML = `<span>🎧 ${esc(r.abbrev)} radio · ${STATE_TEXT[state]}</span> ${resume}<button type="button" data-radio-stop>Stop</button>`;
+  lockScreen();
+}
+/** Lock screen / notification: what's playing, and play / pause / stop that work without opening the page. */
+function lockScreen() {
+  const ms = navigator.mediaSession;
+  if (!ms) return;
+  const r = radio;
+  try {
+    if (!r) { ms.metadata = null; ms.playbackState = 'none'; return; }
+    const art = (p, s) => ({ src: new URL(p, document.baseURI).href, sizes: s, type: 'image/png' });
+    const status = r.state === 'live' ? 'Live' : STATE_TEXT[r.state][0].toUpperCase() + STATE_TEXT[r.state].slice(1);
+    if (typeof MediaMetadata === 'function') {
+      ms.metadata = new MediaMetadata({ title: `${r.name} radio`, artist: `${r.matchup} · ${status}`, album: 'NHL Scores', artwork: [art('icons/icon-192.png', '192x192'), art('icons/icon-512.png', '512x512')] });
+    }
+    ms.playbackState = r.state === 'paused' ? 'paused' : 'playing';
+  } catch { /* older browsers */ }
+  if (lockScreen.hooked) return;
+  lockScreen.hooked = true;
+  const on = (action, fn) => { try { ms.setActionHandler(action, fn); } catch { /* action not supported here */ } };
+  on('play', () => resumeRadio());
+  on('pause', () => pauseRadio());
+  on('stop', () => stopRadio());
+  // A live broadcast can't skip or seek: leave those buttons off the lock screen.
+  for (const a of ['seekbackward', 'seekforward', 'seekto', 'previoustrack', 'nexttrack']) on(a, null);
 }
 /** Repaint every Listen button, here and in the page shown inside the shell. */
 function syncButtons() {
@@ -66,46 +141,104 @@ function syncButtons() {
     b.textContent = `${is ? '■' : '🎧'} ${b.dataset.listen} radio`;
   });
 }
+/** Unload the stream from the element (the element itself stays, so later plays keep the tap's permission). */
+function detach() {
+  const r = radio;
+  if (r) { clearTimeout(r.stallTimer); clearTimeout(r.retryTimer); r.stallTimer = r.retryTimer = null; r.hls?.destroy(); r.hls = null; }
+  if (radioEl) { radioEl.pause(); radioEl.removeAttribute('src'); radioEl.load(); }
+}
 function stopRadio() {
-  if (radio) { radio.hls?.destroy(); radio.audio.pause(); radio.audio.removeAttribute('src'); radio.audio.load(); radio = null; }
+  detach();
+  radio = null;
   document.getElementById('radio-bar')?.remove();
+  lockScreen();
+  try { if (navigator.audioSession) navigator.audioSession.type = 'auto'; } catch { /* ignore */ }
   syncButtons();
 }
-function radioFailed(abbrev, page, pre) {
+function radioFailed(r, lostIt) {
   const bar = radioBar();
-  const why = pre ? ' It may not be on the air yet; try again closer to puck drop.' : '';
-  bar.innerHTML = `<span>Couldn't start the ${esc(abbrev)} radio feed here.${why}</span> <a href="${esc(page)}" target="_blank" rel="noopener">Open on NHL.com ›</a> <button type="button" data-radio-stop>Close</button>`;
+  const why = lostIt ? ' The feed dropped and wouldn\'t come back.' : r.pre ? ' It may not be on the air yet; try again closer to puck drop.' : '';
+  bar.innerHTML = `<span>Couldn't ${lostIt ? 'keep' : 'start'} the ${esc(r.abbrev)} radio feed here.${why}</span> <a href="${esc(r.page)}" target="_blank" rel="noopener">Open on NHL.com ›</a> <button type="button" data-radio-stop>Close</button>`;
 }
 function loadHls() {
   if (window.Hls) return Promise.resolve(window.Hls);
   return new Promise((ok, no) => { const s = document.createElement('script'); s.src = HLS_JS; s.onload = () => ok(window.Hls); s.onerror = no; document.head.append(s); });
 }
-/** d: a Listen button's dataset ({ listen, listenSeason, listenPage }). */
-async function startRadio(d) {
-  const abbrev = d.listen; const page = d.listenPage; const pre = d.listenPre === '1';
-  const url = RADIO(abbrev, d.listenSeason);
-  stopRadio();
-  const audio = new Audio(); audio.autoplay = true;
-  radio = { abbrev, audio, hls: null };
-  syncButtons();
-  radioBar().innerHTML = `<span>🎧 ${esc(abbrev)} radio · connecting…</span> <button type="button" data-radio-stop>Stop</button>`;
-  const ok = () => { if (radio?.audio === audio) radioBar().innerHTML = `<span>🎧 ${esc(abbrev)} radio · live</span> <button type="button" data-radio-stop>Stop</button>`; };
-  const fail = () => { if (radio?.audio !== audio) return; stopRadio(); radioFailed(abbrev, page, pre); };
-  audio.addEventListener('playing', ok);
-  audio.addEventListener('error', fail);
-  try {
-    if (audio.canPlayType('application/vnd.apple.mpegurl')) { audio.src = url; await audio.play(); return; }
-    const Hls = await loadHls();
-    if (!Hls?.isSupported()) return fail();
-    const hls = new Hls({ lowLatencyMode: true });
-    radio.hls = hls;
-    hls.on(Hls.Events.ERROR, (_, e) => { if (e.fatal) fail(); });
-    hls.loadSource(url); hls.attachMedia(audio);
-    audio.play().catch(() => {});
-  } catch { fail(); }
+/** Load the feed into the element and play it. Safari (iPhone, iPad, Mac) plays HLS itself; others use hls.js. */
+async function attach(r) {
+  const el = radioAudio();
+  if (el.canPlayType('application/vnd.apple.mpegurl')) { el.src = r.url; return el.play(); }
+  const Hls = await loadHls();
+  if (radio !== r) return undefined;
+  if (!Hls?.isSupported()) throw new Error('unsupported');
+  // A bigger buffer than low-latency mode rides out patchy phone signal, which matters most in a pocket.
+  const hls = new Hls({ liveSyncDurationCount: 3, maxBufferLength: 30, backBufferLength: 30, manifestLoadingMaxRetry: 4, levelLoadingMaxRetry: 4, fragLoadingMaxRetry: 6 });
+  r.hls = hls;
+  hls.on(Hls.Events.ERROR, (_, e) => {
+    if (!e.fatal || radio !== r || r.hls !== hls) return;
+    if (e.type === Hls.ErrorTypes.MEDIA_ERROR && !r.recovered) { r.recovered = true; hls.recoverMediaError(); return; }
+    lost();
+  });
+  hls.loadSource(r.url); hls.attachMedia(el);
+  return el.play();
 }
+function connect(r) {
+  attach(r).catch((err) => {
+    if (radio !== r || err?.name === 'AbortError') return;
+    // Started without a tap (a reconnect the phone won't allow): wait for Resume on the bar or lock screen.
+    if (err?.name === 'NotAllowedError' && r.played) { detach(); r.pausedAt = 0; setState('paused'); return; }
+    lost();
+  });
+}
+/** The feed broke. Before it ever played, that's a failure; after, try again with growing waits. */
+function lost() {
+  const r = radio;
+  if (!r || (r.state === 'reconnecting' && r.retryTimer)) return; // already on it
+  if (!r.played || r.tries >= MAX_TRIES) { stopRadio(); radioFailed(r, r.played); return; }
+  detach();
+  const wait = Math.min(2000 * 2 ** r.tries, 20000);
+  r.tries++;
+  setState('reconnecting');
+  r.retryTimer = setTimeout(() => { if (radio === r) { r.recovered = false; connect(r); } }, wait);
+}
+function pauseRadio() {
+  const r = radio;
+  if (!r || r.state === 'paused') return;
+  r.pausedAt = Date.now();
+  if (r.state !== 'live') detach(); // nothing to hold on to while connecting
+  setState('paused');
+  radioEl?.pause();
+}
+function resumeRadio() {
+  const r = radio;
+  if (!r || r.state !== 'paused') return;
+  r.tries = 0;
+  const fresh = !r.pausedAt || Date.now() - r.pausedAt > RESUME_FRESH_MS || !(radioEl?.getAttribute('src') || r.hls);
+  setState(fresh ? 'reconnecting' : 'connecting');
+  if (fresh) { detach(); connect(r); } else radioEl.play().catch(() => { if (radio === r) { detach(); connect(r); } });
+}
+/** d: a Listen button's dataset ({ listen, listenName, listenMatchup, listenSeason, listenPage, listenPre }). */
+function startRadio(d) {
+  stopRadio();
+  const abbrev = d.listen;
+  radio = { abbrev, name: d.listenName || abbrev, matchup: d.listenMatchup || 'NHL', url: RADIO(abbrev, d.listenSeason), page: d.listenPage, pre: d.listenPre === '1', hls: null, state: 'connecting', played: false, tries: 0 };
+  try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch { /* not Safari */ }
+  syncButtons();
+  setState('connecting');
+  connect(radio);
+}
+// Coming back to the page: if the phone silently stopped the sound while it was away, offer Resume.
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && radio?.state === 'live' && radioEl?.paused) { radio.pausedAt = 0; setState('paused'); }
+});
+// Back online after a dropout: don't wait out the backoff.
+window.addEventListener('online', () => {
+  const r = radio;
+  if (r?.state === 'reconnecting' && r.retryTimer) { clearTimeout(r.retryTimer); r.retryTimer = null; connect(r); }
+});
 document.addEventListener('click', (e) => {
   if (e.target.closest('[data-radio-stop]')) return host ? host.stop() : stopRadio();
+  if (e.target.closest('[data-radio-resume]')) return resumeRadio();
   const b = e.target.closest('[data-listen]');
   if (!b) return;
   const on = playing() === b.dataset.listen;
@@ -124,7 +257,7 @@ const sameSite = (u) => u.origin === location.origin;
 function enterShell(href) {
   window.__radioShell = true; // app.js and game.js stop refreshing this hidden copy
   stopAll();
-  for (const el of document.body.children) if (el.id !== 'radio-bar') el.style.display = 'none';
+  for (const el of document.body.children) if (el.id !== 'radio-bar' && el.id !== 'radio-audio') el.style.display = 'none';
   document.documentElement.style.overflow = 'hidden';
   const f = document.createElement('iframe');
   f.id = 'radio-shell';
