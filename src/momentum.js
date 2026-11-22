@@ -39,9 +39,12 @@ export function inHomePlate(x, y) {
 }
 const plateMult = (d, bonus = HOME_PLATE_BONUS) => (inHomePlate(d.xCoord, d.yCoord) ? bonus : 1);
 
+// Model v4 (Nov 2026): faceoffs, hits, takeaways and giveaways no longer count (tested over 6 seasons, they
+// either added nothing or went with the losing team), and home-plate shots count 3x instead of 1.5x.
+// See scripts/model-lab.js and the "Model versions" card on the stats page.
 export const MOMENTUM_WEIGHTS = {
-  goal: 3, sog: 1, miss: 0.35, blockedShooter: 0.2, blocker: 0.2, firstGoalMult: 1.5, tieOrLeadMult: 1.25,
-  faceoff: { O: 0.2, N: 0.1, D: 0.3 }, takeaway: 0.15, giveaway: 0.15, hit: 0.1,
+  goal: 3, sog: 1, miss: 0.35, blockedShooter: 0.2, blocker: 0.2, firstGoalMult: 1.5, tieOrLeadMult: 1.25, plate: 3,
+  faceoff: { O: 0, N: 0, D: 0 }, takeaway: 0, giveaway: 0, hit: 0,
   shorthandedGoalMult: 1.5, penaltyDrawn: 1, powerPlayTick: 0.1, penaltyKilled: 2.5, powerPlayGoalAgainst: 1.5, powerPlayGoalDrawn: 0.75,
   fighterCredit: 0.5, fightSpark: 1,
   majorMult: 2.5, gameMisconduct: 2, gameMisconductTeam: 0.5, misconductBase: 0.15, misconductPerPoint: 0.08, misconductMax: 1.2,
@@ -251,7 +254,9 @@ export function computeMomentum(pbp, awayId, gameEnd = null, W = MOMENTUM_WEIGHT
       if (e.debit) credit(e.debit, -(e.debitW ?? e.w), false, e.kind);
       level[e.team] += e.w;
       totals[e.team] += e.w;
-      if (e.kind !== 'goal' && e.kind !== 'pp-goal-against') noGoals[e.team] += e.w;
+      // A goal still counts as the shot on goal it was (like SAT counts it as an attempt).
+      if (e.kind === 'goal') noGoals[e.team] += W.sog * plateMult({ xCoord: e.x, yCoord: e.y }, W.plate ?? HOME_PLATE_BONUS);
+      else if (e.kind !== 'pp-goal-against') noGoals[e.team] += e.w;
     }
     decayTo(t);
     if (t <= end) series.push([t, round(level.home - level.away)]);

@@ -10,7 +10,7 @@ const v = (id) => VERSIONS.find((x) => x.id === id);
 
 test('the live version reproduces computeMomentum team totals', () => {
   const m = computeMomentum(pbp, pbp.awayTeam.id);
-  const r = scoreGame(pbp, v('v3'));
+  const r = scoreGame(pbp, v('v4'));
   assert.deepEqual([r.am, r.hm], [m.totals.away, m.totals.home]);
   assert.deepEqual([r.an, r.hn], [m.totalsNoGoals.away, m.totalsNoGoals.home]);
 });
