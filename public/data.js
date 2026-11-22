@@ -29,3 +29,38 @@ export function getStatic(path, base = '') {
 
 /** How long to wait before refreshing a page that shows live games. */
 export const LIVE_REFRESH_MS = live ? 5_000 : 60_000;
+
+// ── Timers that keep running in a background tab ──
+// Browsers slow down a hidden tab's setTimeout (Chrome: to once a minute after ~5 minutes hidden), which
+// made live scores and goal horns wait until the reader came back. A Web Worker's timers aren't throttled
+// that way, so live refreshes are timed there and the page is told when to fetch. Falls back to setTimeout.
+let ticker = null;
+const waiting = new Map();
+let nextId = 1;
+function tickerWorker() {
+  if (ticker !== null) return ticker;
+  ticker = false;
+  try {
+    if (typeof Worker !== 'function' || typeof Blob !== 'function' || typeof URL?.createObjectURL !== 'function') return ticker;
+    const src = 'const t=new Map();onmessage=(e)=>{const{id,ms}=e.data;if(ms<0){clearTimeout(t.get(id));t.delete(id);return;}t.set(id,setTimeout(()=>{t.delete(id);postMessage(id);},ms));};';
+    const w = new Worker(URL.createObjectURL(new Blob([src], { type: 'text/javascript' })));
+    w.onmessage = (e) => { const fn = waiting.get(e.data); waiting.delete(e.data); fn?.(); };
+    w.onerror = () => { ticker = false; for (const [id, fn] of waiting) { waiting.delete(id); setTimeout(fn, 0); } };
+    ticker = w;
+  } catch { ticker = false; }
+  return ticker;
+}
+/** Like setTimeout, but keeps time in a background tab. Returns a handle for cancelLater. */
+export function later(fn, ms) {
+  const w = tickerWorker();
+  if (!w) return { t: setTimeout(fn, ms) };
+  const id = nextId++;
+  waiting.set(id, fn);
+  w.postMessage({ id, ms });
+  return { id };
+}
+export function cancelLater(h) {
+  if (!h) return;
+  if (h.t != null) clearTimeout(h.t);
+  if (h.id != null && waiting.delete(h.id) && ticker) ticker.postMessage({ id: h.id, ms: -1 });
+}

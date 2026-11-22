@@ -5,7 +5,7 @@ import { setHtmlFilter, filterHtml, esc, initVideo, makeSortable, makeTabs, upgr
 import { loadSeason } from '../player/store.js';
 import { leagueRate } from '../src/seasonStats.js';
 import { tierVsSeason } from '../src/impact.js';
-import { getData, getStatic, LIVE_REFRESH_MS } from '../data.js';
+import { getData, getStatic, LIVE_REFRESH_MS, later, cancelLater } from '../data.js';
 import { predictGame } from '../src/predict.js';
 import { topPlayers, missingTop } from '../src/lineupAlert.js';
 import { teamTable, goalieLine, teamGoalies, teamSkaters } from '../src/matchup.js';
@@ -216,14 +216,10 @@ function gameNames(g) {
 }
 
 async function load(quiet = false) {
-  clearTimeout(timer);
+  cancelLater(timer); timer = null;
   if (window.__radioShell) return; // this page now only hosts the radio; the page on screen is in the frame
   if (!gameId || !/^\d{10}$/.test(gameId)) {
     box.innerHTML = '<p class="msg">No game selected. <a href="./">Back to scores</a></p>';
-    return;
-  }
-  if (quiet && document.hidden) { // don't spend requests on a hidden tab
-    timer = setTimeout(() => load(true), LIVE_REFRESH_MS);
     return;
   }
   rate = await finRate;
@@ -250,13 +246,18 @@ async function load(quiet = false) {
       return;
     }
     await showGame(data);
-    if (game.status.state === 'live' || game.status.imminent) timer = setTimeout(() => load(true), LIVE_REFRESH_MS);
-    else if (game.status.state === 'pre' || game.status.settling) timer = setTimeout(() => load(true), 60_000);
+    if (game.status.state === 'live' || game.status.imminent) timer = later(() => load(true), LIVE_REFRESH_MS);
+    else if (game.status.state === 'pre' || game.status.settling) timer = later(() => load(true), 60_000);
   } catch (err) {
     if (!quiet) box.innerHTML = `<p class="msg">Couldn't load this box score: ${esc(err.message)}</p>`;
-    else timer = setTimeout(() => load(true), LIVE_REFRESH_MS);
+    else timer = later(() => load(true), LIVE_REFRESH_MS);
   }
 }
+
+// Back to the tab: if a browser froze it anyway (phones do), catch up right away.
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && timer && !params.has('sim')) load(true);
+});
 
 initVideo(box);
 installPlayerLinks();
