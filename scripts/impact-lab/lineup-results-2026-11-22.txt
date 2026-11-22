@@ -1,0 +1,11 @@
+== 5. Predicting the lineup from the last game ==
+  skaters dressed per game 18.0; same as last game 16.9 (94.1%); identical lineup 31.6% of games; 1 change 40.4%; 2+ changes 28.0%
+  team momentum + goalie                             all             pick 57.6% log loss 0.6726 r 0.216 (n 2514)
+  team momentum + goalie                             key player out  pick 57.7% log loss 0.6713 r 0.240 (n 1067)
+  team momentum + goalie                             full lineups    pick 57.5% log loss 0.6735 r 0.198 (n 1447)
+  team + ACTUAL lineup mom + finishing + goalie      all             pick 57.8% log loss 0.6723 r 0.226 (n 2514)
+  team + ACTUAL lineup mom + finishing + goalie      key player out  pick 60.1% log loss 0.6671 r 0.270 (n 1067)
+  team + ACTUAL lineup mom + finishing + goalie      full lineups    pick 56.2% log loss 0.6762 r 0.191 (n 1447)
+  team + LAST-GAME lineup mom + finishing + goalie   all             pick 57.1% log loss 0.6737 r 0.222 (n 2514)
+  team + LAST-GAME lineup mom + finishing + goalie   key player out  pick 58.3% log loss 0.6710 r 0.257 (n 1067)
+  team + LAST-GAME lineup mom + finishing + goalie   full lineups    pick 56.3% log loss 0.6756 r 0.194 (n 1447)
