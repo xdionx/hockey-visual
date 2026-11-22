@@ -17,14 +17,15 @@ const opt = (name, fallback) => {
 };
 const out = opt('out', null);
 const only = opt('only', null)?.split(',');
-const versions = VERSIONS.filter((v) => !only || only.includes(v.id));
+const versions = VERSIONS.filter((v) => !only || only.includes(v.id)).map((v) => (v.context ? { ...v, ctxState: v.context() } : v));
 
 const files = (await readdir(dir)).filter((f) => f.endsWith('.ndjson.gz')).sort();
 const pairs = Object.fromEntries(versions.map((v) => [v.id, { half: [], ahead: [] }]));
 const result = { updated: new Date().toISOString(), versions: versions.map(({ id, name, note, live, leaky }) => ({ id, name, note, live: !!live, leaky: !!leaky })), seasons: {} };
 for (const f of files) {
   const season = Number(f.slice(0, 8));
-  const games = gunzipSync(await readFile(join(dir, f))).toString().split('\n').filter(Boolean).map((l) => JSON.parse(l));
+  const games = gunzipSync(await readFile(join(dir, f))).toString().split('\n').filter(Boolean).map((l) => JSON.parse(l))
+    .sort((a, b) => (a.gameDate ?? '').localeCompare(b.gameDate ?? '') || a.id - b.id); // v5 learns game by game, in date order
   const rows = Object.fromEntries(versions.map((v) => [v.id, []]));
   for (const g of games) for (const v of versions) { const r = scoreGame(g, v); if (r) rows[v.id].push(r); }
   result.seasons[season] = Object.fromEntries(versions.map((v) => [v.id, summarize(rows[v.id])]));
