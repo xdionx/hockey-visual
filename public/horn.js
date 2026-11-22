@@ -12,14 +12,39 @@ export const hornOn = (id, abbrev) => { const v = store(KEY(id, abbrev)); return
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
+// Button faces. Icon buttons (class "ico") sit next to a team's name and show only the symbol; the
+// colour shows the state (red = horn on, blue = radio playing) and the title/aria-label say it in words.
+const hornFace = (a, on, ico) => (ico ? '🚨' : `🚨 ${a} horn ${on ? 'on' : 'off'}`);
+const hornTitle = (a, on) => (on ? `${a} goal horn is on: tap to turn it off` : `Play the ${a} goal horn when they score`);
+const listenFace = (a, is, ico) => (ico ? '🎧' : `${is ? '■' : '🎧'} ${a} radio`);
+const listenTitle = (a, is) => (is ? `Stop the ${a} radio` : `Listen to the ${a} radio broadcast here`);
+function hornButton(game, a, ico) {
+  const on = hornOn(game.id, a);
+  return `<button type="button" class="horn-btn${ico ? ' ico' : ''}${on ? ' on' : ''}" data-horn-game="${game.id}" data-horn-team="${esc(a)}"${game.gameDate ? ` data-horn-date="${esc(game.gameDate)}"` : ''} aria-pressed="${on}" title="${esc(hornTitle(a, on))}" aria-label="${esc(hornTitle(a, on))}">${hornFace(a, on, ico)}</button>`;
+}
+
 /** Toggle buttons for the teams in this game that have a horn. */
 export function hornToggles(game, cls = '', extra = '') {
-  const btns = ['away', 'home'].map((s) => game[s].abbrev).filter((a) => HORNS.has(a)).map((a) => {
-    const on = hornOn(game.id, a);
-    return `<button type="button" class="horn-btn${on ? ' on' : ''}" data-horn-game="${game.id}" data-horn-team="${esc(a)}"${game.gameDate ? ` data-horn-date="${esc(game.gameDate)}"` : ''} aria-pressed="${on}" title="Play the ${esc(a)} goal horn when they score">🚨 ${esc(a)} horn ${on ? 'on' : 'off'}</button>`;
-  });
+  const btns = ['away', 'home'].map((s) => game[s].abbrev).filter((a) => HORNS.has(a)).map((a) => hornButton(game, a, false));
   const listen = listenButtons(game);
   return btns.length || listen || extra ? `<span class="horn-toggles ${cls}">${listen}${btns.join('')}${extra}</span>` : '';
+}
+
+/** Small radio + horn icon buttons for one team, to sit beside its name. horn=false leaves the horn out (finished games). */
+export function teamAudio(game, abbrev, { horn = true } = {}) {
+  if (!HORNS.has(abbrev)) return '';
+  const listen = radioAvailable(game) ? listenButton(game, abbrev, true) : '';
+  const h = horn ? hornButton(game, abbrev, true) : '';
+  return listen || h ? `<span class="team-audio">${listen}${h}</span>` : '';
+}
+
+/** Every team in the game with its icons, in one row: "BUF 🎧 🚨  TBL 🎧 🚨" (the box score header). */
+export function hornIcons(game, { horn = true } = {}) {
+  const parts = ['away', 'home'].map((s) => game[s].abbrev).map((a) => {
+    const icons = teamAudio(game, a, { horn });
+    return icons ? `<span class="ta-team"><b>${esc(a)}</b>${icons}</span>` : '';
+  }).join('');
+  return parts ? `<span class="horn-icons">${parts}</span>` : '';
 }
 
 // ── Team radio: NHL.com's own HLS radio feeds, played in the page ──
@@ -44,10 +69,14 @@ export function radioOpen(game, now = Date.now()) {
   return Number.isFinite(start) && now >= start - RADIO_PREGAME_MS;
 }
 const teamName = (game, a) => { const t = game.away.abbrev === a ? game.away : game.home; return t.name || t.abbrev; };
+const radioAvailable = (game) => radioOpen(game) && !!game.season && !/[?&]sim\b/.test(location.search);
+function listenButton(game, a, ico) {
+  const is = playing() === a;
+  return `<button type="button" class="horn-btn listen-btn${ico ? ' ico' : ''}${is ? ' on' : ''}" data-listen="${esc(a)}" data-listen-game="${game.id}" data-listen-name="${esc(teamName(game, a))}" data-listen-matchup="${esc(`${teamName(game, game.away.abbrev)} at ${teamName(game, game.home.abbrev)}`)}" data-listen-season="${esc(game.season)}" data-listen-page="${esc(gamePage(game))}"${game.status?.state === 'pre' ? ' data-listen-pre="1"' : ''} aria-pressed="${is}" title="${esc(listenTitle(a, is))}" aria-label="${esc(listenTitle(a, is))}">${listenFace(a, is, ico)}</button>`;
+}
 function listenButtons(game) {
-  if (!radioOpen(game) || !game.season || /[?&]sim\b/.test(location.search)) return '';
-  return ['away', 'home'].map((s) => game[s].abbrev).filter((a) => HORNS.has(a)).map((a) =>
-    `<button type="button" class="horn-btn listen-btn${playing() === a ? ' on' : ''}" data-listen="${esc(a)}" data-listen-game="${game.id}" data-listen-name="${esc(teamName(game, a))}" data-listen-matchup="${esc(`${teamName(game, game.away.abbrev)} at ${teamName(game, game.home.abbrev)}`)}" data-listen-season="${esc(game.season)}" data-listen-page="${esc(gamePage(game))}"${game.status?.state === 'pre' ? ' data-listen-pre="1"' : ''} title="Listen to the ${esc(a)} radio broadcast here">${playing() === a ? '■' : '🎧'} ${esc(a)} radio</button>`).join('');
+  if (!radioAvailable(game)) return '';
+  return ['away', 'home'].map((s) => game[s].abbrev).filter((a) => HORNS.has(a)).map((a) => listenButton(game, a, false)).join('');
 }
 
 let radio = null; // { abbrev, name, matchup, url, page, pre, hls, state, played, tries, … }, only ever in the top window
@@ -141,8 +170,11 @@ function syncButtons() {
   const on = radio?.abbrev ?? null;
   for (const d of docs) d.querySelectorAll('.listen-btn').forEach((b) => {
     const is = on === b.dataset.listen;
+    const a = b.dataset.listen;
     b.classList.toggle('on', is);
-    b.textContent = `${is ? '■' : '🎧'} ${b.dataset.listen} radio`;
+    b.setAttribute('aria-pressed', String(is));
+    b.title = listenTitle(a, is); b.setAttribute('aria-label', b.title);
+    b.textContent = listenFace(a, is, b.classList.contains('ico'));
   });
 }
 /** Unload the stream from the element (the element itself stays, so later plays keep the tap's permission). */
@@ -419,7 +451,8 @@ document.addEventListener('click', (e) => {
   document.querySelectorAll(`[data-horn-game="${id}"][data-horn-team="${a}"]`).forEach((x) => {
     x.classList.toggle('on', on);
     x.setAttribute('aria-pressed', String(on));
-    x.textContent = `🚨 ${a} horn ${on ? 'on' : 'off'}`;
+    x.title = hornTitle(a, on); x.setAttribute('aria-label', x.title);
+    x.textContent = hornFace(a, on, x.classList.contains('ico'));
   });
 });
 

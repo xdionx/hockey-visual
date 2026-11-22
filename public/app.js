@@ -1,6 +1,6 @@
 import { getData, getStatic, LIVE_REFRESH_MS, live, later, cancelLater } from './data.js';
 import { teamColors, strengthBadge, contrastRatio } from './game/core.js';
-import { hornToggles, radioOpen } from './horn.js'; // horn.js also watches for goals in games with a horn on, on every page
+import { teamAudio, radioOpen } from './horn.js'; // horn.js also watches for goals in games with a horn on, on every page
 import { getDelay, delayScores, delayButton, onDelayChange, delayable } from './delay.js';
 import { pushSnapshot, trimSnapshots, pickSnapshot, delayLabel } from './src/delayBuffer.js';
 import { playerIndex, linkPlayers, installPlayerLinks } from './player/link.js';
@@ -329,6 +329,7 @@ function teamBlock(game, side, tc, big) {
   const other = side === 'away' ? 'home' : 'away';
   const loser = game.status.state === 'final' && ls.totals[side] < ls.totals[other];
   return `<div class="tb ${side}${loser ? ' loser' : ''}${big ? ' big' : ''}" style="--team:${tc[side]}">
+    ${big ? teamAudio(game, team.abbrev, { horn: game.status.state !== 'final' }) : ''}
     <img src="${esc(team.logo.replace('_light.', '_dark.'))}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">
     <span class="nm">${esc(team.name || team.abbrev)}${team.record && big ? `<small>${esc(team.record)}</small>` : ''}</span>
     <button type="button" class="fav${favorites.has(team.abbrev) ? ' on' : ''}" data-fav="${esc(team.abbrev)}" aria-pressed="${favorites.has(team.abbrev)}" title="${favorites.has(team.abbrev) ? 'Remove from' : 'Add to'} favorites: ${esc(team.abbrev)} games stay at the top (saved in this browser)" aria-label="Favorite ${esc(team.name || team.abbrev)}">${favorites.has(team.abbrev) ? '★' : '☆'}</button>
@@ -336,8 +337,8 @@ function teamBlock(game, side, tc, big) {
   </div>`;
 }
 
-// Horns only matter while a game is on (or being replayed in the simulator), so finished games have none.
-const horns = (game) => (game.status.state === 'final' ? '' : hornToggles(game, '', delayButton(game, waitFor.get(game.id))));
+// The data delay button sits in the card footer while a game can still be on (radio + horn icons are in the team rows).
+const footExtra = (game) => (game.status.state === 'final' ? '' : delayButton(game, waitFor.get(game.id)));
 /** "⏱ 40s behind live" on a card whose data is held back. */
 function delayTag(game) {
   const s = getDelay(game.id);
@@ -367,7 +368,7 @@ function gameHtml(game) {
     ${statLines(game, tc)}
     ${predictionLine(game, tc)}
     ${goals}
-    <div class="cd-foot"><span class="videos">${links}</span>${hasBox ? `<a class="cg-box" href="game.html?id=${game.id}" aria-label="View game: ${esc(game.away.abbrev)} at ${esc(game.home.abbrev)}">View Game ›</a>` : ''}${horns(game)}</div>
+    <div class="cd-foot"><span class="videos">${links}</span>${hasBox ? `<a class="cg-box" href="game.html?id=${game.id}" aria-label="View game: ${esc(game.away.abbrev)} at ${esc(game.home.abbrev)}">View Game ›</a>` : ''}${footExtra(game)}</div>
   </article>`;
 }
 

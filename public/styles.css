@@ -346,3 +346,22 @@ main { padding-left: 20px; padding-right: 20px; }
 a.gc:hover .gc-play, a.gc:focus-visible .gc-play { transform: scale(1.08); filter: brightness(1.15); }
 /* Data delay for video/audio: the card says when its data is held back */
 .status .dly { display: inline-block; margin-right: 8px; padding: 1px 7px; border-radius: 999px; background: #f59e0b; color: #111; font: 700 11px Inter, sans-serif; letter-spacing: 0; text-transform: none; }
+
+/* Radio + horn icons beside each team's name (tap to toggle; colour shows the state) */
+.team-audio { display: inline-flex; gap: 4px; flex: none; }
+.horn-btn.ico { width: 32px; height: 32px; padding: 0; display: inline-grid; place-items: center; font-size: 15px; line-height: 1; border-color: rgba(255,255,255,.18); background: rgba(0,0,0,.18); filter: grayscale(1); opacity: .6; }
+.horn-btn.ico:hover, .horn-btn.ico:focus-visible { opacity: 1; filter: none; }
+.horn-btn.ico.on { filter: none; opacity: 1; background: #c8102e; border-color: #c8102e; }
+.listen-btn.ico.on { background: #1d6fd8; border-color: #1d6fd8; }
+.listen-btn.ico.on { animation: ta-pulse 1.6s ease-in-out infinite; }
+@keyframes ta-pulse { 50% { box-shadow: 0 0 0 4px rgba(29,111,216,.35); } }
+.cd .tb .team-audio { flex-direction: column; gap: 4px; margin-left: -2px; }
+.cd .tb .team-audio .horn-btn.ico { width: 28px; height: 28px; font-size: 13px; }
+.cd .tb:has(.team-audio) { gap: 8px; }
+.cd .tb:has(.team-audio) img { width: 48px; height: 48px; }
+.cd-foot .delay-btn { margin-left: auto; }
+@media (max-width: 520px) {
+  .cd .tb .team-audio .horn-btn.ico { width: 30px; height: 30px; }
+  .cd .tb:has(.team-audio) img { width: 42px; height: 42px; }
+}
+@media (prefers-reduced-motion: reduce) { .listen-btn.ico.on { animation: none; } }
