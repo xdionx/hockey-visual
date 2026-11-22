@@ -29,10 +29,20 @@ const gamePage = (game) => {
   const p = Object.fromEntries(new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(d).map((x) => [x.type, x.value]));
   return `https://www.nhl.com/gamecenter/${game.away.abbrev.toLowerCase()}-vs-${game.home.abbrev.toLowerCase()}/${p.year}/${p.month}/${p.day}/${game.id}`;
 };
+// Many teams' radio broadcasts start with a pregame show, so the buttons show up this long before puck drop.
+export const RADIO_PREGAME_MS = 30 * 60_000;
+/** True while a game's radio could be on: live, or within RADIO_PREGAME_MS of its start time (UTC from the feed). */
+export function radioOpen(game, now = Date.now()) {
+  const state = game.status?.state;
+  if (state === 'live') return true;
+  if (state !== 'pre') return false;
+  const start = Date.parse(game.startTimeUTC ?? game.status?.startTimeUTC ?? '');
+  return Number.isFinite(start) && now >= start - RADIO_PREGAME_MS;
+}
 function listenButtons(game) {
-  if (game.status?.state !== 'live' || !game.season || /[?&]sim\b/.test(location.search)) return '';
+  if (!radioOpen(game) || !game.season || /[?&]sim\b/.test(location.search)) return '';
   return ['away', 'home'].map((s) => game[s].abbrev).filter((a) => HORNS.has(a)).map((a) =>
-    `<button type="button" class="horn-btn listen-btn${playing() === a ? ' on' : ''}" data-listen="${esc(a)}" data-listen-game="${game.id}" data-listen-season="${esc(game.season)}" data-listen-page="${esc(gamePage(game))}" title="Listen to the ${esc(a)} radio broadcast here">${playing() === a ? '■' : '🎧'} ${esc(a)} radio</button>`).join('');
+    `<button type="button" class="horn-btn listen-btn${playing() === a ? ' on' : ''}" data-listen="${esc(a)}" data-listen-game="${game.id}" data-listen-season="${esc(game.season)}" data-listen-page="${esc(gamePage(game))}"${game.status?.state === 'pre' ? ' data-listen-pre="1"' : ''} title="Listen to the ${esc(a)} radio broadcast here">${playing() === a ? '■' : '🎧'} ${esc(a)} radio</button>`).join('');
 }
 
 let radio = null; // { abbrev, audio, hls }, only ever in the top window
@@ -61,9 +71,10 @@ function stopRadio() {
   document.getElementById('radio-bar')?.remove();
   syncButtons();
 }
-function radioFailed(abbrev, page) {
+function radioFailed(abbrev, page, pre) {
   const bar = radioBar();
-  bar.innerHTML = `<span>Couldn't start the ${esc(abbrev)} radio feed here.</span> <a href="${esc(page)}" target="_blank" rel="noopener">Open on NHL.com ›</a> <button type="button" data-radio-stop>Close</button>`;
+  const why = pre ? ' It may not be on the air yet; try again closer to puck drop.' : '';
+  bar.innerHTML = `<span>Couldn't start the ${esc(abbrev)} radio feed here.${why}</span> <a href="${esc(page)}" target="_blank" rel="noopener">Open on NHL.com ›</a> <button type="button" data-radio-stop>Close</button>`;
 }
 function loadHls() {
   if (window.Hls) return Promise.resolve(window.Hls);
@@ -71,7 +82,7 @@ function loadHls() {
 }
 /** d: a Listen button's dataset ({ listen, listenSeason, listenPage }). */
 async function startRadio(d) {
-  const abbrev = d.listen; const page = d.listenPage;
+  const abbrev = d.listen; const page = d.listenPage; const pre = d.listenPre === '1';
   const url = RADIO(abbrev, d.listenSeason);
   stopRadio();
   const audio = new Audio(); audio.autoplay = true;
@@ -79,7 +90,7 @@ async function startRadio(d) {
   syncButtons();
   radioBar().innerHTML = `<span>🎧 ${esc(abbrev)} radio · connecting…</span> <button type="button" data-radio-stop>Stop</button>`;
   const ok = () => { if (radio?.audio === audio) radioBar().innerHTML = `<span>🎧 ${esc(abbrev)} radio · live</span> <button type="button" data-radio-stop>Stop</button>`; };
-  const fail = () => { if (radio?.audio !== audio) return; stopRadio(); radioFailed(abbrev, page); };
+  const fail = () => { if (radio?.audio !== audio) return; stopRadio(); radioFailed(abbrev, page, pre); };
   audio.addEventListener('playing', ok);
   audio.addEventListener('error', fail);
   try {

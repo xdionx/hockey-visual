@@ -1,6 +1,6 @@
 import { getData, getStatic, LIVE_REFRESH_MS } from './data.js';
 import { teamColors, strengthBadge, contrastRatio } from './game/core.js';
-import { hornToggles, watchGoals } from './horn.js';
+import { hornToggles, watchGoals, radioOpen } from './horn.js';
 import { playerIndex, linkPlayers, installPlayerLinks } from './player/link.js';
 import { loadSeason } from './player/store.js';
 import { seasonOf } from './src/seasonStats.js';
@@ -478,7 +478,8 @@ async function load(date, { quiet = false } = {}) {
     }
     current = data;
     watchGoals(data.games);
-    const text = JSON.stringify(data);
+    // The radio-open flags make a pregame card redraw when its radio buttons appear.
+    const text = JSON.stringify(data) + data.games.map((g) => (radioOpen(g) ? 1 : 0)).join('');
     if (text !== lastText) render(data); // only redraw when something changed
     lastText = text;
     loadSat(data.games).then((changed) => { if (changed && current === data) render(data); });
