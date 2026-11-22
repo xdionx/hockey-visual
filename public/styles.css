@@ -336,3 +336,4 @@ main { padding-left: 20px; padding-right: 20px; }
 .lu-alert small { margin-left: 6px; font-weight: 500; font-size: 10px; color: #c9a45a; white-space: nowrap; }
 @media (max-width: 480px) { .lu-alert small { display: block; margin: 1px 0 0; white-space: normal; } }
 .pred-why .muted { color: #6f7a8d; }
+.pred-why .lu-row { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
