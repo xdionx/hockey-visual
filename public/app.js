@@ -302,6 +302,7 @@ async function defaultDate() {
 // files a GitHub Action saves (server.js serves those live when running locally).
 async function load(date, { quiet = false } = {}) {
   clearTimeout(refreshTimer);
+  if (window.__radioShell) return; // this page now only hosts the radio; the page on screen is in the frame
   // Don't spend requests on a hidden tab; check again shortly.
   if (quiet && document.hidden) {
     refreshTimer = setTimeout(() => load(date, { quiet: true }), LIVE_REFRESH_MS);
