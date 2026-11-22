@@ -1,4 +1,4 @@
-import { getData, getStatic, LIVE_REFRESH_MS } from './data.js';
+import { getData, getStatic, LIVE_REFRESH_MS, live } from './data.js';
 import { teamColors, strengthBadge, contrastRatio } from './game/core.js';
 import { hornToggles, watchGoals, radioOpen } from './horn.js';
 import { playerIndex, linkPlayers, installPlayerLinks } from './player/link.js';
@@ -332,7 +332,8 @@ const horns = (game) => (game.status.state === 'final' ? '' : hornToggles(game))
 
 function gameHtml(game) {
   const tc = teamColors(game, { dark: true });
-  const hasBox = game.status.state === 'live' || game.status.state === 'final';
+  // Before puck drop the box score page is a preview (pick, goalies, lineups); it needs the live data service.
+  const hasBox = game.status.state === 'live' || game.status.state === 'final' || (game.status.state === 'pre' && live);
   const open = openGames.has(game.id);
   const n = game.goals.length;
   const head = `<div class="gh"><h3>Goals</h3><button type="button" class="more" aria-expanded="${open}" data-id="${game.id}">${open ? '▴ Hide' : `▾ Show all (${n})`}</button></div>`;
@@ -350,7 +351,7 @@ function gameHtml(game) {
     ${statLines(game, tc)}
     ${predictionLine(game, tc)}
     ${goals}
-    <div class="cd-foot"><span class="videos">${links}</span>${hasBox ? `<a class="cg-box" href="game.html?id=${game.id}" aria-label="Box score: ${esc(game.away.abbrev)} at ${esc(game.home.abbrev)}">Box score ›</a>` : ''}${horns(game)}</div>
+    <div class="cd-foot"><span class="videos">${links}</span>${hasBox ? `<a class="cg-box" href="game.html?id=${game.id}" aria-label="View game: ${esc(game.away.abbrev)} at ${esc(game.home.abbrev)}">View Game ›</a>` : ''}${horns(game)}</div>
   </article>`;
 }
 
@@ -489,7 +490,7 @@ async function load(date, { quiet = false } = {}) {
     }).catch(() => {});
     // Keep live games fresh: every few seconds while a game is on, every minute before puck drop.
     const states = data.games.map((g) => g.status.state);
-    if (states.includes('live')) refreshTimer = setTimeout(() => load(data.date, { quiet: true }), LIVE_REFRESH_MS);
+    if (states.includes('live') || data.games.some((g) => g.status.imminent)) refreshTimer = setTimeout(() => load(data.date, { quiet: true }), LIVE_REFRESH_MS);
     else if (states.includes('pre') || data.games.some((g) => g.status.settling)) refreshTimer = setTimeout(() => load(data.date, { quiet: true }), 60_000);
   } catch (err) {
     if (!quiet) gamesEl.innerHTML = `<p class="msg">Couldn't load scores: ${esc(err.message)}</p>`;
