@@ -127,11 +127,10 @@ async function loadPredictions(data) {
 // Sportsbook lines the data script saved before puck drop (DraftKings, FanDuel), shown next to our pick.
 let odds = null;
 getStatic('odds.json').then((o) => { odds = o; if (current?.games) render(current); }).catch(() => {});
-function marketText(game) {
-  const books = odds?.games?.[game.id]?.books;
-  if (!books) return '';
-  const parts = Object.entries(books).map(([k, b]) => { const p = noVigAway(b.a, b.h); return p == null ? '' : `${BOOK_NAMES[k]} ${esc(game.away.abbrev)} ${Math.round(p * 100)}%`; }).filter(Boolean);
-  return parts.length ? `Market: ${parts.join(' · ')}` : '';
+/** Each book's chance for one side of a game, margin removed: [{ name, pct }] (pct for the away team). */
+function bookChances(game) {
+  const books = odds?.games?.[game.id]?.books ?? {};
+  return Object.entries(books).map(([k, b]) => ({ name: BOOK_NAMES[k], p: noVigAway(b.a, b.h) })).filter((x) => x.p != null);
 }
 
 /** The edge on one game (we like a side 7+ points more than the books), or null. */
@@ -147,20 +146,33 @@ const lastName = (n) => String(n ?? '').split(' ').slice(1).join(' ') || n;
 function predictionLine(game, tc) {
   if (game.status.state === 'final') return '';
   const p = predictions.get(current?.date)?.get(game.id);
-  if (!p) return marketText(game) ? `<div class="pred"><small>${marketText(game)}</small></div>` : '';
-  const a = Math.round(p.away * 100);
-  const fav = a >= 50 ? game.away.abbrev : game.home.abbrev;
+  const books = bookChances(game);
+  if (!p) return '';
+  const e = edgeOf(game);
   const { share, goalie, b2b } = p.parts;
+  const rested = b2b.away || b2b.home
+    ? [b2b.away ? game.away.abbrev : '', b2b.home ? game.home.abbrev : ''].filter(Boolean).join(' and ') + ' played yesterday'
+    : 'Both rested';
+  // One bar per source, away on the left like the shot bars above: us first, then each book (margin removed).
+  const bar = (label, pAway, title) => {
+    const a = Math.round(pAway * 100);
+    return `<div class="sx pr-src" title="${esc(title)}"><b>${a}%</b><span class="bar"><i style="width:${a}%;background:${tc.away}"></i><i style="flex:1;background:${tc.home}"></i></span><b>${100 - a}%</b><em>${esc(label)}</em></div>`;
+  };
+  const ourTitle = 'Our pre-game pick: each team\'s momentum share so far this season (goals left out), its probable starting goalie\'s goals saved above expected, and back-to-backs. Right about 57% of the time on past seasons.';
+  const bars = bar('US', p.away, ourTitle) + books.map((b) => bar(b.name === 'DraftKings' ? 'DK' : b.name === 'FanDuel' ? 'FD' : b.name, b.p, `${b.name}'s line with its margin removed`)).join('');
+  const row = (k, v) => `<dt>${k}</dt><dd>${v}</dd>`;
   const why = [
-    `Momentum share ${esc(game.away.abbrev)} ${Math.round(share.away * 100)}%, ${esc(game.home.abbrev)} ${Math.round(share.home * 100)}%`,
-    goalie.away.name && goalie.home.name ? `Goalies ${esc(lastName(goalie.away.name))} ${fmtGsax(goalie.away.gsax)} vs ${esc(lastName(goalie.home.name))} ${fmtGsax(goalie.home.gsax)}` : '',
-    b2b.away ? `${esc(game.away.abbrev)} played yesterday` : '', b2b.home ? `${esc(game.home.abbrev)} played yesterday` : '',
-  ].filter(Boolean).join(' · ');
-  const title = 'Our pre-game pick: each team\'s momentum share so far this season (goals left out), its probable starting goalie\'s goals saved above expected, and back-to-backs. Right about 57% of the time on past seasons.';
-  return `<div class="pred" title="${esc(title)}"><div class="sx"><b>${a}%</b><span class="bar"><i style="width:${a}%;background:${tc.away}"></i><i style="flex:1;background:${tc.home}"></i></span><b>${100 - a}%</b><em>PICK</em></div>
-    ${edgeOf(game) ? `<small>${edgeTag(edgeOf(game))} we like ${esc(edgeOf(game).team)} more than the market does</small>` : ''}
-    <small>Our pick: <strong>${esc(fav)}</strong> · ${why}</small>${marketText(game) ? `<small>${marketText(game)} (margin removed)</small>` : ''}</div>`;
+    row('Momentum', `${esc(game.away.abbrev)} ${Math.round(share.away * 100)}% · ${esc(game.home.abbrev)} ${Math.round(share.home * 100)}%`),
+    goalie.away.name && goalie.home.name ? row('Goalies', `${esc(lastName(goalie.away.name))} ${fmtGsax(goalie.away.gsax)} · ${esc(lastName(goalie.home.name))} ${fmtGsax(goalie.home.gsax)}`) : '',
+    row('Rest', esc(rested)),
+  ].join('');
+  return `<div class="pred">
+    <div class="pr-head"><span>Win chance</span>${e ? edgeTag(e) : ''}</div>
+    <div class="pr-bars">${bars}</div>
+    <details class="pred-why" data-pid="${game.id}"${openWhy.has(game.id) ? ' open' : ''}><summary>Why we pick it</summary><dl>${why}</dl>${books.length ? '<p>Book chances have the margin removed.</p>' : ''}</details>
+  </div>`;
 }
+const openWhy = new Set(); // "Why" sections the viewer opened, kept across refreshes
 const fmtGsax = (v) => (v == null ? '' : `(${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v).toFixed(1)})`);
 
 const playIcon = '<svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 1.5v9l8-4.5z" fill="currentColor"/></svg>';
@@ -323,6 +335,13 @@ function render(data) {
     : '<p class="msg">No games scheduled on this date.</p>';
   restoreStrips();
 }
+
+gamesEl.addEventListener('toggle', (e) => {
+  const d = e.target.closest?.('details.pred-why');
+  if (!d) return;
+  const id = Number(d.dataset.pid);
+  if (d.open) openWhy.add(id); else openWhy.delete(id);
+}, true);
 
 gamesEl.addEventListener('click', (e) => {
   const fav = e.target.closest('button[data-fav]');
