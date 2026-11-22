@@ -1,0 +1,12 @@
+== 4. Games with key players missing ==
+  test games with a top-3 player out on either side: 1067 of 2514
+  team momentum + goalie                        key player out  pick 57.7% log loss 0.6713 r 0.240 (n 1067)
+  team momentum + goalie                        full lineups    pick 57.5% log loss 0.6735 r 0.198 (n 1447)
+  team + lineup momentum + finishing + goalie   key player out  pick 60.1% log loss 0.6671 r 0.270 (n 1067)
+  team + lineup momentum + finishing + goalie   full lineups    pick 56.2% log loss 0.6762 r 0.191 (n 1447)
+  Home win % minus team-model expectation, by (home top players out − away top players out):
+    -2: actual 74.7% vs expected 59.3% (n 178)
+    -1: actual 59.9% vs expected 55.5% (n 977)
+    +0: actual 53.6% vs expected 53.3% (n 3587)
+    +1: actual 45.3% vs expected 50.8% (n 1035)
+    +2: actual 41.5% vs expected 45.4% (n 195)
