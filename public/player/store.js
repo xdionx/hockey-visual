@@ -1,7 +1,7 @@
 // Loads player profiles (live data Worker) and season totals (static files the GitHub Action saves),
 // with small in-memory caches so opening the same card twice is instant.
 import { getData, getStatic } from '../data.js';
-import { perGame, rankOf, seasonOf, minGames } from '../src/seasonStats.js';
+import { perGame, rankOf, seasonOf, minGames, leagueRate } from '../src/seasonStats.js';
 
 const players = new Map();
 const FIN_MIN_XG = 3;
@@ -24,7 +24,7 @@ export const currentSeason = () => seasonOf(new Date(Date.now() - 10 * 3600_000)
 export function ourStats(total, id) {
   const row = total?.players?.[String(id)];
   if (!row) return null;
-  const avg = perGame(row);
+  const avg = perGame(row, leagueRate(total));
   const opts = { minGp: minGames(total) };
   return {
     row,
@@ -32,7 +32,7 @@ export function ourStats(total, id) {
     satRank: row.p === 'G' ? null : rankOf(total, id, 'satPerGame', opts),
     momRank: row.p === 'G' ? null : rankOf(total, id, 'momPerGame', opts),
     // Finishing is noisy on few chances: rank only among skaters with a few expected goals.
-    finRank: row.p === 'G' || avg?.finPct == null || (row.xg ?? 0) < FIN_MIN_XG ? null : rankOf(total, id, 'finPct', { ...opts, minXg: FIN_MIN_XG }),
+    finRank: row.p === 'G' || avg?.gaa == null || (row.xg ?? 0) < FIN_MIN_XG ? null : rankOf(total, id, 'gaa', { ...opts, minXg: FIN_MIN_XG }),
     minGp: opts.minGp,
     games: total.games,
     complete: !!total.complete,
