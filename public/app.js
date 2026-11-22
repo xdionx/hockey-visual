@@ -1,10 +1,11 @@
-import { getData, LIVE_REFRESH_MS } from './data.js';
+import { getData, getStatic, LIVE_REFRESH_MS } from './data.js';
 import { teamColors, strengthBadge, contrastRatio } from './game/core.js';
 import { hornToggles, watchGoals } from './horn.js';
 import { playerIndex, linkPlayers, installPlayerLinks } from './player/link.js';
 import { loadSeason } from './player/store.js';
 import { seasonOf } from './src/seasonStats.js';
 import { predictGame } from './src/predict.js';
+import { noVigAway, BOOK_NAMES } from './src/odds.js';
 
 const $ = (s) => document.querySelector(s);
 const dateInput = $('#date');
@@ -123,12 +124,22 @@ async function loadPredictions(data) {
   return out.size > 0;
 }
 
+// Sportsbook lines the data script saved before puck drop (DraftKings, FanDuel), shown next to our pick.
+let odds = null;
+getStatic('odds.json').then((o) => { odds = o; if (current?.games) render(current); }).catch(() => {});
+function marketText(game) {
+  const books = odds?.games?.[game.id]?.books;
+  if (!books) return '';
+  const parts = Object.entries(books).map(([k, b]) => { const p = noVigAway(b.a, b.h); return p == null ? '' : `${BOOK_NAMES[k]} ${esc(game.away.abbrev)} ${Math.round(p * 100)}%`; }).filter(Boolean);
+  return parts.length ? `Market: ${parts.join(' · ')}` : '';
+}
+
 const lastName = (n) => String(n ?? '').split(' ').slice(1).join(' ') || n;
 /** "Our pick" bar: each team's win chance, with what went into it underneath. */
 function predictionLine(game, tc) {
   if (game.status.state === 'final') return '';
   const p = predictions.get(current?.date)?.get(game.id);
-  if (!p) return '';
+  if (!p) return marketText(game) ? `<div class="pred"><small>${marketText(game)}</small></div>` : '';
   const a = Math.round(p.away * 100);
   const fav = a >= 50 ? game.away.abbrev : game.home.abbrev;
   const { share, goalie, b2b } = p.parts;
@@ -139,7 +150,7 @@ function predictionLine(game, tc) {
   ].filter(Boolean).join(' · ');
   const title = 'Our pre-game pick: each team\'s momentum share so far this season (goals left out), its probable starting goalie\'s goals saved above expected, and back-to-backs. Right about 57% of the time on past seasons.';
   return `<div class="pred" title="${esc(title)}"><div class="sx"><b>${a}%</b><span class="bar"><i style="width:${a}%;background:${tc.away}"></i><i style="flex:1;background:${tc.home}"></i></span><b>${100 - a}%</b><em>PICK</em></div>
-    <small>Our pick: <strong>${esc(fav)}</strong> · ${why}</small></div>`;
+    <small>Our pick: <strong>${esc(fav)}</strong> · ${why}</small>${marketText(game) ? `<small>${marketText(game)} (margin removed)</small>` : ''}</div>`;
 }
 const fmtGsax = (v) => (v == null ? '' : `(${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v).toFixed(1)})`);
 

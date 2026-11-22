@@ -98,6 +98,7 @@ jobs:
           cp -r data/scores data/latest.json site/data/
           if [ -d data/games ]; then cp -r data/games site/data/; fi
           if [ -d data/sat ]; then cp -r data/sat site/data/; fi
+          if [ -f data/odds.json ]; then cp data/odds.json site/data/; fi
           # Season totals: past seasons first, then the current season from data/ on top.
           mkdir -p site/data/seasons
           cp seasons/seasons/*.json site/data/seasons/ 2>/dev/null || true
@@ -109,6 +110,7 @@ jobs:
             cp -r data/scores data/latest.json site/test/data/
             if [ -d data/games ]; then cp -r data/games site/test/data/; fi
             if [ -d data/sat ]; then cp -r data/sat site/test/data/; fi
+            if [ -f data/odds.json ]; then cp data/odds.json site/test/data/; fi
             cp -r site/data/seasons site/test/data/
           fi
           touch site/.nojekyll
