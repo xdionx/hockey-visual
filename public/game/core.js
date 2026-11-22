@@ -11,7 +11,7 @@ const TEAM_COLORS = {
   NJD: ['#CE1126', '#111111'], NYI: ['#00539B', '#F47D30'], NYR: ['#0038A8', '#CE1126'], OTT: ['#DA1A32', '#B79257'],
   PHI: ['#F74902', '#111111'], PIT: ['#FCB514', '#111111'], SJS: ['#006D75', '#EA7200'], SEA: ['#001628', '#68A2B9'],
   STL: ['#002F87', '#FCB514'], TBL: ['#002868', '#8a9bb8'], TOR: ['#00205B', '#8a9bb8'], UTA: ['#6CACE4', '#010101'],
-  VAN: ['#00205B', '#00843D'], VGK: ['#B4975A', '#333F42'], WSH: ['#C8102E', '#041E42'], WPG: ['#041E42', '#AC162C'],
+  VAN: ['#00205B', '#00843D'], VGK: ['#B4975A', '#A2AAAD'], WSH: ['#C8102E', '#041E42'], WPG: ['#041E42', '#AC162C'],
 };
 
 const hex = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
@@ -54,26 +54,71 @@ export function readable(color, bg = '#111827', min = 4.5) {
 }
 
 /**
- * { away, home } accent colors that are distinguishable from each other.
+ * { away, home } accent colors that are clearly different from each other.
  * With { dark: true }, very dark colors (navy, black) are lifted so they show on a dark page.
  */
 const SILVER = '#e4e8ef';
 const chromatic = (h) => Math.max(...hex(h)) - Math.min(...hex(h)) >= 60;
 
+// Extra brand colors, tried for the away team after its secondary when both clash with the home team.
+const TEAM_EXTRA = {
+  SEA: ['#C8102E'], SJS: ['#A2AAAD'], TBL: ['#A2AAAD'], TOR: ['#A2AAAD'], VAN: ['#97999B'], WPG: ['#7B303E'],
+  EDM: ['#A2AAAD'], NYR: ['#A2AAAD'], STL: ['#A2AAAD'], BUF: ['#A2AAAD'], CBJ: ['#A4A9AD'], NSH: ['#A2AAAD'],
+  DAL: ['#A2AAAD'], MIN: ['#EAAA00', '#DDCBA4'], COL: ['#A2AAAD'], UTA: ['#FFFFFF'], CGY: ['#A2AAAD'],
+  CAR: ['#A2AAAD'], CHI: [], DET: [], FLA: ['#B9975B'], MTL: [], NJD: ['#A2AAAD'],
+  OTT: ['#A2AAAD'], PHI: ['#A2AAAD'], WSH: ['#A2AAAD'], NYI: ['#A2AAAD'], ANA: ['#89734C'], LAK: ['#FFFFFF'],
+  VGK: ['#C8102E'], PIT: ['#CFC493'], BOS: ['#FFFFFF'],
+};
+
+/** sRGB hex -> CIELAB (for overall closeness). */
+function lab(h) {
+  const [r, g, b] = hex(h).map((v) => v / 255).map((v) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
+  const f = (t) => (t > 0.008856 ? Math.cbrt(t) : 7.787 * t + 16 / 116);
+  const x = f((0.4124 * r + 0.3576 * g + 0.1805 * b) / 0.95047);
+  const y = f(0.2126 * r + 0.7152 * g + 0.0722 * b);
+  const z = f((0.0193 * r + 0.1192 * g + 0.9505 * b) / 1.08883);
+  return [116 * y - 16, 500 * (x - y), 200 * (y - z)];
+}
+/** Color-wheel hue in degrees (HSL), which groups colors the way people name them: reds, teals, blues. */
+function hue(h) {
+  const [r, g, b] = hex(h);
+  const max = Math.max(r, g, b);
+  const d = max - Math.min(r, g, b);
+  if (!d) return 0;
+  const x = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  return (x * 60 + 360) % 360;
+}
+/**
+ * True when two on-screen colors read as the same family: any red vs any red, teal vs teal, navy vs royal.
+ * Two real colors clash when their hues are within 40 degrees on the color wheel; greys and silvers
+ * clash with each other when their lightness is close.
+ */
+export function colorsClash(c1, c2) {
+  const [l1, a1, b1] = lab(c1);
+  const [l2, a2, b2] = lab(c2);
+  if (Math.hypot(l1 - l2, a1 - a2, b1 - b2) < 30) return true;
+  const ch1 = chromatic(c1);
+  const ch2 = chromatic(c2);
+  if (!ch1 && !ch2) return Math.abs(l1 - l2) < 20;
+  if (ch1 !== ch2) return false;
+  let dh = Math.abs(hue(c1) - hue(c2));
+  if (dh > 180) dh = 360 - dh;
+  return dh < 40;
+}
+
 export function teamColors(game, { dark = false } = {}) {
   const a = TEAM_COLORS[game.away.abbrev] ?? ['#4b5563', '#9ca3af'];
   const h = TEAM_COLORS[game.home.abbrev] ?? ['#1f2937', '#6b7280'];
-  // The home team always keeps its primary color. If the away team's primary looks like it (compared
-  // after any lifting for the dark page, since that is what is on screen), the away team switches to
-  // its secondary, but only a real color. If it has none (black), a team that is a near twin of the home team goes silver.
+  // The home team always keeps its primary color. If the away team's color is in the same family as the
+  // home team's (compared after any lifting for the dark page, since that is what is on screen), the away
+  // team moves down its list: secondary, then any extra brand colors, then white-silver.
   const fit = (c) => (dark ? readable(c) : c);
   const home = fit(h[0]);
-  let away = fit(a[0]);
-  if (dist(away, home) < 110) {
-    const alt = fit(a[1]);
-    if (chromatic(a[1]) && dist(alt, home) > dist(away, home)) away = alt;
-    else if (!chromatic(a[1]) && dist(away, home) < 60) away = SILVER; // true twins with no second color: white-silver
-  }
+  // A black secondary is skipped: lifted for the dark page it turns into a muddy grey.
+  const alts = [a[1], ...(TEAM_EXTRA[game.away.abbrev] ?? [])].filter((c) => c && luminance(c) > 0.08);
+  const options = [a[0], ...alts].map(fit);
+  let away = options.find((c) => !colorsClash(c, home)) ?? SILVER;
+  if (colorsClash(away, home)) away = fit(a[0]);
   return { away, home, awayAlt: a[1], homeAlt: h[1], awayBase: away, homeBase: home };
 }
 
