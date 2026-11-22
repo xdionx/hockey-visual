@@ -20,10 +20,10 @@ function hornButton(game, a, ico) {
 }
 
 /** Toggle buttons for the teams in this game that have a horn. */
-export function hornToggles(game, cls = '') {
+export function hornToggles(game, cls = '', extra = '') {
   const btns = ['away', 'home'].map((s) => game[s].abbrev).filter((a) => HORNS.has(a)).map((a) => hornButton(game, a, false));
   const listen = listenButtons(game);
-  return btns.length || listen ? `<span class="horn-toggles ${cls}">${listen}${btns.join('')}</span>` : '';
+  return btns.length || listen || extra ? `<span class="horn-toggles ${cls}">${listen}${btns.join('')}${extra}</span>` : '';
 }
 
 /** Small radio + horn icon buttons for one team, to sit beside its name. horn=false leaves the horn out (finished games). */
@@ -452,8 +452,11 @@ document.addEventListener('click', (e) => {
 });
 
 const seen = new Map();
-/** Forget the goal counts, so the next frame is a fresh baseline (after a seek or restart). */
-export function resetGoals() { seen.clear(); }
+/** Forget the goal counts, so the next frame is a fresh baseline (after a seek or restart, or a game's data delay changed). */
+export function resetGoals(gameId) {
+  if (gameId == null) { seen.clear(); return; }
+  for (const k of [...seen.keys()]) if (k.startsWith(`${gameId}:`)) seen.delete(k);
+}
  // `${gameId}:${abbrev}` -> goals counted so far
 /** Call with every game on each refresh. The first sight of a game sets the baseline, so opening the page never honks. */
 export function watchGoals(games) {

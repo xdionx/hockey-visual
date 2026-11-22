@@ -1,6 +1,7 @@
 // Box score page: loads one game's data/games/<id>.json and renders it in the chosen design.
 // Switch designs with the bar at the top, keys 1-4, or ?design=<name> in the URL.
-import { hornIcons, watchGoals, radioOpen } from '../horn.js';
+import { hornIcons, watchGoals, radioOpen, resetGoals } from '../horn.js';
+import { getDelay, delayBuffer, delayButton, onDelayChange, delayable } from '../delay.js';
 import { setHtmlFilter, filterHtml, esc, initVideo, makeSortable, makeTabs, upgradeShots, morphInner, setMountSignal, resetRinkIds, withFinishRate } from './core.js';
 import { loadSeason } from '../player/store.js';
 import { leagueRate } from '../src/seasonStats.js';
@@ -187,10 +188,35 @@ function withPregame(g, info) {
   return g;
 }
 
+// ── Data delay for video/audio (see delay.js): show the refresh from now minus this game's delay ──
+const buf = /^\d{10}$/.test(gameId ?? '') && !params.has('sim') ? delayBuffer(`games/${gameId}`) : null;
+let latest = null; // newest data fetched
+let wait = 0; // ms of history still missing (page just opened)
+let tick = null;
+let showing = Promise.resolve();
+function delayed() {
+  const s = getDelay(gameId);
+  const p = s && buf ? buf.pick(s) : null;
+  wait = p && delayable(p.data) ? p.waitMs : 0;
+  return p?.data ?? latest;
+}
+/** Draw what's due now; while a delay is on this runs every second so held-back plays land on time. */
+function showDue(force = false) {
+  cancelLater(tick); tick = null;
+  if (!latest) return showing;
+  if (force) lastText = '';
+  const v = delayed();
+  showing = showing.then(() => showGame(v)).catch(() => {});
+  if (getDelay(gameId) && (delayable(v) || delayable(latest))) tick = later(() => showDue(), 1000);
+  return showing;
+}
+onDelayChange((id) => { if (id === String(gameId)) { resetGoals(id); showDue(true); } });
+
 async function showGame(data) {
   const info = data.status?.state === 'pre' && !params.has('sim') ? await loadPick(data) : null;
   watchGoals([data]);
-  const text = JSON.stringify(data) + (radioOpen(data) ? '1' : '0'); // redraw when the pregame radio buttons appear
+  // Redraw when the pregame radio buttons appear, or the delay chip changes.
+  const text = JSON.stringify(data) + (radioOpen(data) ? '1' : '0') + getDelay(gameId) + Math.ceil(wait / 1000);
   if (text === lastText) return;
   game = withPregame(withTiers(withFinishRate(upgradeShots(data), rate), rate), info);
   lastText = text;
@@ -199,7 +225,8 @@ async function showGame(data) {
   document.title = `${game.away.abbrev} @ ${game.home.abbrev} ${shortDate(game.gameDate)}${params.has('sim') ? ' (sim)' : ''}`;
   document.querySelector('#back').href = params.has('sim') ? 'sim.html' : `./?date=${game.gameDate}`;
   // Finished games have no horns to blow, except while replaying one in the simulator.
-  document.querySelector('#horns').innerHTML = hornIcons(game, { horn: game.status.state !== 'final' || params.has('sim') });
+  const done = game.status.state === 'final' && !params.has('sim');
+  document.querySelector('#horns').innerHTML = hornIcons(game, { horn: !done }) + (done ? '' : delayButton(game, wait));
   render();
 }
 
@@ -245,9 +272,11 @@ async function load(quiet = false) {
       box.innerHTML = '<p class="msg">This box score isn\'t ready yet. Box scores appear once a game starts.</p>';
       return;
     }
-    await showGame(data);
-    if (game.status.state === 'live' || game.status.imminent) timer = later(() => load(true), LIVE_REFRESH_MS);
-    else if (game.status.state === 'pre' || game.status.settling) timer = later(() => load(true), 60_000);
+    buf?.push(data, getDelay(gameId));
+    latest = data;
+    await showDue();
+    if (data.status.state === 'live' || data.status.imminent) timer = later(() => load(true), LIVE_REFRESH_MS);
+    else if (data.status.state === 'pre' || data.status.settling) timer = later(() => load(true), 60_000);
   } catch (err) {
     if (!quiet) box.innerHTML = `<p class="msg">Couldn't load this box score: ${esc(err.message)}</p>`;
     else timer = later(() => load(true), LIVE_REFRESH_MS);
