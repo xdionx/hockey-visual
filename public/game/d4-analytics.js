@@ -105,7 +105,7 @@ const HEAT_COLS = [
 // Skater table filters. Kept outside the render so live refreshes keep them; rows are hidden with CSS
 // (see .a-heat in game.css), so sorting by a heading keeps working on the filtered rows.
 const heatFilter = { team: 'all', pos: 'all' };
-document.addEventListener('click', (e) => {
+globalThis.document?.addEventListener('click', (e) => {
   const b = e.target.closest?.('.a-heat [data-hf] button[data-v]');
   if (!b) return;
   const key = b.closest('[data-hf]').dataset.hf;
