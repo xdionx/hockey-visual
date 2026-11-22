@@ -26,6 +26,17 @@ const allSeasons = () => {
 const pct = (v, d = 1) => (v == null ? '-' : `${(v * 100).toFixed(d)}%`);
 const r2 = (v) => (v == null ? '-' : v.toFixed(2));
 
+// Team filter shared by the Players and Finishing tables. Ranks stay league ranks, so a filtered
+// table shows where each player sits in the whole NHL.
+const teamsOf = (total) => [...new Set(Object.values(total?.players ?? {}).filter((r) => r.p !== 'G' && r.t).map((r) => r.t))].sort();
+function filterBar(total, attr, pos, team) {
+  const btns = [[null, 'All skaters'], ['F', 'Forwards'], ['D', 'Defense']].map(([p, l]) => `<button type="button" data-${attr}pos="${p ?? ''}" aria-pressed="${p === pos}">${l}</button>`).join('');
+  const opts = teamsOf(total).map((t) => `<option value="${esc(t)}"${t === team ? ' selected' : ''}>${esc(t)}</option>`).join('');
+  return `<div class="ms-filters"><div class="ms-toggle" role="group" aria-label="Position">${btns}</div>
+    <label class="ms-select${team ? ' ms-on' : ''}"${team ? ` style="--team:${teamColor(team)}"` : ''}><span>Team</span><select data-${attr}team aria-label="Team"><option value="">All teams</option>${opts}</select></label></div>`;
+}
+const byTeam = (board, team) => (team ? board.filter((r) => r.t === team) : board);
+
 function card(title, sub, html, cls = '') {
   return `<section class="pc-card ${cls}"><h2>${title}${sub ? ` <small>${sub}</small>` : ''}</h2>${html}</section>`;
 }
@@ -185,9 +196,10 @@ const PLAYER_COLS = [
   ['satPer60', 'SAT/60', 'Shot attempts per 60 minutes on ice'],
 ];
 
-function playersCard(total, pos, showAll) {
+function playersCard(total, pos, showAll, team) {
   const minGp = minGames(total);
-  const board = leaderboard(total, 'momPerGame', { pos, minGp });
+  const league = leaderboard(total, 'momPerGame', { pos, minGp });
+  const board = byTeam(league, team);
   const has60 = board.some((r) => r.momPer60 != null);
   const tiers = board.some((r) => r.abovePct != null);
   const cols = PLAYER_COLS.filter(([k]) => has60 || !k.endsWith('60'));
@@ -200,14 +212,14 @@ function playersCard(total, pos, showAll) {
     return `<td class="${cls.trim()}" data-v="${v}">${signed ? fmt.signed(v, 2) : fmt.dec(v, 2)}</td>`;
   };
   const rows = shown.map((r) => `<tr><td data-v="${r.rank}">${r.rank}</td><td class="l">${playerLink(r.id, r.n)}</td><td class="l">${esc(r.t)}</td><td class="l">${esc(r.p)}</td><td>${r.gp}</td>${cols.map(([k]) => val(r, k)).join('')}<td data-v="${r.mom}">${fmt.signed(r.mom, 1)}</td>${tiers ? `<td class="pc-o up" data-v="${r.abovePct ?? ''}">${pct(r.abovePct, 0)}</td><td class="pc-o down" data-v="${r.belowPct ?? ''}">${pct(r.belowPct, 0)}</td>` : ''}</tr>`).join('');
-  const filter = [[null, 'All skaters'], ['F', 'Forwards'], ['D', 'Defense']].map(([p, l]) => `<button type="button" data-pos="${p ?? ''}" aria-pressed="${p === pos}">${l}</button>`).join('');
-  return card('Players', `${board.length} skaters with ${minGp}+ games`, `
-    <div class="ms-toggle" role="group" aria-label="Position">${filter}</div>
+  return card('Players', `${team ? `${board.length} ${esc(team)} of ${league.length}` : board.length} skaters with ${minGp}+ games`, `
+    ${filterBar(total, '', pos, team)}
     <div class="pc-scroll"><table class="pc-table sortable ms-players"><thead><tr><th data-sort>#</th><th class="l" data-sort>Player</th><th class="l" data-sort>Team</th><th class="l">Pos</th><th data-sort>GP</th>
       ${cols.map(([k, l, tip], i) => `<th class="${k.startsWith('mom') ? 'pc-o' : ''}" data-sort${i === 0 ? ' data-dir="desc"' : ''} title="${tip}">${l}</th>`).join('')}<th data-sort title="Season total">MOM</th>${tiers ? '<th class="pc-o" data-sort title="Share of games well above average for the position (momentum plus finishing)">Above avg</th><th class="pc-o" data-sort title="Share of games well below average for the position">Below avg</th>' : ''}</tr></thead>
       <tbody>${rows}</tbody></table></div>
     ${board.length > shown.length ? `<button type="button" class="ms-more" data-more>Show all ${board.length}</button>` : ''}
-    <p class="pq-note">Click a name for the player card. Minimum games is a quarter of the most games anyone has played this season.${tiers ? ' Above avg / Below avg: how often a player\'s game (momentum plus finishing) was well above or below a typical game at that position; most games land in between.' : ''}${has60 ? '' : ' Per-60 numbers need time on ice, which seasons rebuilt from the play-by-play don\'t have.'}</p>`, 'ms-players-card');
+    ${board.length ? '' : '<p class="pq-note">No skaters on this team have played enough games yet.</p>'}
+    <p class="pq-note">Click a name for the player card.${team ? ' # is the rank across the whole league.' : ''} Minimum games is a quarter of the most games anyone has played this season.${tiers ? ' Above avg / Below avg: how often a player\'s game (momentum plus finishing) was well above or below a typical game at that position; most games land in between.' : ''}${has60 ? '' : ' Per-60 numbers need time on ice, which seasons rebuilt from the play-by-play don\'t have.'}</p>`, 'ms-players-card');
 }
 
 // Finishing: goals scored against what an average NHL shooter would score from the same shots (our xG,
@@ -220,20 +232,20 @@ function gaaCell(v, d = 1, strong = false) {
   return `<td class="pc-o ${v > 0 ? 'up' : v < 0 ? 'down' : ''}" data-v="${v ?? ''}">${strong ? `<b>${txt}</b>` : txt}</td>`;
 }
 
-function finPlayers(total, pos, showAll) {
+function finPlayers(total, pos, showAll, team) {
   const minGp = minGames(total);
-  const board = leaderboard(total, 'gaa', { pos, minGp, minXg: FIN_MIN_XG });
-  if (!board.length) return NO_FIN;
+  const league = leaderboard(total, 'gaa', { pos, minGp, minXg: FIN_MIN_XG });
+  if (!league.length) return NO_FIN;
+  const board = byTeam(league, team);
   const shown = showAll ? board : board.slice(0, 50);
   const rows = shown.map((r) => `<tr><td data-v="${r.rank}">${r.rank}</td><td class="l">${playerLink(r.id, r.n)}</td><td class="l">${esc(r.t)}</td><td class="l">${esc(r.p)}</td><td>${r.gp}</td>
     <td>${r.sog}</td><td data-v="${r.xgg ?? 0}">${r.xgg ?? 0}</td><td data-v="${r.shPct ?? ''}">${pct(r.shPct)}</td><td data-v="${r.xShPct ?? ''}">${pct(r.xShPct)}</td>${gaaCell(r.gaa, 1, true)}</tr>`).join('');
-  const filter = [[null, 'All skaters'], ['F', 'Forwards'], ['D', 'Defense']].map(([p, l]) => `<button type="button" data-finpos="${p ?? ''}" aria-pressed="${p === pos}">${l}</button>`).join('');
-  return `<div class="ms-toggle" role="group" aria-label="Position">${filter}</div>
+  return `${filterBar(total, 'fin', pos, team)}
     <div class="pc-scroll"><table class="pc-table sortable ms-players"><thead><tr><th data-sort>#</th><th class="l" data-sort>Player</th><th class="l" data-sort>Team</th><th class="l">Pos</th><th data-sort>GP</th>
       <th data-sort title="Shots on goal">Shots</th><th data-sort title="Goals scored with a goalie in net (empty-net goals left out)">Goals</th><th data-sort title="Share of shots on goal that went in">Shooting %</th><th data-sort title="What an average NHL shooter would shoot from the same shots (same distance, angle and shot type) this season">Avg shooter %</th><th class="pc-o" data-sort data-dir="desc" title="Goals scored minus what an average NHL shooter would score from the same shots">Goals vs avg</th></tr></thead>
       <tbody>${rows}</tbody></table></div>
     ${board.length > shown.length ? `<button type="button" class="ms-more" data-finmore>Show all ${board.length}</button>` : ''}
-    <p class="pq-note">${board.length} skaters with ${minGp}+ games and enough good chances to judge (about 3 goals' worth).</p>`;
+    <p class="pq-note">${team ? `${board.length} ${esc(team)} of ${league.length}` : board.length} skaters with ${minGp}+ games and enough good chances to judge (about 3 goals' worth).${team ? ' # is the rank across the whole league.' : ''}</p>`;
 }
 
 function finTeams(m) {
@@ -247,12 +259,12 @@ function finTeams(m) {
     <p class="pq-note">Goals vs average per game against points %: r ${r2(m.fit.fin)}.${m.finSource === 'players' ? ' This season was saved before game rows carried team shots, so team totals add up every skater\'s season under the player\'s latest team (a traded player counts fully for the new team).' : ''}</p>`;
 }
 
-function finishingCard(total, m, view, pos, showAll) {
+function finishingCard(total, m, view, pos, showAll, team) {
   const tabs = [['players', 'Players'], ['teams', 'Teams']].map(([k, l]) => `<button type="button" data-fin="${k}" aria-pressed="${k === view}">${l}</button>`).join('');
   return card('Finishing', 'who buries their chances', `
     <p class="ms-lede">Some shots are far easier to score on than others: a tip at the side of the net goes in much more often than a slap shot from the point. <b>Avg shooter %</b> is how often an average NHL shooter scores from the same shots (same spots, same kinds of shot) this season. <b>Shooting %</b> is how often this shooter actually scored. <b>Goals vs avg</b> turns the gap into goals: +8 means 8 more goals than an average shooter would have scored. It's its own stat and isn't part of momentum.</p>
     <div class="ms-toggle" role="group" aria-label="Finishing view">${tabs}</div>
-    ${view === 'teams' ? finTeams(m) : finPlayers(total, pos, showAll)}
+    ${view === 'teams' ? finTeams(m) : finPlayers(total, pos, showAll, team)}
     <p class="pq-note">Shot quality is our own estimate from shot location and type, scaled so the league as a whole comes out exactly average each season. Finishing is a real skill but a streaky one: about a third of a hot or cold year carries into the next.</p>`, 'ms-fin-card');
 }
 
@@ -377,14 +389,38 @@ function render() {
       ${modelCard(m, season, sel.state)}
       ${m.games ? card('Win % by share of the game', 'does a bigger edge mean more wins?', `${binsChart(m.bins)}<p class="pq-note">Every game counts twice, once from each side. A model that works climbs from left to right; a steeper climb means it separates winners from losers better.</p>${binsTable(m.bins)}`) : ''}
       ${teamsCard(m)}
-      ${playersCard(total, pos, showAll)}
-      ${finishingCard(total, m, state.finView, state.finPos, state.finAll)}
+      ${playersCard(total, pos, showAll, state.team)}
+      ${finishingCard(total, m, state.finView, state.finPos, state.finAll, state.finTeam)}
       ${trendsCard(list)}
       ${marketCard(state.odds)}
       ${labCard(state.lab, state.labView)}
     </div>`;
   makeSortable(main);
 }
+
+const selected = () => state.list.find((x) => x.season === state.season);
+function swapCard(cls, html) {
+  const tmp = document.createElement('div');
+  tmp.innerHTML = html;
+  main.querySelector(cls).replaceWith(tmp.firstElementChild);
+  makeSortable(main.querySelector(cls));
+}
+const redrawPlayers = () => swapCard('.ms-players-card', playersCard(selected().total, state.pos, state.showAll, state.team));
+const redrawFin = () => { const sel = selected(); swapCard('.ms-fin-card', finishingCard(sel.total, sel.model, state.finView, state.finPos, state.finAll, state.finTeam)); };
+
+/** Keep season and team filters in the URL so a filtered view can be shared or reloaded. */
+function syncUrl() {
+  const q = new URLSearchParams({ season: state.season });
+  if (state.team) q.set('team', state.team);
+  if (state.finTeam) q.set('finteam', state.finTeam);
+  history.replaceState(null, '', `?${q}`);
+}
+
+main.addEventListener('change', (e) => {
+  const t = e.target;
+  if (t.matches('[data-team]')) { state.team = t.value || null; state.showAll = false; syncUrl(); redrawPlayers(); main.querySelector('[data-team]')?.focus(); }
+  else if (t.matches('[data-finteam]')) { state.finTeam = t.value || null; state.finAll = false; syncUrl(); redrawFin(); main.querySelector('[data-finteam]')?.focus(); }
+});
 
 main.addEventListener('click', (e) => {
   const x = e.target.closest('[data-x]');
@@ -408,16 +444,12 @@ main.addEventListener('click', (e) => {
     if (fv.dataset.fin) state.finView = fv.dataset.fin;
     if (fv.dataset.finpos != null) { state.finPos = fv.dataset.finpos || null; state.finAll = false; }
     if (fv.dataset.finmore != null) state.finAll = true;
-    const sel = state.list.find((x) => x.season === state.season);
-    const tmp = document.createElement('div');
-    tmp.innerHTML = finishingCard(sel.total, sel.model, state.finView, state.finPos, state.finAll);
-    main.querySelector('.ms-fin-card').replaceWith(tmp.firstElementChild);
-    makeSortable(main.querySelector('.ms-fin-card'));
+    redrawFin();
     return;
   }
   const p = e.target.closest('[data-pos]');
-  if (p) { state.pos = p.dataset.pos || null; state.showAll = false; render(); return; }
-  if (e.target.closest('[data-more]')) { state.showAll = true; render(); return; }
+  if (p) { state.pos = p.dataset.pos || null; state.showAll = false; redrawPlayers(); return; }
+  if (e.target.closest('[data-more]')) { state.showAll = true; redrawPlayers(); return; }
   const a = e.target.closest('a.ms-chip, .pc-table a[href^="?season="]');
   if (a && !e.metaKey && !e.ctrlKey) {
     e.preventDefault();
@@ -425,7 +457,10 @@ main.addEventListener('click', (e) => {
     state.season = s;
     state.showAll = false;
     state.finAll = false;
-    history.replaceState(null, '', `?season=${s}`);
+    const teams = teamsOf(selected()?.total);
+    if (!teams.includes(state.team)) state.team = null;
+    if (!teams.includes(state.finTeam)) state.finTeam = null;
+    syncUrl();
     render();
     scrollTo({ top: 0 });
   }
@@ -442,6 +477,10 @@ async function start() {
   // Default: the current season once it has a few weeks of games, else the newest finished one.
   const fallback = list.find((s) => s.state === 'current' && s.total.games >= 150) ?? list.find((s) => s.state === 'complete') ?? list.find((s) => s.total);
   state = { list, lab, odds, labView: 'all', season: list.some((s) => s.season === asked) ? asked : fallback?.season ?? seasons[0], pos: null, showAll: false, finView: 'players', finPos: null, finAll: false };
+  const teams = teamsOf(selected()?.total);
+  const want = (k) => { const t = (params.get(k) || '').toUpperCase(); return teams.includes(t) ? t : null; };
+  state.team = want('team');
+  state.finTeam = want('finteam');
   render();
 }
 
