@@ -509,6 +509,7 @@ function team(boxTeam, info) {
     sog: boxTeam.sog ?? null,
     coach: t(info?.headCoach) || null,
     scratches: (info?.scratches ?? []).map((s) => `${t(s.firstName)} ${t(s.lastName)}`.trim()),
+    scratchIds: (info?.scratches ?? []).map((s) => s.id).filter((id) => id != null),
   };
 }
 

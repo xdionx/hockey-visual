@@ -5,6 +5,7 @@ import { playerIndex, linkPlayers, installPlayerLinks } from './player/link.js';
 import { loadSeason } from './player/store.js';
 import { seasonOf } from './src/seasonStats.js';
 import { predictGame } from './src/predict.js';
+import { topPlayers, missingTop, PTS_PER_PLAYER } from './src/lineupAlert.js';
 import { noVigAway, edge, BOOK_NAMES } from './src/odds.js';
 
 const $ = (s) => document.querySelector(s);
@@ -121,7 +122,45 @@ async function loadPredictions(data) {
     if (p) out.set(g.id, p);
   }
   predictions.set(data.date, out);
+  seasonsFor.set(data.date, { total, prev });
   return out.size > 0;
+}
+
+// Lineup alert: once a team posts its scratches (5-10 minutes before puck drop), flag any of its top 3
+// skaters by momentum who aren't dressed. The pick stays the same; see src/lineupAlert.js.
+const seasonsFor = new Map(); // date -> { total, prev }
+const lineups = new Map(); // gameId -> { away: { posted, out }, home: {...}, at }
+const LINEUP_WINDOW_MS = 90 * 60_000; // start checking this long before puck drop
+const LINEUP_EVERY_MS = 2 * 60_000;
+async function loadLineups(data) {
+  const s = seasonsFor.get(data.date);
+  if (!s?.total) return false;
+  const now = Date.now();
+  const due = data.games.filter((g) => {
+    const p = predictions.get(data.date)?.get(g.id);
+    if (!p || (g.status.state !== 'pre' && g.status.state !== 'live')) return false;
+    if (Date.parse(g.startTimeUTC) - now > LINEUP_WINDOW_MS) return false;
+    const l = lineups.get(g.id);
+    if (l?.away.posted && l?.home.posted) return false; // both lineups in: done
+    return !l || now - l.at >= LINEUP_EVERY_MS;
+  });
+  let changed = false;
+  await Promise.all(due.map(async (g) => {
+    try {
+      const d = await getData(`games/${g.id}.json`);
+      if (!d) return;
+      const side = (k) => {
+        const t = d[k] ?? {};
+        const posted = (t.scratches?.length ?? 0) > 0 || g.status.state === 'live';
+        const top = topPlayers(s.total, s.prev, g[k].abbrev);
+        return { posted, top, out: posted ? missingTop(top, t.scratches, t.scratchIds) : [] };
+      };
+      const l = { away: side('away'), home: side('home'), at: Date.now() };
+      if (JSON.stringify([l.away, l.home]) !== JSON.stringify([lineups.get(g.id)?.away, lineups.get(g.id)?.home])) changed = true;
+      lineups.set(g.id, l);
+    } catch { /* the alert is a bonus */ }
+  }));
+  return changed;
 }
 
 // Sportsbook lines the data script saved before puck drop (DraftKings, FanDuel), shown next to our pick.
@@ -162,7 +201,16 @@ function predictionLine(game, tc) {
   const chip = (side) => `<span class="tchip" style="background:${tc[side]}">${esc(game[side].abbrev)}</span>`;
   const lines = (fn) => ['away', 'home'].map((side) => `<span class="tl">${chip(side)}${fn(side)}</span>`).join('');
   const gname = (side) => (goalie[side].name ? esc(lastName(goalie[side].name)) : 'Unknown goalie');
+  const lu = lineups.get(game.id);
+  const lineupText = (side) => {
+    const x = lu?.[side];
+    if (!x?.posted) return '<span class="muted">Posts about 10 min before puck drop</span>';
+    return `<span>${x.out.length ? `Without ${x.out.map((p) => `<b>${esc(p.name)}</b> (#${p.rank})`).join(', ')}` : 'Top 3 all dressed'}</span>`;
+  };
+  const outs = ['away', 'home'].filter((side) => lu?.[side]?.out.length);
+  const alert = outs.length ? `<p class="lu-alert" title="Teams missing one of their top 3 skaters by momentum won about ${PTS_PER_PLAYER} points less often than our pick said (2024-27 games). The pick above doesn't include it.">⚠ ${outs.map((side) => `${esc(game[side].abbrev)} without ${lu[side].out.map((p) => esc(lastName(p.name))).join(' and ')}`).join(' · ')} <small>about ${PTS_PER_PLAYER} pts less win chance per player, not in the pick</small></p>` : '';
   const why = [
+    row('Lineup<small>top 3 skaters by momentum</small>', lines(lineupText)),
     row('Momentum<small>share of play this season</small>', lines((side) => `<b>${Math.round(share[side] * 100)}%</b>`)),
     goalie.away.name && goalie.home.name ? row('Goalies<small>probable starter, goals saved above expected</small>', lines((side) => `${gname(side)} <b>${fmtGsax(goalie[side].gsax).replace(/[()]/g, '')}</b>`)) : '',
     row('Rest', lines((side) => (b2b[side] ? 'Played yesterday' : 'Rested'))),
@@ -170,6 +218,7 @@ function predictionLine(game, tc) {
   return `<div class="pred">
     <div class="pr-head"><span>Win chance</span>${e ? edgeTag(e) : ''}</div>
     <div class="pr-bars">${bars}</div>
+    ${alert}
     <details class="pred-why" data-pid="${game.id}"${openWhy.has(game.id) ? ' open' : ''}><summary>Why we pick it</summary><dl>${why}</dl>${books.length ? '<p>Book chances have the margin removed.</p>' : ''}</details>
   </div>`;
 }
@@ -433,7 +482,9 @@ async function load(date, { quiet = false } = {}) {
     if (text !== lastText) render(data); // only redraw when something changed
     lastText = text;
     loadSat(data.games).then((changed) => { if (changed && current === data) render(data); });
-    loadPredictions(data).then((changed) => { if (changed && current === data) render(data); }).catch(() => {});
+    loadPredictions(data).then(async (changed) => {
+      if ((await loadLineups(data)) || changed) { if (current === data) render(data); }
+    }).catch(() => {});
     // Keep live games fresh: every few seconds while a game is on, every minute before puck drop.
     const states = data.games.map((g) => g.status.state);
     if (states.includes('live')) refreshTimer = setTimeout(() => load(data.date, { quiet: true }), LIVE_REFRESH_MS);
