@@ -488,7 +488,7 @@ async function load(date, { quiet = false } = {}) {
     // Keep live games fresh: every few seconds while a game is on, every minute before puck drop.
     const states = data.games.map((g) => g.status.state);
     if (states.includes('live')) refreshTimer = setTimeout(() => load(data.date, { quiet: true }), LIVE_REFRESH_MS);
-    else if (states.includes('pre')) refreshTimer = setTimeout(() => load(data.date, { quiet: true }), 60_000);
+    else if (states.includes('pre') || data.games.some((g) => g.status.settling)) refreshTimer = setTimeout(() => load(data.date, { quiet: true }), 60_000);
   } catch (err) {
     if (!quiet) gamesEl.innerHTML = `<p class="msg">Couldn't load scores: ${esc(err.message)}</p>`;
   }

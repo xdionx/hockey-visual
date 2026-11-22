@@ -133,3 +133,10 @@ test('playoff overtime reads 1st OT, 2nd OT, 3rd OT; regular season stays OT/SO'
   assert.equal(fin(2, 1), 'Final/OT');
   assert.equal(fin(2, 2), 'Final/2OT');
 });
+
+test('a game that just ended (OVER) shows as final, not scheduled', async () => {
+  const { gameStatus } = await import('../src/normalize.js');
+  assert.deepEqual(gameStatus({ gameType: 2, gameState: 'OVER', gameOutcome: { lastPeriodType: 'REG' } }), { state: 'final', label: 'Final', settling: true });
+  assert.deepEqual(gameStatus({ gameType: 2, gameState: 'OVER', gameOutcome: { lastPeriodType: 'SO' } }).label, 'Final/SO');
+  assert.equal(gameStatus({ gameType: 2, gameState: 'FINAL', gameOutcome: { lastPeriodType: 'REG' } }).settling, undefined);
+});

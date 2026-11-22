@@ -5,7 +5,9 @@ import { strengthOf } from './strength.js';
 const t = (v) => (v && typeof v === 'object' ? v.default : v) ?? '';
 
 const LIVE_STATES = new Set(['LIVE', 'CRIT']);
-const FINAL_STATES = new Set(['FINAL', 'OFF']);
+// OVER: the horn has gone but the league hasn't marked the game FINAL yet (a few minutes).
+// It is still a finished game; treating it as unknown showed it as "Scheduled" with no score.
+const FINAL_STATES = new Set(['OVER', 'FINAL', 'OFF']);
 
 /** "1", "2", "3", "OT", "2OT", "SO" */
 export function periodLabel(pd) {
@@ -56,7 +58,10 @@ export function gameStatus(g) {
       const n = g.gameOutcome.otPeriods ?? 1;
       suffix = g.gameType === 3 ? `/${displayPeriod(n > 1 ? `${n}OT` : 'OT', 3)}` : n > 1 ? `/${n}OT` : '/OT';
     }
-    return { state: 'final', label: `Final${suffix}` };
+    // settling: final score is in but the league may still tidy stats, so caches stay short.
+    return g.gameState === 'OVER'
+      ? { state: 'final', label: `Final${suffix}`, settling: true }
+      : { state: 'final', label: `Final${suffix}` };
   }
   if (LIVE_STATES.has(g.gameState)) {
     const p = periodLabel(g.periodDescriptor);

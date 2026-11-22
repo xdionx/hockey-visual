@@ -189,7 +189,7 @@ async function load(quiet = false) {
     }
     showGame(data);
     if (game.status.state === 'live') timer = setTimeout(() => load(true), LIVE_REFRESH_MS);
-    else if (game.status.state === 'pre') timer = setTimeout(() => load(true), 60_000);
+    else if (game.status.state === 'pre' || game.status.settling) timer = setTimeout(() => load(true), 60_000);
   } catch (err) {
     if (!quiet) box.innerHTML = `<p class="msg">Couldn't load this box score: ${esc(err.message)}</p>`;
     else timer = setTimeout(() => load(true), LIVE_REFRESH_MS);

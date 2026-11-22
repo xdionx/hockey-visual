@@ -98,7 +98,7 @@ for (let date = from; date <= today; date = shift(date, 1)) {
       const detail = normalizeGameDetail(raw);
       boxFetched++;
       if (raw.pbp) await writeIfChanged(satFile, shotAttempts(raw.pbp));
-      if (raw.pbp && detail.status.state === 'final' && detail.gameType === 2) await writeLines(game.id, raw.pbp);
+      if (raw.pbp && detail.status.state === 'final' && !detail.status.settling && detail.gameType === 2) await writeLines(game.id, raw.pbp);
       if (await writeIfChanged(file, detail)) changed++;
     } catch (err) {
       boxFailed++;
@@ -113,7 +113,7 @@ const total = emptySeason(season);
 let linesFetched = 0;
 for (const f of (await readdir(join(outDir, 'games'))).filter((x) => x.endsWith('.json')).sort()) {
   const g = JSON.parse(await readFile(join(outDir, 'games', f), 'utf8').catch(() => 'null'));
-  if (!g || g.season !== season || g.gameType !== 2 || g.status?.state !== 'final') continue;
+  if (!g || g.season !== season || g.gameType !== 2 || g.status?.state !== 'final' || g.status.settling) continue; // settling: wait for the official FINAL stats
   let saved = JSON.parse(await readFile(join(outDir, 'lines', `${g.id}.json`), 'utf8').catch(() => 'null'));
   if (saved?.v !== SEASON_VERSION) {
     await new Promise((r) => setTimeout(r, 300));
