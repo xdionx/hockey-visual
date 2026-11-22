@@ -8,6 +8,7 @@ import { tierVsSeason } from '../src/impact.js';
 import { getData, getStatic, LIVE_REFRESH_MS } from '../data.js';
 import { predictGame } from '../src/predict.js';
 import { topPlayers, missingTop } from '../src/lineupAlert.js';
+import { teamTable, goalieLine, teamGoalies, teamSkaters } from '../src/matchup.js';
 import { noVigAway, BOOK_NAMES } from '../src/odds.js';
 import { startSim } from './sim.js';
 import momentum from './d3-momentum.js';
@@ -156,7 +157,33 @@ function withPregame(g, info) {
     const top = topPlayers(seasonTotal, info?.prev, g[k].abbrev);
     return { top, out: g[k].scratches?.length ? missingTop(top, g[k].scratches, g[k].scratchIds) : [] };
   };
-  g.pregame = { pick: info?.pick ?? null, books: info?.books ?? [], lineup: seasonTotal ? { away: side('away'), home: side('home') } : null };
+  const n = Number(String(g.id).slice(-4));
+  const table = seasonTotal ? teamTable(seasonTotal, rate, n) : null;
+  const team = (k) => {
+    if (!seasonTotal) return null;
+    const ab = g[k].abbrev;
+    // Our pick's probable starter, unless he's scratched: then the dressed goalie with the most starts.
+    let probable = info?.pick?.parts.goalie[k]?.id;
+    let replaced = null;
+    const dressed = (g.players?.[k]?.goalies ?? []).map((x) => goalieLine(seasonTotal, x.id, rate) ?? { id: x.id, name: x.fullName ?? x.name, gs: 0, gsax: null });
+    if (probable && g[k].scratchIds?.includes(probable) && dressed.length) {
+      replaced = goalieLine(seasonTotal, probable, rate);
+      probable = dressed.sort((a, b) => (b.gs ?? 0) - (a.gs ?? 0))[0].id;
+    }
+    const starter = probable ? goalieLine(seasonTotal, probable, rate) : null;
+    return {
+      m: table.get(ab) ?? null,
+      starter: starter && { ...starter, replaced },
+      goalies: teamGoalies(seasonTotal, ab, rate),
+      skaters: teamSkaters(seasonTotal, ab, rate),
+    };
+  };
+  g.pregame = {
+    pick: info?.pick ?? null,
+    books: info?.books ?? [],
+    lineup: seasonTotal ? { away: side('away'), home: side('home') } : null,
+    teams: table ? { away: team('away'), home: team('home'), of: table.teams } : null,
+  };
   return g;
 }
 
