@@ -171,7 +171,8 @@ if (!host && window.top === window) {
 let audio = null;
 let alertTimer = null;
 const queue = [];
-const ALERT_MS = 8000;
+const ALERT_MS = 8000; // how long the alert stays when the horn can't play (sound blocked or file missing)
+const MAX_MS = 150000; // safety cap if the horn never reports that it ended (longest horn is ~100s)
 const word = (s) => String(s ?? '').toUpperCase();
 const LIGHT = '<svg viewBox="0 0 100 130" aria-hidden="true"><ellipse class="halo" cx="50" cy="52" rx="42" ry="46"/><rect x="16" y="104" width="68" height="18" rx="4" fill="#3b4558"/><rect x="24" y="92" width="52" height="14" rx="3" fill="#59647a"/><path class="dome" d="M22 92V52a28 28 0 0 1 56 0v40z"/><g stroke="#cfd6e4" stroke-width="2.5" fill="none" opacity=".8"><path d="M22 92V52a28 28 0 0 1 56 0v40"/><path d="M36 92V30M50 92V24M64 92V30"/><path d="M24 70h52M26 50h48"/></g></svg>';
 
@@ -196,9 +197,15 @@ function show(a) {
     <div class="ga-sc">${a.line}</div></div><div class="ga-light r">${LIGHT}</div></div>
     <div class="ga-ctl">${more ? `<span class="ga-q">+${more} more goal${more > 1 ? 's' : ''} queued</span>` : ''}<button type="button" class="ga-btn" data-ga="skip">${more ? 'Skip' : 'Dismiss'}</button>${more ? '<button type="button" class="ga-btn stop" data-ga="stop">Stop all</button>' : ''}</div>`;
   document.body.append(el);
-  audio = new Audio(new URL(`audio/horns/${a.abbrev}.mp3`, document.baseURI).href);
-  audio.play().catch(() => {}); // blocked until the reader has tapped a horn toggle once
-  alertTimer = setTimeout(skip, ALERT_MS);
+  // The alert stays up for the whole horn and ends when the MP3 does (or when the reader skips).
+  const me = new Audio(new URL(`audio/horns/${a.abbrev}.mp3`, document.baseURI).href);
+  audio = me;
+  const done = () => { if (audio === me) skip(); };
+  const short = () => { if (audio !== me) return; clearTimeout(alertTimer); alertTimer = setTimeout(done, ALERT_MS); };
+  me.addEventListener('ended', done);
+  me.addEventListener('error', short);
+  alertTimer = setTimeout(done, MAX_MS);
+  me.play().catch(short); // blocked until the reader has tapped a horn toggle once: fall back to a short alert
 }
 function next() { const a = queue.shift(); if (a) show(a); }
 function play(a) {
