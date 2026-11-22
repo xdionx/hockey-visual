@@ -68,6 +68,7 @@ function thisSeason(p, ours) {
       ${tile('SAT', ours.row.sat, `${ours.row.sog} on goal`, 'pq-ours')}
       ${tile('MOM', fmt.signed(ours.row.mom, 1), 'season total', 'pq-ours')}
       ${ours.gaa != null ? tile('Goals vs avg', fmt.signed(ours.gaa, 1), rankBit(ours.finRank) || 'vs an average shooter', 'pq-ours') : ''}
+      ${ours.abovePct != null ? tile('Above avg games', fmt.pct(ours.abovePct, 0), `below avg ${fmt.pct(ours.belowPct, 0)}, ${ours.row.tg} games rated`, 'pq-ours') : ''}
       ${ours.shPct != null ? tile('Sh% on a goalie', fmt.pct(ours.shPct), `avg shooter ${fmt.pct(ours.xShPct)} on the same shots`, 'pq-ours') : ''}
     </div>`;
   return card('This season', `${fmt.season(p.currentSeason)} regular season`, `<div class="pq-grid pc-grid">${tiles.join('')}</div>${ourTiles}`);
