@@ -952,3 +952,28 @@ main { padding: 0 0 48px; }
 
 /* Box score FO% column: the percentage leads, won/taken sits beside it in smaller type */
 .a-table td .a-fo { margin-left: 5px; font-size: .78em; font-weight: 500; opacity: .75; white-space: nowrap; }
+
+/* How it was won (d6-won.js) */
+.hw-card h2 { margin-top: 0; }
+.hw-lede { margin: 0 0 12px; color: #cbd5e1; font-size: 15px; line-height: 1.5; max-width: 760px; }
+.hw-table { width: 100%; max-width: 560px; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.hw-table th, .hw-table td { padding: 7px 8px; border-bottom: 1px solid var(--b-line, #1f2937); }
+.hw-table tbody th { color: var(--b-mute, #8b95a7); font: 600 13px Inter, sans-serif; letter-spacing: .05em; text-transform: uppercase; text-align: center; }
+.hw-table thead th { font-weight: 800; font-size: 17px; }
+.hw-table thead th.hw-a, .hw-table thead th.hw-h { border-bottom: 3px solid var(--team); }
+.hw-a { text-align: left; width: 28%; }
+.hw-h { text-align: right; width: 28%; }
+.hw-table td { font-weight: 700; font-size: 17px; color: #94a3b8; }
+.hw-table td.hw-win { color: #f1f5f9; }
+.hw-table td.hw-win::after { content: " ◂"; color: #4ade80; font-size: 12px; }
+.hw-table td.hw-h.hw-win::after { content: ""; }
+.hw-table td.hw-h.hw-win::before { content: "▸ "; color: #4ade80; font-size: 12px; }
+.hw-sub { margin: 16px 0 8px; font-size: 15px; }
+.hw-sub small { display: block; color: var(--b-mute, #8b95a7); font-weight: 500; font-size: 12px; text-transform: none; letter-spacing: 0; }
+.hw-tiers { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.hw-tier { border-left: 3px solid var(--team); padding: 4px 10px; font-size: 13px; }
+.hw-tier p { margin: 4px 0; color: #cbd5e1; line-height: 1.45; }
+.hw-up, .hw-dn { display: inline-block; margin-right: 6px; padding: 0 6px; border-radius: 3px; font-weight: 700; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+.hw-up { background: color-mix(in srgb, #22c55e 22%, transparent); color: #4ade80; }
+.hw-dn { background: color-mix(in srgb, #ef4444 22%, transparent); color: #f87171; }
+@media (max-width: 640px) { .hw-tiers { grid-template-columns: 1fr; } }

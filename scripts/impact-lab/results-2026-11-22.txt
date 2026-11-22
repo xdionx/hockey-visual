@@ -1,0 +1,47 @@
+
+== 1. How games are won ==
+6932 games
+  Won momentum (share > 50%): won 57.3% of 6920 team-games
+  Better chances (more expected goals): won 56.8% of 6911 team-games
+  Shooters beat average (goals vs avg > 0): won 73.2% of 6653 team-games
+  Goalie beat average (saved more than avg): won 71.4% of 7211 team-games
+  Regulation winners, biggest piece of their goal edge: {'fin': 0.407, 'goalie': 0.4, 'chance': 0.192}
+  Winners who lost the momentum battle: 42.7%; of those, carried by finishing 45.4%, goaltending 53.9%
+  win ~ mom: acc 57.3%
+  win ~ mom+fin: acc 75.5%
+  win ~ mom+fin+goalie: acc 94.8%
+  win ~ chance+fin+goalie: acc 96.0%
+
+== 2. How often players are above, at, or below average ==
+  one momentum point is worth about 0.023 goals of goal differential (team level)
+  Share of all skater-games by tier (impact): {-1: 0.178, 0: 0.679, 1: 0.143}
+  3049 player-seasons with 40+ games. Above-average games: median 12%, top tenth 29%, bottom tenth 3%
+  Same season, odd games vs even games (r, higher = real skill not luck):
+    above: 0.73
+    below: 0.60
+    mom: 0.93
+    gva: 0.32
+    impact: 0.66
+  Last season vs this season (r):
+    above: 0.80
+    below: 0.74
+    mom: 0.91
+    gva: 0.42
+    impact: 0.74
+    sd: 0.76
+    Does last season's above% tell us more than last season's average impact? partial r = 0.10
+    ...and below%? partial r = 0.14
+  Team win % by how many skaters had an above / below game:
+    {Interval(-20, -4, closed='right'): {'mean': 0.171, 'size': 1724}, Interval(-4, -2, closed='right'): {'mean': 0.323, 'size': 3205}, Interval(-2, 0, closed='right'): {'mean': 0.496, 'size': 4286}, Interval(0, 2, closed='right'): {'mean': 0.698, 'size': 3244}, Interval(2, 4, closed='right'): {'mean': 0.848, 'size': 1198}, Interval(4, 20, closed='right'): {'mean': 0.966, 'size': 207}}
+
+== 3. Prediction: lineup player history vs team history ==
+  train 3458 games (2021-24), test 2514 games (2024-27), home team side, 10+ games in
+  home only                                               pick 53.9%  log loss 0.6903  r(goal diff) nan
+  team momentum to date (like v4)                         pick 56.7%  log loss 0.6747  r(goal diff) 0.206
+  team momentum + starting goalie                         pick 57.6%  log loss 0.6726  r(goal diff) 0.216
+  lineup momentum                                         pick 56.0%  log loss 0.6862  r(goal diff) 0.163
+  lineup momentum + goalie                                pick 55.8%  log loss 0.6835  r(goal diff) 0.173
+  lineup momentum + finishing + goalie                    pick 56.4%  log loss 0.6829  r(goal diff) 0.180
+  lineup above/below % + goalie                           pick 56.4%  log loss 0.6820  r(goal diff) 0.147
+  lineup momentum + finishing + above/below + goalie      pick 57.2%  log loss 0.6815  r(goal diff) 0.182
+  team momentum + lineup momentum + finishing + goalie    pick 57.8%  log loss 0.6723  r(goal diff) 0.226

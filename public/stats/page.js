@@ -189,6 +189,7 @@ function playersCard(total, pos, showAll) {
   const minGp = minGames(total);
   const board = leaderboard(total, 'momPerGame', { pos, minGp });
   const has60 = board.some((r) => r.momPer60 != null);
+  const tiers = board.some((r) => r.abovePct != null);
   const cols = PLAYER_COLS.filter(([k]) => has60 || !k.endsWith('60'));
   const shown = showAll ? board : board.slice(0, 50);
   const val = (r, k) => {
@@ -198,15 +199,15 @@ function playersCard(total, pos, showAll) {
     const cls = k === 'momPerGame' ? ` pc-o ${v >= 0 ? 'up' : 'down'}` : signed ? ' pc-o' : '';
     return `<td class="${cls.trim()}" data-v="${v}">${signed ? fmt.signed(v, 2) : fmt.dec(v, 2)}</td>`;
   };
-  const rows = shown.map((r) => `<tr><td data-v="${r.rank}">${r.rank}</td><td class="l">${playerLink(r.id, r.n)}</td><td class="l">${esc(r.t)}</td><td class="l">${esc(r.p)}</td><td>${r.gp}</td>${cols.map(([k]) => val(r, k)).join('')}<td data-v="${r.mom}">${fmt.signed(r.mom, 1)}</td></tr>`).join('');
+  const rows = shown.map((r) => `<tr><td data-v="${r.rank}">${r.rank}</td><td class="l">${playerLink(r.id, r.n)}</td><td class="l">${esc(r.t)}</td><td class="l">${esc(r.p)}</td><td>${r.gp}</td>${cols.map(([k]) => val(r, k)).join('')}<td data-v="${r.mom}">${fmt.signed(r.mom, 1)}</td>${tiers ? `<td class="pc-o up" data-v="${r.abovePct ?? ''}">${pct(r.abovePct, 0)}</td><td class="pc-o down" data-v="${r.belowPct ?? ''}">${pct(r.belowPct, 0)}</td>` : ''}</tr>`).join('');
   const filter = [[null, 'All skaters'], ['F', 'Forwards'], ['D', 'Defense']].map(([p, l]) => `<button type="button" data-pos="${p ?? ''}" aria-pressed="${p === pos}">${l}</button>`).join('');
   return card('Players', `${board.length} skaters with ${minGp}+ games`, `
     <div class="ms-toggle" role="group" aria-label="Position">${filter}</div>
     <div class="pc-scroll"><table class="pc-table sortable ms-players"><thead><tr><th data-sort>#</th><th class="l" data-sort>Player</th><th class="l" data-sort>Team</th><th class="l">Pos</th><th data-sort>GP</th>
-      ${cols.map(([k, l, tip], i) => `<th class="${k.startsWith('mom') ? 'pc-o' : ''}" data-sort${i === 0 ? ' data-dir="desc"' : ''} title="${tip}">${l}</th>`).join('')}<th data-sort title="Season total">MOM</th></tr></thead>
+      ${cols.map(([k, l, tip], i) => `<th class="${k.startsWith('mom') ? 'pc-o' : ''}" data-sort${i === 0 ? ' data-dir="desc"' : ''} title="${tip}">${l}</th>`).join('')}<th data-sort title="Season total">MOM</th>${tiers ? '<th class="pc-o" data-sort title="Share of games well above average for the position (momentum plus finishing)">Above avg</th><th class="pc-o" data-sort title="Share of games well below average for the position">Below avg</th>' : ''}</tr></thead>
       <tbody>${rows}</tbody></table></div>
     ${board.length > shown.length ? `<button type="button" class="ms-more" data-more>Show all ${board.length}</button>` : ''}
-    <p class="pq-note">Click a name for the player card. Minimum games is a quarter of the most games anyone has played this season.${has60 ? '' : ' Per-60 numbers need time on ice, which seasons rebuilt from the play-by-play don\'t have.'}</p>`, 'ms-players-card');
+    <p class="pq-note">Click a name for the player card. Minimum games is a quarter of the most games anyone has played this season.${tiers ? ' Above avg / Below avg: how often a player\'s game (momentum plus finishing) was well above or below a typical game at that position; most games land in between.' : ''}${has60 ? '' : ' Per-60 numbers need time on ice, which seasons rebuilt from the play-by-play don\'t have.'}</p>`, 'ms-players-card');
 }
 
 // Finishing: goals scored against what an average NHL shooter would score from the same shots (our xG,
