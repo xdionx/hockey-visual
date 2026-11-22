@@ -1,6 +1,6 @@
 import { getData, getStatic, LIVE_REFRESH_MS, live, later, cancelLater } from './data.js';
 import { teamColors, strengthBadge, contrastRatio } from './game/core.js';
-import { teamAudio, watchGoals, radioOpen, resetGoals } from './horn.js';
+import { teamAudio, radioOpen } from './horn.js'; // horn.js also watches for goals in games with a horn on, on every page
 import { getDelay, delayScores, delayButton, onDelayChange, delayable } from './delay.js';
 import { pushSnapshot, trimSnapshots, pickSnapshot, delayLabel } from './src/delayBuffer.js';
 import { playerIndex, linkPlayers, installPlayerLinks } from './player/link.js';
@@ -467,14 +467,13 @@ function show(force = false) {
   if (!latest?.games) return;
   const v = delayedView(latest);
   current = v;
-  watchGoals(v.games);
   // The radio-open flags make a pregame card redraw when its radio buttons appear; the delay bits redraw the chips.
   const text = JSON.stringify(v) + v.games.map((g) => `${radioOpen(g) ? 1 : 0}:${getDelay(g.id)}:${Math.ceil((waitFor.get(g.id) ?? 0) / 1000)}:${getDelay(g.id) ? JSON.stringify(satAt(g.id)) : ''}`).join(',');
   if (force || text !== lastText) render(v); // only redraw when something changed
   lastText = text;
   if (v.games.some((g, i) => getDelay(g.id) && (delayable(g) || delayable(latest.games[i])))) tickTimer = later(() => show(), 1000);
 }
-onDelayChange((id) => { resetGoals(id); show(true); });
+onDelayChange(() => show(true));
 
 // Which date is "Today"? Games belong to their start date in Eastern time (what the NHL API
 // uses). The day only turns over at 10:00 local time, and any date with live games wins.

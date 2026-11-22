@@ -1,3 +1,4 @@
+import '../horn.js'; // goal horns for games with a horn on, on every page
 // Full player card: profile, this season in depth, SAT and momentum for every season, season-by-season
 // table and the last five games. player.html?id=<playerId>
 import { loadPlayer, loadSeason, ourStats, fmt, positionName } from './store.js';
