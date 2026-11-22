@@ -1,4 +1,4 @@
-import { getData, getStatic, LIVE_REFRESH_MS, live } from './data.js';
+import { getData, getStatic, LIVE_REFRESH_MS, live, later, cancelLater } from './data.js';
 import { teamColors, strengthBadge, contrastRatio } from './game/core.js';
 import { hornToggles, watchGoals, radioOpen } from './horn.js';
 import { playerIndex, linkPlayers, installPlayerLinks } from './player/link.js';
@@ -458,13 +458,9 @@ async function defaultDate() {
 // Scores come from the live Worker when configured, else the static data/scores/<date>.json
 // files a GitHub Action saves (server.js serves those live when running locally).
 async function load(date, { quiet = false } = {}) {
-  clearTimeout(refreshTimer);
+  cancelLater(refreshTimer); refreshTimer = null;
   if (window.__radioShell) return; // this page now only hosts the radio; the page on screen is in the frame
-  // Don't spend requests on a hidden tab; check again shortly.
-  if (quiet && document.hidden) {
-    refreshTimer = setTimeout(() => load(date, { quiet: true }), LIVE_REFRESH_MS);
-    return;
-  }
+  // Live games keep refreshing in a hidden tab too, so goal horns sound while the reader is elsewhere.
   if (!quiet) { gamesEl.innerHTML = '<p class="msg">Loading…</p>'; lastText = ''; }
   try {
     if (!date) date = await defaultDate();
@@ -490,12 +486,18 @@ async function load(date, { quiet = false } = {}) {
     }).catch(() => {});
     // Keep live games fresh: every few seconds while a game is on, every minute before puck drop.
     const states = data.games.map((g) => g.status.state);
-    if (states.includes('live') || data.games.some((g) => g.status.imminent)) refreshTimer = setTimeout(() => load(data.date, { quiet: true }), LIVE_REFRESH_MS);
-    else if (states.includes('pre') || data.games.some((g) => g.status.settling)) refreshTimer = setTimeout(() => load(data.date, { quiet: true }), 60_000);
+    if (states.includes('live') || data.games.some((g) => g.status.imminent)) refreshTimer = later(() => load(data.date, { quiet: true }), LIVE_REFRESH_MS);
+    else if (states.includes('pre') || data.games.some((g) => g.status.settling)) refreshTimer = later(() => load(data.date, { quiet: true }), 60_000);
   } catch (err) {
     if (!quiet) gamesEl.innerHTML = `<p class="msg">Couldn't load scores: ${esc(err.message)}</p>`;
+    else if (current?.date) refreshTimer = later(() => load(current.date, { quiet: true }), LIVE_REFRESH_MS); // a blip: keep trying
   }
 }
+
+// Back to the tab: if a browser froze it anyway (phones do), catch up right away instead of waiting a tick.
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && refreshTimer && current?.date) load(current.date, { quiet: true });
+});
 
 dateInput.addEventListener('change', () => dateInput.value && load(dateInput.value));
 $('#prev').addEventListener('click', () => current && load(shiftDate(current.date, -1)));
