@@ -45,6 +45,15 @@ export function periodName(pd, gameType) {
 }
 
 /** Status for display + a coarse state for logic: 'pre' | 'live' | 'final' | 'postponed'. */
+/** LIVE on the feed, but still 20:00 of the 1st with the clock never started: the puck hasn't dropped. */
+function notStarted(g) {
+  const pd = g.periodDescriptor;
+  const clock = g.clock;
+  if (!clock || (pd?.number ?? g.period ?? 1) !== 1 || (pd?.periodType && pd.periodType !== 'REG')) return false;
+  if (clock.running || clock.inIntermission) return false;
+  return clock.secondsRemaining === 1200 || clock.timeRemaining === '20:00';
+}
+
 export function gameStatus(g) {
   if (g.gameScheduleState && g.gameScheduleState !== 'OK') {
     const map = { PPD: 'Postponed', SUSP: 'Suspended', CNCL: 'Cancelled' };
@@ -62,6 +71,11 @@ export function gameStatus(g) {
     return g.gameState === 'OVER'
       ? { state: 'final', label: `Final${suffix}`, settling: true }
       : { state: 'final', label: `Final${suffix}` };
+  }
+  if (LIVE_STATES.has(g.gameState) && notStarted(g)) {
+    // The league flips games to LIVE a few minutes before puck drop (warmups, anthems). Until the
+    // clock first runs it's still pregame; imminent keeps the caches and polling at live speed.
+    return { state: 'pre', label: 'Pregame', startTimeUTC: g.startTimeUTC, imminent: true };
   }
   if (LIVE_STATES.has(g.gameState)) {
     const p = periodLabel(g.periodDescriptor);
