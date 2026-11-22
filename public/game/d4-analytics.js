@@ -102,6 +102,20 @@ const HEAT_COLS = [
   ['plusMinus', '+/-', (p) => signed(p.plusMinus)], ['foPct', 'FO%', (p) => { const fo = faceoffLine(p); return fo ? `${fo.pct}<small class="a-fo">${fo.won}/${fo.total}</small>` : ''; }, true], ['hits', 'HIT'], ['blocks', 'BLK'], ['takeaways', 'TK'], ['giveaways', 'GV'], ['toiSeconds', 'TOI', (p) => p.toi],
 ];
 
+// Skater table filters. Kept outside the render so live refreshes keep them; rows are hidden with CSS
+// (see .a-heat in game.css), so sorting by a heading keeps working on the filtered rows.
+const heatFilter = { team: 'all', pos: 'all' };
+globalThis.document?.addEventListener('click', (e) => {
+  const b = e.target.closest?.('.a-heat [data-hf] button[data-v]');
+  if (!b) return;
+  const key = b.closest('[data-hf]').dataset.hf;
+  heatFilter[key] = b.dataset.v;
+  document.querySelectorAll('.a-heat').forEach((sec) => {
+    sec.dataset[key] = b.dataset.v;
+    sec.querySelectorAll(`[data-hf="${key}"] button`).forEach((x) => x.setAttribute('aria-pressed', String(x.dataset.v === b.dataset.v)));
+  });
+});
+
 export function heatTable(game, c) {
   // Box scores saved before finishing numbers existed have no xG: leave those columns out.
   const cols = allSkaters(game).some((p) => p.xg != null) ? HEAT_COLS : HEAT_COLS.filter(([k]) => k !== 'xg' && k !== 'gaa');
@@ -119,10 +133,12 @@ export function heatTable(game, c) {
     const bg = t >= 0 ? `rgba(56, 189, 248, ${(t * 0.55).toFixed(2)})` : `rgba(248, 113, 113, ${(-t * 0.5).toFixed(2)})`;
     return `<td data-v="${p[k]}" style="background:${bg}">${f ? (raw ? f(p) : esc(f(p))) : p[k]}</td>`;
   };
-  return `<section class="a-card"><h2>Skaters <small>sorted by game score; click a heading to re-sort</small></h2>
+  const seg = (key, opts) => `<div class="a-seg" data-hf="${key}" role="group" aria-label="${key === 'team' ? 'Team' : 'Skaters'}">${opts.map(([v, l]) => `<button type="button" data-v="${v}" aria-pressed="${heatFilter[key] === v}">${l}</button>`).join('')}</div>`;
+  return `<section class="a-card a-heat" data-team="${heatFilter.team}" data-pos="${heatFilter.pos}"><div class="a-card-head"><h2>Skaters <small>sorted by game score; click a heading to re-sort</small></h2>
+    <div class="a-filters">${seg('team', [['all', 'All'], ['away', esc(game.away.abbrev)], ['home', esc(game.home.abbrev)]])}${seg('pos', [['all', 'All'], ['F', 'Forwards'], ['D', 'Defense']])}</div></div>
     <div class="a-scroll"><table class="a-table sortable">
       <thead><tr><th class="l" data-sort>Player</th><th data-sort>Tm</th><th data-sort>Pos</th>${cols.map(([, l]) => `<th data-sort>${l}</th>`).join('')}</tr></thead>
-      <tbody>${list.map((p) => `<tr><td class="l" data-v="${esc(p.lastName)}">${esc(p.name)}</td><td><span class="a-tm" style="background:${c[p.side]}">${esc(p.team)}</span></td><td>${esc(p.position)}</td>${cols.map((col) => cell(col)(p)).join('')}</tr>`).join('')}</tbody>
+      <tbody>${list.map((p) => `<tr data-side="${p.side}" data-pos="${p.position === 'D' ? 'D' : 'F'}"><td class="l" data-v="${esc(p.lastName)}">${esc(p.name)}</td><td><span class="a-tm" style="background:${c[p.side]}">${esc(p.team)}</span></td><td>${esc(p.position)}</td>${cols.map((col) => cell(col)(p)).join('')}</tr>`).join('')}</tbody>
     </table></div>
     ${fold('What GS and SAT mean', `GS = Game Score (goals, primary and secondary assists, shots, blocks, penalties drawn and taken, faceoffs and on-ice +/-). SAT = the player's own shot attempts (on goal, missed or blocked). xG = expected goals: what an average NHL shooter would score from the player's shots on a goalie (our own estimate from distance, angle and shot type). G vs avg = goals on a goalie minus that.`, { cls: 'a-note' })}
   </section>`;
