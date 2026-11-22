@@ -63,7 +63,7 @@ export function winByShare(list) {
 }
 
 function blankTeam(abbrev) {
-  return { abbrev, gp: 0, w: 0, l: 0, otl: 0, gf: 0, ga: 0, momF: 0, momA: 0, ngF: 0, ngA: 0, ngGp: 0, satF: 0, satA: 0 };
+  return { abbrev, gp: 0, w: 0, l: 0, otl: 0, gf: 0, ga: 0, momF: 0, momA: 0, ngF: 0, ngA: 0, ngGp: 0, satF: 0, satA: 0, xgF: 0, ggF: 0, xgA: 0, ggA: 0, finGp: 0 };
 }
 
 /** Per-team season totals and shares from game rows. */
@@ -92,6 +92,13 @@ export function teamTable(list) {
       }
       t.satF += away ? g.as : g.hs;
       t.satA += away ? g.hs : g.as;
+      if (g.axg != null && g.hxg != null) {
+        t.xgF += away ? g.axg : g.hxg;
+        t.xgA += away ? g.hxg : g.axg;
+        t.ggF += away ? g.agg : g.hgg;
+        t.ggA += away ? g.hgg : g.agg;
+        t.finGp++;
+      }
     }
   }
   return [...teams.values()].map((t) => ({
@@ -104,7 +111,50 @@ export function teamTable(list) {
     satShare: t.satF + t.satA ? t.satF / (t.satF + t.satA) : null,
     gfShare: t.gf + t.ga ? t.gf / (t.gf + t.ga) : null,
     momPerGame: t.gp ? (t.momF - t.momA) / t.gp : null,
+    ...finishing(t.ggF, t.xgF, t.finGp),
   }));
+}
+
+/** Finishing numbers from goals on a goalie and expected goals over `gp` games (nulls without xG). */
+function finishing(goals, xg, gp) {
+  return {
+    finGoals: gp ? goals : null,
+    finXg: gp ? xg : null,
+    finPct: gp && xg > 0 ? Math.round((100 * goals) / xg) : null,
+    finGax: gp ? goals - xg : null,
+    finGaxPerGame: gp ? (goals - xg) / gp : null,
+  };
+}
+
+/** League-wide goals on a goalie per expected goal (from every skater row), the season's real average. */
+export function leagueFinishing(total) {
+  let xg = 0;
+  let goals = 0;
+  for (const p of Object.values(total?.players ?? {})) {
+    if (p.p === 'G' || p.xg == null) continue;
+    xg += p.xg;
+    goals += p.xgg ?? 0;
+  }
+  return xg > 0 ? { goals, xg, pct: Math.round((100 * goals) / xg) } : null;
+}
+
+/**
+ * Team finishing from the skaters' season rows, grouped by each player's latest team. Used for seasons
+ * saved before game rows carried team xG: close, but a traded player's whole season counts for his last team.
+ */
+export function teamFinishingFromPlayers(total, teams) {
+  const sums = new Map();
+  for (const p of Object.values(total?.players ?? {})) {
+    if (p.p === 'G' || p.xg == null) continue;
+    const s = sums.get(p.t) ?? { xg: 0, g: 0 };
+    s.xg += p.xg;
+    s.g += p.xgg ?? 0;
+    sums.set(p.t, s);
+  }
+  return teams.map((t) => {
+    const s = sums.get(t.abbrev);
+    return { ...t, ...(s ? finishing(s.g, s.xg, t.gp) : finishing(0, 0, 0)) };
+  });
 }
 
 /** Pearson correlation of two equal-length number lists (null when it can't be computed). */
@@ -150,7 +200,9 @@ export function predictive(list) {
 /** Everything the page shows for one season's games. */
 export function seasonModel(total) {
   const list = games(total);
-  const teams = teamTable(list);
+  // Team finishing comes from the game rows when every row has it, else from the player rows (approximate).
+  const exactFin = list.length > 0 && list.every((g) => g.axg != null);
+  const teams = exactFin ? teamTable(list) : teamFinishingFromPlayers(total, teamTable(list));
   const pts = teams.map((t) => t.ptsPct);
   return {
     games: list.length,
@@ -162,7 +214,10 @@ export function seasonModel(total) {
       ng: pearson(teams.map((t) => t.ngShare), pts),
       mom: pearson(teams.map((t) => t.momShare), pts),
       sat: pearson(teams.map((t) => t.satShare), pts),
+      fin: pearson(teams.map((t) => t.finPct), pts),
     },
+    finLeague: leagueFinishing(total),
+    finSource: teams.some((t) => t.finPct != null) ? (exactFin ? 'games' : 'players') : null,
     predictive: predictive(list),
     league: list.length ? {
       momPerTeamGame: list.reduce((a, g) => a + g.am + g.hm, 0) / (2 * list.length),
