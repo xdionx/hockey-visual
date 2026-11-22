@@ -40,7 +40,7 @@ const ATTEMPTS = new Set(['goal', 'shot-on-goal', 'missed-shot', 'blocked-shot']
  * goalie (axg, hxg) and goals scored on a goalie (agg, hgg). addGame fills the last four from the player
  * lines, so rows saved before they existed simply leave them out.
  */
-export const GAME_FIELDS = ['n', 'away', 'home', 'ag', 'hg', 'am', 'hm', 'an', 'hn', 'as', 'hs', 'end', 'ags', 'hgs', 'axg', 'hxg', 'agg', 'hgg'];
+export const GAME_FIELDS = ['n', 'away', 'home', 'ag', 'hg', 'am', 'hm', 'an', 'hn', 'as', 'hs', 'end', 'ags', 'hgs', 'axg', 'hxg', 'agg', 'hgg', 'asog', 'hsog'];
 const FIN_AT = GAME_FIELDS.indexOf('axg');
 export const gameObj = (row) => Object.fromEntries(GAME_FIELDS.map((k, i) => [k, row[i]]));
 
@@ -49,10 +49,11 @@ const teamSum = (lines, team, k) => lines.reduce((n, l) => n + (l.team === team 
 
 /** A game row with team finishing appended (from the skaters' xg/xgg), when the lines carry it. */
 export function withFinishing(game, lines) {
-  if (!game || game.length > FIN_AT || !lines.some((l) => l.pos !== 'G' && l.xg != null)) return game;
+  if (!game || game.length >= GAME_FIELDS.length || !lines.some((l) => l.pos !== 'G' && l.xg != null)) return game;
   const [a, h] = [game[1], game[2]];
   const r2 = (n) => Math.round(n * 100) / 100;
-  return [...game, ...Array(FIN_AT - game.length).fill(null), r2(teamSum(lines, a, 'xg')), r2(teamSum(lines, h, 'xg')), teamSum(lines, a, 'xgg'), teamSum(lines, h, 'xgg')];
+  return [...game.slice(0, FIN_AT), ...Array(Math.max(0, FIN_AT - game.length)).fill(null), r2(teamSum(lines, a, 'xg')), r2(teamSum(lines, h, 'xg')),
+    teamSum(lines, a, 'xgg'), teamSum(lines, h, 'xgg'), teamSum(lines, a, 'sog'), teamSum(lines, h, 'sog')];
 }
 const gameNo = (id) => Number(String(id).slice(-4));
 
@@ -209,8 +210,31 @@ export function addGame(total, lines, game = null) {
   return total;
 }
 
-/** Per-game averages for one player's season row (null when the player has no games). */
-export function perGame(row) {
+/**
+ * League-wide goals on a goalie per expected goal that season (from every skater row). Our xG only sees
+ * distance, angle and shot type, so it runs low (the league scores 11-24% more than it expects); multiplying
+ * xG by this rate gives "what an average NHL shooter would score from the same shots". 1 when unknown.
+ */
+export function leagueRate(total) {
+  let xg = 0;
+  let goals = 0;
+  for (const p of Object.values(total?.players ?? {})) {
+    if (p.p === 'G' || p.xg == null) continue;
+    xg += p.xg;
+    goals += p.xgg ?? 0;
+  }
+  return xg > 0 ? goals / xg : 1;
+}
+
+/** Finishing in plain numbers: shooting %, an average shooter's shooting % on the same shots, goals above average. */
+export function finishingLine(goals, xg, sog, rate = 1) {
+  if (xg == null) return { shPct: null, xShPct: null, gaa: null };
+  const avg = xg * rate;
+  return { shPct: sog ? goals / sog : null, xShPct: sog ? avg / sog : null, gaa: goals - avg, avgGoals: avg };
+}
+
+/** Per-game averages for one player's season row (null when the player has no games). rate: leagueRate(total). */
+export function perGame(row, rate = 1) {
   if (!row?.gp) return null;
   const skater = row.p !== 'G';
   return {
@@ -228,6 +252,8 @@ export function perGame(row) {
     xg: skater && row.xg != null ? row.xg : null,
     finPct: skater && row.xg != null ? finishingPct(row.xgg ?? 0, row.xg) : null,
     gax: skater && row.xg != null ? (row.xgg ?? 0) - row.xg : null,
+    // The same against an average NHL shooter that season (what the pages show).
+    ...(skater ? finishingLine(row.xgg ?? 0, row.xg, row.sog ?? 0, rate) : { shPct: null, xShPct: null, gaa: null }),
   };
 }
 
@@ -243,11 +269,12 @@ export function minGames(total) {
  */
 export function leaderboard(total, key, { pos = null, minGp = minGames(total), minXg = 0 } = {}) {
   const rows = [];
+  const rate = leagueRate(total);
   for (const [id, row] of Object.entries(total?.players ?? {})) {
     if (row.p === 'G' || row.gp < minGp || (minXg && (row.xg ?? 0) < minXg)) continue;
     if (pos === 'D' && row.p !== 'D') continue;
     if (pos === 'F' && row.p === 'D') continue;
-    const avg = perGame(row);
+    const avg = perGame(row, rate);
     if (avg[key] == null) continue;
     rows.push({ id: Number(id), ...row, ...avg, value: avg[key] });
   }

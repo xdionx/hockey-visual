@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { emptySeason, addGame } from '../src/seasonStats.js';
+import { emptySeason, addGame, leagueRate, perGame, leaderboard } from '../src/seasonStats.js';
 import { seasonModel, pearson } from '../src/momentumModel.js';
 
 test('model checks from game rows', () => {
@@ -32,25 +32,38 @@ test('pearson', () => {
 
 test('team finishing from game rows, with a player-row fallback for older rows', () => {
   const total = emptySeason(20262027);
-  const line = (id, team, xg, xgg) => ({ id, name: `P${id}`, team, pos: 'C', sat: 3, sog: 2, xg, xgg, mom: 1, mp: 1, mn: 0 });
+  const line = (id, team, xg, xgg, sog) => ({ id, name: `P${id}`, team, pos: 'C', sat: sog + 1, sog, xg, xgg, mom: 1, mp: 1, mn: 0 });
   const row = (n, ag, hg) => [n, 'AAA', 'BBB', ag, hg, 5, 4, 3, 2, 10, 8, 'REG', null, null];
-  addGame(total, [line(1, 'AAA', 1.5, 2), line(2, 'AAA', 0.5, 1), line(3, 'BBB', 2, 1)], row(1, 3, 1));
-  addGame(total, [line(1, 'AAA', 1, 0), line(3, 'BBB', 1, 2)], row(2, 0, 2));
-  assert.deepEqual(total.g[0].slice(14), [2, 2, 3, 1]);
+  addGame(total, [line(1, 'AAA', 1.5, 2, 10), line(2, 'AAA', 0.5, 1, 5), line(3, 'BBB', 2, 1, 10)], row(1, 3, 1));
+  addGame(total, [line(1, 'AAA', 1, 0, 5), line(3, 'BBB', 1, 2, 10)], row(2, 0, 2));
+  assert.deepEqual(total.g[0].slice(14), [2, 2, 3, 1, 15, 10]);
+  // League: 6 goals on 6 expected, so the average-shooter rate is 1.
   const m = seasonModel(total);
   assert.equal(m.finSource, 'games');
+  assert.equal(m.finRate, 1);
   const a = m.teams.find((t) => t.abbrev === 'AAA');
   assert.equal(a.finGoals, 3);
-  assert.equal(a.finXg, 3);
-  assert.equal(a.finPct, 100);
-  const b = m.teams.find((t) => t.abbrev === 'BBB');
-  assert.equal(b.finPct, 100);
-  assert.equal(b.finGax, 0);
-  // A row saved without team xG: fall back to summing players by their team.
+  assert.equal(a.finSog, 20);
+  assert.equal(a.shPct, 0.15);
+  assert.equal(a.xShPct, 0.15);
+  assert.equal(a.gaa, 0);
+  // A row saved without team shots: fall back to summing players by their team.
   total.g[1] = total.g[1].slice(0, 14);
   const old = seasonModel(total);
   assert.equal(old.finSource, 'players');
-  assert.equal(old.teams.find((t) => t.abbrev === 'AAA').finPct, 100);
+  assert.equal(old.teams.find((t) => t.abbrev === 'BBB').gaa, 0);
   // Rows already carrying finishing are left as they are.
-  assert.equal(addGame(emptySeason(1), [line(1, 'AAA', 9, 9)], total.g[0]).g[0], total.g[0]);
+  assert.equal(addGame(emptySeason(1), [line(1, 'AAA', 9, 9, 9)], total.g[0]).g[0], total.g[0]);
+});
+
+test('goals vs an average shooter scale xG to the league rate', () => {
+  const total = emptySeason(20262027);
+  total.players = { 1: { n: 'A', t: 'X', p: 'C', gp: 10, sog: 40, xg: 4, xgg: 8 }, 2: { n: 'B', t: 'X', p: 'C', gp: 10, sog: 40, xg: 4, xgg: 2 } };
+  const r = leagueRate(total);
+  assert.equal(r, 1.25);
+  const a = perGame(total.players[1], r);
+  assert.equal(a.gaa, 3);
+  assert.equal(a.shPct, 0.2);
+  assert.equal(a.xShPct, 0.125);
+  assert.deepEqual(leaderboard(total, 'gaa', { minGp: 1 }).map((x) => x.id), [1, 2]);
 });
