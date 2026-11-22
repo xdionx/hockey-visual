@@ -89,17 +89,40 @@ export function disciplineChips(game, p) {
   return `<div class="s-discs">${list.map(chip).join('')}</div>`;
 }
 
+/** One compact stat tile: small label, big value, optional detail line. Tiles sit side by side and size to their content. */
+const scTile = (cls, label, value, sub = '', tip = '') => `<div class="s-tile ${cls}"${tip ? ` title="${tip}"` : ''}><span class="s-tile-k">${label}</span><b class="s-tile-v">${value}</b>${sub ? `<small class="s-tile-s">${sub}</small>` : ''}</div>`;
+
 /** Faceoffs won / taken and the win %, only for players who took one. */
-function faceoffChip(p) {
+function faceoffTile(p) {
   const fo = faceoffLine(p);
-  return fo ? `<div class="s-fo"><span>Faceoffs</span><b>${fo.text}</b><em>${fo.pct}</em></div>` : '';
+  return fo ? scTile('s-fo', 'Faceoffs', `${fo.won}/${fo.total} <em>${fo.pct}</em>`) : '';
 }
 
 /** Goals on a goalie against expected goals from the player's shots (our xG), when the game has it. */
-export function finishLine(p) {
+export function finishTile(p) {
   if (p.xg == null) return '';
-  const diff = (p.xgGoals ?? 0) - p.xg;
-  return `<div class="s-fin" title="Finishing: goals scored on a goalie per expected goal from this player's shots (distance, angle, shot type). 100% = an average finisher. One game is a tiny sample."><span>Finishing</span><b>${p.xgGoals ?? 0} G on ${p.xg.toFixed(2)} xG</b><em>${p.finPct != null ? `${p.finPct}%` : '-'}</em><small>${diff > 0 ? '+' : diff < 0 ? '−' : ''}${Math.abs(diff).toFixed(2)}</small></div>`;
+  const goals = p.xgGoals ?? 0;
+  if (!goals && p.xg < 0.005) return '';
+  const diff = goals - p.xg;
+  const sign = diff > 0.005 ? '+' : diff < -0.005 ? '−' : '';
+  const cls = p.finPct == null ? '' : p.finPct > 100 ? ' up' : p.finPct < 100 ? ' down' : '';
+  return scTile(`s-fin${cls}`, 'Finishing', p.finPct != null ? `${p.finPct}%` : '-',
+    `${goals} G on ${p.xg.toFixed(2)} xG (${sign}${Math.abs(diff).toFixed(2)})`,
+    "Finishing: goals scored on a goalie per expected goal from this player's shots (distance, angle, shot type). 100% = an average finisher. One game is a tiny sample.");
+}
+
+/** Weighted shot attempts for and against while on the ice, as a share with a small bar. */
+function onIceTile(p) {
+  const o = p.onIce;
+  if (!o) return '';
+  const share = o.pct ?? 50;
+  return scTile('s-oi', 'On-ice shots', `${o.pct != null ? `${Math.round(o.pct)}%` : '-'}<span class="s-oi-bar"><i style="width:${share}%"></i></span>`,
+    `${o.cf.toFixed(1)} for · ${o.ca.toFixed(1)} against`,
+    'Shot attempts while on the ice, weighted: on goal 1, missed 0.5, blocked 0.35. The % is the team\'s share.');
+}
+
+function swingTile(p) {
+  return p.swingPlays ? scTile('s-sw', 'Swing plays', `&#8635; ${p.swingPlays}`, '', 'Plays made while the team was behind on momentum; they count 1.5x') : '';
 }
 
 export function skaterCard(game, p, c, scale) {
@@ -109,11 +132,8 @@ export function skaterCard(game, p, c, scale) {
       ${ratingBadge(p.rating)}
     </div>
     <div class="s-line"><span><b>${p.goals}</b>G</span><span><b>${p.assists}</b>A</span><span><b>${p.sog}</b>SOG</span><span><b>${signed(p.plusMinus)}</b>+/-</span><span title="Momentum impact: weighted plays that pushed momentum toward the player's team (swing plays count 1.5x)"><b>${p.momentum != null ? (p.momentum > 0 ? '+' : '') + p.momentum.toFixed(1) : '-'}</b>MOM</span><span><b>${esc(p.toi)}</b>TOI</span></div>
-    ${finishLine(p)}
-    ${p.onIce ? `<div class="s-onice" title="Shot attempts while on the ice, weighted: on goal 1, missed 0.5, blocked 0.35"><span>On-ice shots</span><b>${p.onIce.cf.toFixed(1)}</b><div class="s-oi-bar"><i style="width:${p.onIce.pct ?? 50}%"></i></div><b>${p.onIce.ca.toFixed(1)}</b><em>${p.onIce.pct != null ? `${Math.round(p.onIce.pct)}%` : ''}</em></div>` : ''}
-    ${faceoffChip(p)}
+    <div class="s-tiles">${onIceTile(p)}${finishTile(p)}${faceoffTile(p)}${swingTile(p)}</div>
     ${disciplineChips(game, p)}
-    ${p.swingPlays ? `<div class="s-swing">&#8635; ${p.swingPlays} swing play${p.swingPlays > 1 ? 's' : ''}</div>` : ''}
     <div class="s-body">
       <div class="s-bd"><div class="s-bd-h"><span>Game score</span><b>${p.gameScore > 0 ? '+' : ''}${p.gameScore.toFixed(2)}</b></div>${breakdownBar(p, scale)}${momentumBar(p)}</div>
       ${miniRink(game, p, c)}
@@ -284,9 +304,9 @@ export default {
 // The top three players by our own game score (not the NHL's official three stars).
 const MEDAL = [['gold', 'Top Performer'], ['silver', ''], ['bronze', '']];
 const sgn = (v, d = 2) => `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v).toFixed(d)}`;
-const tile = (v, l) => `<div><b>${v}</b><small>${esc(l)}</small></div>`;
+const statTile = (v, l) => `<div><b>${v}</b><small>${esc(l)}</small></div>`;
 const bars = (l, a, b, ca, cb, fa = a, fb = b) => `<div class="ss-cmp"><div><span>${esc(l)}</span><b>${esc(fa)} <em>vs</em> ${esc(fb)}</b></div><div class="ss-bar"><i style="flex:${Math.max(Math.abs(a), 0.01)};background:${ca}"></i><i style="flex:${Math.max(Math.abs(b), 0.01)};background:${cb}"></i></div></div>`;
-const grp = (t, items) => `<div class="ss-grp"><h5>${esc(t)}</h5><div class="ss-tiles3">${items.map(([v, l]) => tile(v, l)).join('')}</div></div>`;
+const grp = (t, items) => `<div class="ss-grp"><h5>${esc(t)}</h5><div class="ss-tiles3">${items.map(([v, l]) => statTile(v, l)).join('')}</div></div>`;
 
 function goalieParts(g) {
   const saves = 0.1 * g.saves;
@@ -320,7 +340,7 @@ function starCard(game, c, p, i) {
   return `<article class="ss-card ${tier}" style="--team:${c[p.side]}">${kicker ? `<span class="ss-medal">${kicker}</span>` : ''}
     <div class="ss-top">${headshot(p, 'ss-mug')}<div class="ss-who"><strong>${esc(p.fullName)}</strong><span>#${p.number ?? ''} · ${esc(p.position)} · ${esc(game[p.side].name)}</span></div>
       <div class="ss-rate" style="--r:${ratingColor(p.rating)}">${p.rating.toFixed(1)}<small>GAME SCORE ${sgn(p.gameScore, 1)}</small></div></div>
-    <div class="ss-tiles">${starTiles(p).map(([v, l]) => tile(v, l)).join('')}</div>
+    <div class="ss-tiles">${starTiles(p).map(([v, l]) => statTile(v, l)).join('')}</div>
     ${starBar(p)}
     <button type="button" class="ss-more" data-star="${i}" aria-expanded="false">▾ Full scorecard</button>
   </article>`;
