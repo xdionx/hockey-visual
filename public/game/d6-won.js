@@ -77,13 +77,13 @@ function row(label, tip, a0, h0, fmt, better = 'high', num = (v) => v) {
 }
 
 function tierList(t, c) {
-  const name = (x) => esc(x.p.name ?? x.p.fullName ?? '');
+  const name = (x) => `<span class="hw-n">${esc(x.p.name ?? x.p.fullName ?? '')}</span>`;
   const up = t.players.filter((x) => x.tier === 1).map(name);
   const dn = t.players.filter((x) => x.tier === -1).map(name);
   return `<div class="hw-tier" style="--team:${c}">
     <b>${esc(t.abbrev)}</b>
-    <p><span class="hw-up">Drove play ${up.length}</span>${up.join(', ') || '-'}</p>
-    <p><span class="hw-dn">Quiet ${dn.length}</span>${dn.join(', ') || '-'}</p>
+    <p><span class="hw-up">Above their season average</span>${up.join(', ') || '-'}</p>
+    <p><span class="hw-dn">Below their season average</span>${dn.join(', ') || '-'}</p>
   </div>`;
 }
 
@@ -111,7 +111,7 @@ export function howWon(game, c) {
         ${en(a) || en(h) ? row('Empty net and other', 'Goals not scored on a goalie (empty net), plus any shootout winner', en(a), en(h), (v) => v) : ''}
       </tbody>
     </table>
-    <h3 class="hw-sub">Who drove the play <small>Each skater's momentum and finishing against a typical game for a forward or defenseman. Goals and assists aren't counted, so a player can have points and still show as quiet.</small></h3>
+    <h3 class="hw-sub">Compared with their season <small>Skaters who played well above or below their own average game this season, by momentum and finishing. Goals and assists aren't counted, so a player can have points and still be below their average.</small></h3>
     <div class="hw-tiers">${tierList(a, c.away)}${tierList(h, c.home)}</div>
   </section>`;
 }

@@ -977,3 +977,4 @@ main { padding: 0 0 48px; }
 .hw-up { background: color-mix(in srgb, #22c55e 22%, transparent); color: #4ade80; }
 .hw-dn { background: rgba(141, 152, 171, .16); color: #aab4c5; }
 @media (max-width: 640px) { .hw-tiers { grid-template-columns: 1fr; } }
+.hw-n { white-space: nowrap; }
