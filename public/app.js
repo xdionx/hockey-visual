@@ -1,6 +1,8 @@
 import { getData, getStatic, LIVE_REFRESH_MS, live, later, cancelLater } from './data.js';
 import { teamColors, strengthBadge, contrastRatio } from './game/core.js';
-import { hornToggles, radioOpen } from './horn.js'; // horn.js also watches for goals in games with a horn on
+import { hornToggles, radioOpen } from './horn.js'; // horn.js also watches for goals in games with a horn on, on every page
+import { getDelay, delayScores, delayButton, onDelayChange, delayable } from './delay.js';
+import { pushSnapshot, trimSnapshots, pickSnapshot, delayLabel } from './src/delayBuffer.js';
 import { playerIndex, linkPlayers, installPlayerLinks } from './player/link.js';
 import { loadSeason } from './player/store.js';
 import { seasonOf } from './src/seasonStats.js';
@@ -12,7 +14,8 @@ const $ = (s) => document.querySelector(s);
 const dateInput = $('#date');
 const gamesEl = $('#games');
 let refreshTimer = null;
-let current = null; // last scoreboard response
+let current = null; // the scoreboard on screen (games with a data delay are held back to an older refresh)
+let latest = null; // the newest scoreboard fetched
 
 // Cards: goals are a scrolling strip; the button opens the full list (remembered per game).
 const store = (k, v) => { try { return v === undefined ? localStorage.getItem(k) : localStorage.setItem(k, v); } catch { return null; } };
@@ -79,12 +82,19 @@ const initials = (g) => `${(g.scorer.firstName || g.scorer.name || '?')[0]}${(g.
 
 // Shot attempts per game come from a small separate feed (the scoreboard doesn't have them).
 const satById = new Map();
+const satHist = new Map(); // gameId -> timestamped SAT refreshes, for the data delay
+/** SAT as of this game's data delay. */
+const satAt = (id) => (getDelay(id) ? pickSnapshot(satHist.get(id) ?? [], getDelay(id) * 1000, Date.now())?.data : null) ?? satById.get(id);
 async function loadSat(games) {
   let changed = false;
   await Promise.all(games.filter((g) => started(g) && (g.status.state === 'live' || !satById.has(g.id))).map(async (g) => {
     try {
       const sat = await getData(`sat/${g.id}.json`);
-      if (sat && JSON.stringify(sat) !== JSON.stringify(satById.get(g.id))) { satById.set(g.id, sat); changed = true; }
+      if (sat && JSON.stringify(sat) !== JSON.stringify(satById.get(g.id))) {
+        satById.set(g.id, sat); changed = true;
+        const h = satHist.get(g.id) ?? [];
+        satHist.set(g.id, trimSnapshots(pushSnapshot(h, sat, Date.now()), Date.now(), (getDelay(g.id) + 75) * 1000));
+      }
     } catch { /* SAT is a bonus: the scores still show without it */ }
   }));
   return changed;
@@ -98,7 +108,7 @@ function statLines(game, tc) {
     const pa = a + b ? Math.round((100 * a) / (a + b)) : 50;
     return `<div class="sx"><b>${a}</b><span class="bar"><i style="width:${pa}%;background:${tc.away}"></i><i style="flex:1;background:${tc.home}"></i></span><b>${b}</b><em>${label}</em></div>`;
   };
-  const sat = satById.get(game.id);
+  const sat = satAt(game.id);
   const ls = game.linescore.shots;
   return `<div class="sxs">${row('SOG', ls.away, ls.home)}${row('SAT', sat?.away, sat?.home)}</div>`;
 }
@@ -327,7 +337,14 @@ function teamBlock(game, side, tc, big) {
 }
 
 // Horns only matter while a game is on (or being replayed in the simulator), so finished games have none.
-const horns = (game) => (game.status.state === 'final' ? '' : hornToggles(game));
+const horns = (game) => (game.status.state === 'final' ? '' : hornToggles(game, '', delayButton(game, waitFor.get(game.id))));
+/** "⏱ 40s behind live" on a card whose data is held back. */
+function delayTag(game) {
+  const s = getDelay(game.id);
+  if (!s || !delayable(game)) return '';
+  const w = waitFor.get(game.id);
+  return `<span class="dly" title="Data delay for video/audio is on for this game">⏱ ${w ? `syncing, ${Math.ceil(w / 1000)}s` : `${delayLabel(s)} behind live`}</span>`;
+}
 
 function gameHtml(game) {
   const tc = teamColors(game, { dark: true });
@@ -345,7 +362,7 @@ function gameHtml(game) {
     game.video?.condensed ? videoLink(game.video.condensed, game.video.condensedId, `${game.away.abbrev} @ ${game.home.abbrev} · Condensed game`, 'Condensed') : '',
   ].join('');
   return `<article class="game cd ph-${phase(game)}" data-id="${game.id}" style="--away:${tc.away};--home:${tc.home}">
-    <div class="status ${game.status.state}"><span class="label">${esc(statusText(game))}${strengthBadge(game, tc)}</span><span class="venue">${esc(game.venue)}</span></div>
+    <div class="status ${game.status.state}"><span class="label">${esc(statusText(game))}${strengthBadge(game, tc)}</span><span class="venue">${delayTag(game)}${esc(game.venue)}</span></div>
     <div class="tbs">${teamBlock(game, 'away', tc, true)}${teamBlock(game, 'home', tc, true)}</div>
     ${statLines(game, tc)}
     ${predictionLine(game, tc)}
@@ -433,6 +450,30 @@ gamesEl.addEventListener('dragstart', (e) => { if (e.target.closest('.gstrip')) 
 
 let lastText = '';
 
+// ── Data delay for video/audio (see delay.js) ──
+const waitFor = new Map(); // gameId -> ms of history still missing (page just opened)
+let tickTimer = null;
+/** The scoreboard as each game's viewer should see it: games with a delay come from an older refresh. */
+function delayedView(data) {
+  const { games, wait } = delayScores(data.date, null);
+  waitFor.clear();
+  for (const [k, v] of wait) waitFor.set(k, v);
+  return games.some((g, i) => g !== data.games[i]) ? { ...data, games } : data;
+}
+/** Draw what's due now. While a delay is on, this runs every second so held-back plays land on time. */
+function show(force = false) {
+  cancelLater(tickTimer); tickTimer = null;
+  if (!latest?.games) return;
+  const v = delayedView(latest);
+  current = v;
+  // The radio-open flags make a pregame card redraw when its radio buttons appear; the delay bits redraw the chips.
+  const text = JSON.stringify(v) + v.games.map((g) => `${radioOpen(g) ? 1 : 0}:${getDelay(g.id)}:${Math.ceil((waitFor.get(g.id) ?? 0) / 1000)}:${getDelay(g.id) ? JSON.stringify(satAt(g.id)) : ''}`).join(',');
+  if (force || text !== lastText) render(v); // only redraw when something changed
+  lastText = text;
+  if (v.games.some((g, i) => getDelay(g.id) && (delayable(g) || delayable(latest.games[i])))) tickTimer = later(() => show(), 1000);
+}
+onDelayChange(() => show(true));
+
 // Which date is "Today"? Games belong to their start date in Eastern time (what the NHL API
 // uses). The day only turns over at 10:00 local time, and any date with live games wins.
 const TURNOVER_HOUR = 10;
@@ -467,20 +508,18 @@ async function load(date, { quiet = false } = {}) {
     history.replaceState(null, '', `?date=${date}`);
     const data = await getData(`scores/${date}.json`);
     if (!data) {
-      current = { date };
+      current = { date }; latest = null; cancelLater(tickTimer);
       $('#dateLabel').textContent = prettyDate(date);
       setTitle(date);
       gamesEl.innerHTML = '<p class="msg">No scores saved for this date.</p>';
       return;
     }
-    current = data;
-    // The radio-open flags make a pregame card redraw when its radio buttons appear.
-    const text = JSON.stringify(data) + data.games.map((g) => (radioOpen(g) ? 1 : 0)).join('');
-    if (text !== lastText) render(data); // only redraw when something changed
-    lastText = text;
-    loadSat(data.games).then((changed) => { if (changed && current === data) render(data); });
+    delayScores(date, data); // keep this refresh for the data delay
+    latest = data;
+    show();
+    loadSat(data.games).then((changed) => { if (changed && latest === data) show(true); });
     loadPredictions(data).then(async (changed) => {
-      if ((await loadLineups(data)) || changed) { if (current === data) render(data); }
+      if ((await loadLineups(data)) || changed) { if (latest === data) show(true); }
     }).catch(() => {});
     // Keep live games fresh: every few seconds while a game is on, every minute before puck drop.
     const states = data.games.map((g) => g.status.state);
