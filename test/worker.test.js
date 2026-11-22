@@ -16,3 +16,9 @@ test('a date with any live game refreshes every 5 seconds', () => {
   assert.equal(scoreboardTtl(board(['final', 'pre']), '2026-11-18'), 60);
   assert.equal(scoreboardTtl(board(['final']), '2026-11-17'), 3600);
 });
+
+test('a game that just ended (NHL state OVER) is re-checked every minute until it is FINAL', () => {
+  assert.equal(ttlFor('final', '2026-11-22', '2026-11-22', true), 60);
+  const board = { date: '2026-11-22', games: [{ status: { state: 'final' } }, { status: { state: 'final', settling: true } }] };
+  assert.equal(scoreboardTtl(board, '2026-11-22'), 60);
+});

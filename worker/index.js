@@ -18,7 +18,7 @@ import { normalizePlayer } from '../src/player.js';
 
 // Bump this whenever the shape or wording of what src/ produces changes (labels, new fields):
 // finished games are cached at the edge for 30 days, so old answers must be left behind.
-const CACHE_VERSION = 8;
+const CACHE_VERSION = 9;
 
 const NHL = 'https://api-web.nhle.com/v1';
 const SECOND = 1;
@@ -26,9 +26,10 @@ const HOUR = 3600;
 const DAY = 86400;
 
 /** Seconds to cache, from game state and how old the game date is. */
-export function ttlFor(state, gameDate, today) {
+export function ttlFor(state, gameDate, today, settling = false) {
   if (state === 'live') return 5 * SECOND;
-  if (state === 'pre') return 60 * SECOND;
+  // Just ended (NHL state OVER): keep checking each minute until the league marks it FINAL.
+  if (state === 'pre' || settling) return 60 * SECOND;
   const ageDays = (Date.parse(`${today}T12:00:00Z`) - Date.parse(`${gameDate}T12:00:00Z`)) / (DAY * 1000);
   return ageDays >= 2 ? 30 * DAY : HOUR;
 }
@@ -37,7 +38,7 @@ export function ttlFor(state, gameDate, today) {
 export function scoreboardTtl(board, today) {
   const states = board.games.map((g) => g.status.state);
   if (states.includes('live')) return 5 * SECOND;
-  if (states.includes('pre')) return 60 * SECOND;
+  if (states.includes('pre') || board.games.some((g) => g.status.settling)) return 60 * SECOND;
   return ttlFor('final', board.date, today);
 }
 
@@ -90,7 +91,7 @@ async function build(path) {
   m = path.match(/^\/sat\/(\d{10})\.json$/);
   if (m) {
     const pbp = await nhl(`gamecenter/${m[1]}/play-by-play`);
-    const state = ['LIVE', 'CRIT'].includes(pbp.gameState) ? 'live' : ['FINAL', 'OFF'].includes(pbp.gameState) ? 'final' : 'pre';
+    const state = ['LIVE', 'CRIT', 'OVER'].includes(pbp.gameState) ? 'live' : ['FINAL', 'OFF'].includes(pbp.gameState) ? 'final' : 'pre';
     const today = new Date(Date.now() - 10 * HOUR * 1000).toISOString().slice(0, 10);
     return { body: shotAttempts(pbp), ttl: ttlFor(state, pbp.gameDate, today) };
   }
@@ -111,7 +112,7 @@ async function build(path) {
     }
     const game = normalizeGameDetail({ box, landing, rightRail, pbp, shifts });
     const today = new Date(Date.now() - 10 * HOUR * 1000).toISOString().slice(0, 10); // close enough to the NHL day for ageing
-    return { body: game, ttl: ttlFor(game.status.state, game.gameDate, today) };
+    return { body: game, ttl: ttlFor(game.status.state, game.gameDate, today, game.status.settling) };
   }
   return null;
 }
