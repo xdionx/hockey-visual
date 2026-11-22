@@ -5,7 +5,7 @@ import { playerIndex, linkPlayers, installPlayerLinks } from './player/link.js';
 import { loadSeason } from './player/store.js';
 import { seasonOf } from './src/seasonStats.js';
 import { predictGame } from './src/predict.js';
-import { noVigAway, BOOK_NAMES } from './src/odds.js';
+import { noVigAway, edge, BOOK_NAMES } from './src/odds.js';
 
 const $ = (s) => document.querySelector(s);
 const dateInput = $('#date');
@@ -134,6 +134,14 @@ function marketText(game) {
   return parts.length ? `Market: ${parts.join(' · ')}` : '';
 }
 
+/** The edge on one game (we like a side 7+ points more than the books), or null. */
+function edgeOf(game) {
+  const p = predictions.get(current?.date)?.get(game.id);
+  const e = p && game.status.state !== 'final' ? edge(p.away, odds?.games?.[game.id]?.books) : null;
+  return e && { ...e, team: game[e.side].abbrev };
+}
+const edgeTag = (e) => `<span class="edge" title="We give ${esc(e.team)} a ${Math.round(e.ours * 100)}% chance; the books (margin removed) give ${Math.round(e.market * 100)}%. Markets are usually sharp, so treat this as a point to look at, not a bet.">Edge: ${esc(e.team)} +${e.pts}</span>`;
+
 const lastName = (n) => String(n ?? '').split(' ').slice(1).join(' ') || n;
 /** "Our pick" bar: each team's win chance, with what went into it underneath. */
 function predictionLine(game, tc) {
@@ -150,6 +158,7 @@ function predictionLine(game, tc) {
   ].filter(Boolean).join(' · ');
   const title = 'Our pre-game pick: each team\'s momentum share so far this season (goals left out), its probable starting goalie\'s goals saved above expected, and back-to-backs. Right about 57% of the time on past seasons.';
   return `<div class="pred" title="${esc(title)}"><div class="sx"><b>${a}%</b><span class="bar"><i style="width:${a}%;background:${tc.away}"></i><i style="flex:1;background:${tc.home}"></i></span><b>${100 - a}%</b><em>PICK</em></div>
+    ${edgeOf(game) ? `<small>${edgeTag(edgeOf(game))} we like ${esc(edgeOf(game).team)} more than the market does</small>` : ''}
     <small>Our pick: <strong>${esc(fav)}</strong> · ${why}</small>${marketText(game) ? `<small>${marketText(game)} (margin removed)</small>` : ''}</div>`;
 }
 const fmtGsax = (v) => (v == null ? '' : `(${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v).toFixed(1)})`);
@@ -307,8 +316,10 @@ function render(data) {
   saveStrips();
   $('#dateLabel').textContent = prettyDate(data.date);
   setTitle(data.date);
+  const edges = data.games.map((g) => ({ g, e: edgeOf(g) })).filter((x) => x.e).sort((a, b) => b.e.pts - a.e.pts);
+  const edgeList = edges.length ? `<section class="edges"><h2>Where we differ from the market</h2><ul>${edges.map(({ g, e }) => `<li>${edgeTag(e)} <span>${esc(g.away.abbrev)} @ ${esc(g.home.abbrev)} · us ${Math.round(e.ours * 100)}%, books ${Math.round(e.market * 100)}%</span></li>`).join('')}</ul><p>Markets are usually sharp. Our stats page tracks how these games turn out.</p></section>` : '';
   gamesEl.innerHTML = data.games.length
-    ? ordered(data.games).map((g) => linkPlayers(gameHtml(g), gameNames(g))).join('')
+    ? edgeList + ordered(data.games).map((g) => linkPlayers(gameHtml(g), gameNames(g))).join('')
     : '<p class="msg">No games scheduled on this date.</p>';
   restoreStrips();
 }

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { impliedProb, noVigAway, parsePartner, mergeOdds, score, compare } from '../src/odds.js';
+import { impliedProb, noVigAway, parsePartner, mergeOdds, score, compare, edge, marketAway } from '../src/odds.js';
 
 const partner = (name, a, h, start = '2026-11-22T17:30:00Z') => ({
   bettingPartner: { name },
@@ -41,4 +41,15 @@ test('scoring and comparison use only finished games with a pick and a book', ()
   assert.ok(c.same.us.logLoss > 0 && c.same.dk.n === 2);
   assert.equal(score([], () => 0.5), null);
   assert.equal(c.gaps.length, 2);
+});
+
+test('an edge needs a 7-point gap and names the side we like more', () => {
+  const books = { dk: { a: -150, h: 130 }, fd: { a: -150, h: 130 } }; // market away ~.58
+  assert.ok(Math.abs(marketAway(books) - 0.5798) < 1e-3);
+  assert.equal(edge(0.62, books), null);
+  const e = edge(0.7, books);
+  assert.deepEqual([e.side, e.pts], ['away', 12]);
+  const h = edge(0.4, books); // we think the away team is weaker: the edge is on the home side
+  assert.deepEqual([h.side, h.pts], ['home', 18]);
+  assert.equal(edge(0.7, {}), null);
 });

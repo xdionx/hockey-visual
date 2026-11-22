@@ -87,6 +87,24 @@ export function sources(r) {
   return out;
 }
 
+export const EDGE_MIN = 0.07; // flag a game when our pick and the books differ by 7+ points
+
+/** Books' average away win chance (margin removed), or null with no lines. */
+export function marketAway(books) {
+  const ps = Object.values(books ?? {}).map((b) => noVigAway(b.a, b.h)).filter((p) => p != null);
+  return ps.length ? ps.reduce((x, y) => x + y, 0) / ps.length : null;
+}
+
+/** Where we like a side more than the market does: { side, pts, ours, market } (chances for that side), or null. */
+export function edge(pickAway, books, min = EDGE_MIN) {
+  const m = marketAway(books);
+  if (pickAway == null || m == null || Math.abs(pickAway - m) < min) return null;
+  const side = pickAway > m ? 'away' : 'home';
+  const ours = side === 'away' ? pickAway : 1 - pickAway;
+  const market = side === 'away' ? m : 1 - m;
+  return { side, pts: Math.round((ours - market) * 100), ours, market };
+}
+
 /** Everything the comparison card shows: scores per source, on the games every source covers. */
 export function compare(odds) {
   const rows = comparable(odds).filter((r) => r.books.dk && r.books.fd);
@@ -98,6 +116,12 @@ export function compare(odds) {
     us: by(all, 'us'), dk: by(all.filter((r) => r.books.dk), 'dk'), fd: by(all.filter((r) => r.books.fd), 'fd'),
     // Same games for everyone, so the scores are directly comparable.
     same: rows.length ? { us: by(rows, 'us'), dk: by(rows, 'dk'), fd: by(rows, 'fd'), market: by(rows, 'market') } : null,
+    // The flagged games: how often the side we liked more won, against the side the market liked more.
+    flagged: (() => {
+      const f = all.map((r) => ({ r, e: edge(r.pick.a, r.books) })).filter((x) => x.e);
+      const ours = f.filter((x) => x.r.result === x.e.side).length;
+      return { n: f.length, ours, market: f.length - ours };
+    })(),
     // Games where we and the market disagree most, with how they ended.
     gaps: all.filter((r) => sources(r).market != null).map((r) => ({ ...r, s: sources(r) }))
       .sort((x, y) => Math.abs(y.s.us - y.s.market) - Math.abs(x.s.us - x.s.market)).slice(0, 8),

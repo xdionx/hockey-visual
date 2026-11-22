@@ -7,7 +7,7 @@ import { installPlayerLinks, playerLink } from '../player/link.js';
 import { esc, makeSortable, teamColor } from '../game/core.js';
 import { leaderboard, minGames, FIRST_FULL_SEASON } from '../src/seasonStats.js';
 import { seasonModel } from '../src/momentumModel.js';
-import { compare, BOOK_NAMES } from '../src/odds.js';
+import { compare, BOOK_NAMES, EDGE_MIN } from '../src/odds.js';
 import { getStatic } from '../data.js';
 
 installPlayerLinks();
@@ -264,6 +264,7 @@ function marketCard(odds) {
     <p class="ms-lede">Each game's lines are saved shortly before puck drop, next to our own pick, and judged once it's over. Sportsbook prices include the book's margin, so it is removed first. Lower Brier and log loss mean better-calibrated win chances.</p>
     ${tbl(`${row('Our pick', base.us, 'ml-live')}${row(BOOK_NAMES.dk, base.dk)}${row(BOOK_NAMES.fd, base.fd)}${base.market ? row('Both books averaged', base.market) : ''}`)}
     <p class="pq-note">${c.same ? `Scored on the ${c.both} games every source covers, so the rows compare directly.` : 'Each source is scored on every game it has.'} Hockey is close to a coin flip: markets are usually right about 58-60% of the time, so a gap of a point or two needs hundreds of games to mean anything.</p>
+    ${c.flagged.n ? `<p class="pq-note"><b>Flagged games</b> (we and the books differ by ${Math.round(EDGE_MIN * 100)}+ points): the side we liked more won <b>${c.flagged.ours}</b> of ${c.flagged.n}, the side the market liked more won <b>${c.flagged.market}</b>.${c.flagged.n < 100 ? ' Too few games so far to say who is right.' : ''}</p>` : ''}
     ${gaps ? `<details class="ms-fold"><summary>Biggest disagreements</summary><div class="pc-scroll"><table class="pc-table"><thead><tr><th class="l">Game</th><th>Our away %</th><th>Market away %</th><th>Result</th></tr></thead><tbody>${gaps}</tbody></table></div></details>` : ''}`);
 }
 
