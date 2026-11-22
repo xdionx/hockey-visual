@@ -205,7 +205,7 @@ function predictionLine(game, tc) {
   const lineupText = (side) => {
     const x = lu?.[side];
     if (!x?.posted) return '<span class="muted">Posts ~10 min before puck drop</span>';
-    return `<span>${x.out.length ? `Without ${x.out.map((p) => `<b>${esc(p.name)}</b> (#${p.rank})`).join(', ')}` : 'Top 3 all dressed'}</span>`;
+    return `<span class="lu-row">${x.out.length ? `Without ${x.out.map((p) => `<b title="${esc(p.name)}">${esc(lastName(p.name))}</b> #${p.rank}`).join(', ')}` : 'Top 3 all dressed'}</span>`;
   };
   const outs = ['away', 'home'].filter((side) => lu?.[side]?.out.length);
   const alert = outs.length ? `<p class="lu-alert" title="Teams missing one of their top 3 skaters by momentum won about ${PTS_PER_PLAYER} points less often than our pick said (2024-27 games). The pick above doesn't include it.">⚠ ${outs.map((side) => `${esc(game[side].abbrev)} without ${lu[side].out.map((p) => esc(lastName(p.name))).join(' and ')}`).join(' · ')} <small>−${PTS_PER_PLAYER} pts win chance per player, not in the pick</small></p>` : '';
