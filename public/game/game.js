@@ -1,6 +1,6 @@
 // Box score page: loads one game's data/games/<id>.json and renders it in the chosen design.
 // Switch designs with the bar at the top, keys 1-4, or ?design=<name> in the URL.
-import { hornToggles, watchGoals } from '../horn.js';
+import { hornToggles, watchGoals, radioOpen } from '../horn.js';
 import { setHtmlFilter, filterHtml, esc, initVideo, makeSortable, makeTabs, upgradeShots, morphInner, setMountSignal, resetRinkIds, withFinishRate } from './core.js';
 import { loadSeason } from '../player/store.js';
 import { leagueRate } from '../src/seasonStats.js';
@@ -128,7 +128,7 @@ function withTiers(g, r) {
 
 function showGame(data) {
   watchGoals([data]);
-  const text = JSON.stringify(data);
+  const text = JSON.stringify(data) + (radioOpen(data) ? '1' : '0'); // redraw when the pregame radio buttons appear
   if (text === lastText) return;
   game = withTiers(withFinishRate(upgradeShots(data), rate), rate);
   lastText = text;
