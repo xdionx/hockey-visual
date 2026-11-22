@@ -98,14 +98,16 @@ export function flowChart(game, c) {
 }
 
 const HEAT_COLS = [
-  ['gameScore', 'GS', (p) => p.gameScore.toFixed(2)], ['momentum', 'MOM', (p) => `${(p.momentum ?? 0) > 0 ? '+' : ''}${(p.momentum ?? 0).toFixed(1)}`], ['points', 'P'], ['goals', 'G'], ['assists', 'A'], ['sog', 'SOG'], ['attempts', 'SAT'],
+  ['gameScore', 'GS', (p) => p.gameScore.toFixed(2)], ['momentum', 'MOM', (p) => `${(p.momentum ?? 0) > 0 ? '+' : ''}${(p.momentum ?? 0).toFixed(1)}`], ['points', 'P'], ['goals', 'G'], ['assists', 'A'], ['sog', 'SOG'], ['attempts', 'SAT'], ['xg', 'xG', (p) => (p.xg == null ? '' : p.xg.toFixed(2))], ['finPct', 'FIN%', (p) => (p.finPct == null || p.finPct < 0 ? '' : `${p.finPct}%`)],
   ['plusMinus', '+/-', (p) => signed(p.plusMinus)], ['foPct', 'FO%', (p) => { const fo = faceoffLine(p); return fo ? `${fo.pct}<small class="a-fo">${fo.won}/${fo.total}</small>` : ''; }, true], ['hits', 'HIT'], ['blocks', 'BLK'], ['takeaways', 'TK'], ['giveaways', 'GV'], ['toiSeconds', 'TOI', (p) => p.toi],
 ];
 
 export function heatTable(game, c) {
+  // Box scores saved before finishing numbers existed have no xG: leave those columns out.
+  const cols = allSkaters(game).some((p) => p.xg != null) ? HEAT_COLS : HEAT_COLS.filter(([k]) => k !== 'xg' && k !== 'finPct');
   // Players with no faceoffs get -1 so they sort last and stay blank.
-  const list = allSkaters(game).map((p) => ({ ...p, foPct: p.foPct ?? -1 })).sort((a, b) => b.gameScore - a.gameScore);
-  const range = Object.fromEntries(HEAT_COLS.map(([k]) => [k, [Math.min(...list.map((p) => p[k])), Math.max(...list.map((p) => p[k]))]]));
+  const list = allSkaters(game).map((p) => ({ ...p, foPct: p.foPct ?? -1, xg: p.xg ?? 0, finPct: p.finPct ?? -1 })).sort((a, b) => b.gameScore - a.gameScore);
+  const range = Object.fromEntries(cols.map(([k]) => [k, [Math.min(...list.map((p) => p[k])), Math.max(...list.map((p) => p[k]))]]));
   const heat = (k, v) => {
     const [lo, hi] = range[k];
     if (hi === lo) return 0;
@@ -119,10 +121,10 @@ export function heatTable(game, c) {
   };
   return `<section class="a-card"><h2>Skaters <small>sorted by game score; click a heading to re-sort</small></h2>
     <div class="a-scroll"><table class="a-table sortable">
-      <thead><tr><th class="l" data-sort>Player</th><th data-sort>Tm</th><th data-sort>Pos</th>${HEAT_COLS.map(([, l]) => `<th data-sort>${l}</th>`).join('')}</tr></thead>
-      <tbody>${list.map((p) => `<tr><td class="l" data-v="${esc(p.lastName)}">${esc(p.name)}</td><td><span class="a-tm" style="background:${c[p.side]}">${esc(p.team)}</span></td><td>${esc(p.position)}</td>${HEAT_COLS.map((col) => cell(col)(p)).join('')}</tr>`).join('')}</tbody>
+      <thead><tr><th class="l" data-sort>Player</th><th data-sort>Tm</th><th data-sort>Pos</th>${cols.map(([, l]) => `<th data-sort>${l}</th>`).join('')}</tr></thead>
+      <tbody>${list.map((p) => `<tr><td class="l" data-v="${esc(p.lastName)}">${esc(p.name)}</td><td><span class="a-tm" style="background:${c[p.side]}">${esc(p.team)}</span></td><td>${esc(p.position)}</td>${cols.map((col) => cell(col)(p)).join('')}</tr>`).join('')}</tbody>
     </table></div>
-    ${fold('What GS and SAT mean', `GS = Game Score (goals, primary and secondary assists, shots, blocks, penalties drawn and taken, faceoffs and on-ice +/-). SAT = the player's own shot attempts (on goal, missed or blocked).`, { cls: 'a-note' })}
+    ${fold('What GS and SAT mean', `GS = Game Score (goals, primary and secondary assists, shots, blocks, penalties drawn and taken, faceoffs and on-ice +/-). SAT = the player's own shot attempts (on goal, missed or blocked). xG = expected goals from his shots on a goalie (our own estimate from distance, angle and shot type). FIN% = goals on a goalie per expected goal (100% = average; blank with no shots on goal).`, { cls: 'a-note' })}
   </section>`;
 }
 

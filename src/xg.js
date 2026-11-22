@@ -46,4 +46,28 @@ export function goalieExpected(shots) {
   return out;
 }
 
+/**
+ * Per-shooter expected goals from shots on goal and goals with a goalie in net (empty-net goals left
+ * out, so a finisher isn't credited for an open net). Map(shooterId -> { shots, goals, xg }).
+ */
+export function shooterExpected(shots) {
+  const out = new Map();
+  for (const s of shots ?? []) {
+    if ((s.kind !== 'sog' && s.kind !== 'goal') || !s.goalieId || !s.shooterId) continue;
+    const p = shotXg(s);
+    if (p == null) continue;
+    const e = out.get(s.shooterId) ?? { shots: 0, goals: 0, xg: 0 };
+    e.shots++;
+    if (s.kind === 'goal') e.goals++;
+    e.xg += p;
+    out.set(s.shooterId, e);
+  }
+  return out;
+}
+
+/** Finishing %: goals per expected goal x 100 (100 = an average finisher). Null with no expected goals. */
+export function finishingPct(goals, xg) {
+  return xg > 0 ? Math.round((100 * goals) / xg) : null;
+}
+
 export { LEAGUE_GOAL_RATE };

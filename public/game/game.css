@@ -430,6 +430,10 @@ main { padding: 0 0 48px; }
 .a-zone-g { fill: #facc15; font-size: 4px; }
 .a-zone-tables { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; margin-top: 12px; }
 .a-zt caption { text-align: left; font: 800 16px "Barlow Condensed", sans-serif; text-transform: uppercase; letter-spacing: .05em; padding-bottom: 6px; }
+.s-fin { display: grid; grid-template-columns: auto 1fr auto auto; gap: 8px; align-items: center; font-size: 11px; color: var(--s-mute); margin: -2px 0 10px; }
+.s-fin b { color: var(--s-ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+.s-fin em { font-style: normal; font-weight: 700; color: var(--s-ink); }
+.s-fin small { font-variant-numeric: tabular-nums; }
 .s-onice { display: grid; grid-template-columns: auto auto 1fr auto auto; gap: 8px; align-items: center; font-size: 11px; color: var(--s-mute); margin: -2px 0 10px; }
 .s-onice b { color: var(--s-ink); font-variant-numeric: tabular-nums; }
 .s-onice em { font-style: normal; font-weight: 700; color: var(--s-ink); }
