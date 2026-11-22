@@ -285,16 +285,20 @@ function compareTile(game, c, label, away, home, awayNum, homeNum, note, better 
   </div>`;
 }
 
-/** Top three momentum drivers for each team, side by side. */
+/** Top three and lowest three momentum skaters for each team, side by side. Momentum only: goals and assists aren't in it. */
 function topDrivers(game, c) {
   const sk = allSkaters(game).filter((p) => p.momentum != null);
   if (!sk.length) return '';
-  const col = (side) => {
-    const top = sk.filter((p) => p.side === side).sort((x, y) => y.momentum - x.momentum).slice(0, 3);
-    return `<div class="st-td ${side}" style="--team:${c[side]}"><div class="st-td-h">${teamTag(game, side, true)}</div>${top.map((p, i) => `<div class="st-td-p">
-      <span class="st-td-n">${i + 1}</span>${headshot(p, 'st-td-mug')}<span class="st-td-name">${esc(p.fullName)}</span><b>${p.momentum > 0 ? '+' : ''}${p.momentum.toFixed(1)}</b></div>`).join('')}</div>`;
+  const rows = (list, rankOf) => list.map((p, i) => `<div class="st-td-p">
+      <span class="st-td-n">${rankOf(i)}</span>${headshot(p, 'st-td-mug')}<span class="st-td-name">${esc(p.fullName)}</span><b class="${p.momentum < 0 ? 'neg' : ''}">${p.momentum > 0 ? '+' : p.momentum < 0 ? '\u2212' : ''}${Math.abs(p.momentum).toFixed(1)}</b></div>`).join('');
+  const col = (side, low) => {
+    const all = sk.filter((p) => p.side === side).sort((x, y) => y.momentum - x.momentum);
+    const list = low ? all.slice(-3).reverse() : all.slice(0, 3);
+    return `<div class="st-td ${side}" style="--team:${c[side]}"><div class="st-td-h">${teamTag(game, side, true)}</div>${rows(list, low ? (i) => all.length - i : (i) => i + 1)}</div>`;
   };
-  return `<div class="st-num st-drivers"><span class="st-lbl">Top momentum drivers</span><div class="st-td-cols">${col('away')}${col('home')}</div></div>`;
+  return `<div class="st-num st-drivers"><span class="st-lbl">Top momentum drivers</span><div class="st-td-cols">${col('away', false)}${col('home', false)}</div>
+    <span class="st-lbl st-lbl-low">Lowest momentum drivers</span><div class="st-td-cols">${col('away', true)}${col('home', true)}</div>
+    <small class="st-td-note">Momentum only (shots, penalties and the like). Goals and assists aren't counted, so a player can have a strong night on the scoresheet and still rank low here.</small></div>`;
 }
 
 /** A handful of numbers that explain the result. */
