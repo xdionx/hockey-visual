@@ -20,7 +20,8 @@ import { computeMomentum } from './momentum.js';
 // Bump when how a game line is computed changes (momentum weights, what counts as an attempt):
 // the backfill then rebuilds the saved seasons instead of mixing old and new numbers.
 // 2: backup goalies who never went in no longer count as a game played. 3: game rows (`g`).
-export const SEASON_VERSION = 3;
+// 4: momentum model v4 (shots and penalties only, home plate 3x, goals count as shots in "no goals").
+export const SEASON_VERSION = 4;
 
 /** First season the NHL play-by-play has every event with rink coordinates (needed for momentum). */
 export const FIRST_FULL_SEASON = 20092010;
