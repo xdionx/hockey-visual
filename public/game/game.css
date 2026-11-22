@@ -978,3 +978,6 @@ main { padding: 0 0 48px; }
 .hw-dn { background: rgba(141, 152, 171, .16); color: #aab4c5; }
 @media (max-width: 640px) { .hw-tiers { grid-template-columns: 1fr; } }
 .hw-n { white-space: nowrap; }
+.st-td-p b.neg { color: #f87171; }
+.st-lbl-low { display: block; margin-top: 14px; }
+.st-td-note { display: block; margin-top: 10px; color: #8d98ab; font-size: 11px; line-height: 1.4; }
