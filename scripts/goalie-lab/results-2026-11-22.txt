@@ -1,0 +1,115 @@
+shots 408994 goal rate 0.0983 mean xg 0.0855
+
+== A. Save streak before a shot (consecutive saves this game) ==
+        shots  goals         xg        exp    sv%  act/xG  act/exp(talent)
+b                                                                         
+0       51850   4500   4698.324   4683.642  0.913   0.958            0.961
+1-4    153441  15203  15195.532  15136.335  0.901   1.000            1.004
+5-9    105830  10653  10562.455  10503.405  0.899   1.009            1.014
+10-14   52935   5388   5280.643   5235.600  0.898   1.020            1.029
+15-19   25660   2604   2571.724   2546.524  0.899   1.013            1.023
+20-29   16706   1634   1651.821   1631.741  0.902   0.989            1.001
+30+      2572    231    252.500    249.539  0.910   0.915            0.926
+
+-- same, excluding first 2 shots of game, even strength only --
+        shots  goals         xg        exp    sv%  act/xG  act/exp(talent)
+b                                                                         
+0       45455   3749   4050.812   4038.033  0.918   0.925            0.928
+1-4    125274  11436  12103.177  12055.321  0.909   0.945            0.949
+5-9     83778   7611   8106.421   8061.375  0.909   0.939            0.944
+10-14   41198   3842   3976.780   3943.286  0.907   0.966            0.974
+15-19   19731   1804   1919.962   1903.059  0.909   0.940            0.948
+20-29   12642   1102   1210.735   1195.854  0.913   0.910            0.922
+30+      1741    142    162.327    160.565  0.918   0.875            0.884
+
+== A2. Seconds since this goalie last allowed a goal ==
+        shots  goals        xg       exp    sv%  act/xG  act/exp(talent)
+b                                                                       
+<1m     15048   1357  1438.989  1437.707  0.910   0.943            0.944
+1-2m    17076   1721  1675.790  1673.088  0.899   1.027            1.029
+2-5m    45175   4538  4460.533  4450.044  0.900   1.017            1.020
+5-10m   58939   5995  5821.982  5804.537  0.898   1.030            1.033
+10-20m  71641   7294  7131.923  7093.779  0.898   1.023            1.028
+20m+    55227   5605  5479.795  5438.933  0.899   1.023            1.031
+
+== A3. In-game GSAx so far (xGA - GA) before the shot ==
+            shots  goals        xg       exp    sv%  act/xG  act/exp(talent)
+b                                                                           
+<-1.5       29906   3141  2950.272  2951.388  0.895   1.065            1.064
+-1.5..-0.5  54904   5615  5403.573  5394.571  0.898   1.039            1.041
+-0.5..0.5   84200   8448  8355.892  8308.213  0.900   1.011            1.017
+0.5..1.5    71939   7183  7174.080  7099.889  0.900   1.001            1.012
+>1.5        23195   2289  2350.711  2321.767  0.901   0.974            0.986
+streak 0-1: resid/shot -0.0035 ± 0.0012  (n=51850)
+streak 1-10: resid/shot +0.0008 ± 0.0006  (n=259271)
+streak 10-20: resid/shot +0.0027 ± 0.0011  (n=78595)
+streak 20-999: resid/shot -0.0008 ± 0.0021  (n=19278)
+
+== B. Next 2 minutes after an event, for the goalie's team ==
+                           event       n  attShareBefore  attShareAfter  gfPer100  gaPer100
+0                        HD save  107411           0.441          0.428      8.38     12.16
+1              HD save | lead -1   33815           0.449          0.471      8.29     12.46
+2               HD save | lead 0   38208           0.440          0.429      7.82     11.78
+3               HD save | lead 1   35388           0.433          0.388      9.06     12.28
+4             big save (xG>=.15)   36449           0.412          0.421      8.49     13.03
+5   big save (xG>=.15) | lead -1   11209           0.417          0.468      8.46     13.17
+6    big save (xG>=.15) | lead 0   13078           0.412          0.418      7.70     12.94
+7    big save (xG>=.15) | lead 1   12162           0.407          0.382      9.38     12.99
+8                   goal against   25953           0.433          0.511      8.09      8.62
+9         goal against | lead -1    8477           0.443          0.548      8.26      9.31
+10         goal against | lead 0    8987           0.427          0.520      8.17      7.88
+11         goal against | lead 1    8489           0.429          0.465      7.83      8.71
+12                    other save  159176           0.450          0.440      8.29     10.54
+13          other save | lead -1   46274           0.453          0.484      8.37     11.02
+14           other save | lead 0   58393           0.450          0.444      7.81      9.86
+15           other save | lead 1   54509           0.447          0.399      8.75     10.87
+16                streak hits 10    9785           0.427          0.430      9.02     11.34
+17      streak hits 10 | lead -1    2182           0.442          0.480      9.44     11.37
+18       streak hits 10 | lead 0    3219           0.410          0.438      8.36     10.94
+19       streak hits 10 | lead 1    4384           0.433          0.399      9.31     11.63
+20                streak hits 15    4818           0.418          0.422      8.95     11.50
+21      streak hits 15 | lead -1     684           0.423          0.497      9.06     12.57
+22       streak hits 15 | lead 0    1305           0.400          0.437      6.67     10.96
+23       streak hits 15 | lead 1    2829           0.424          0.397      9.97     11.49
+24                streak hits 20    2242           0.386          0.395      8.30     12.13
+25      streak hits 20 | lead -1     175           0.411          0.484      7.43     10.29
+26       streak hits 20 | lead 0     477           0.400          0.439      8.81     12.79
+27       streak hits 20 | lead 1    1590           0.379          0.372      8.24     12.14
+
+== C. Goalie pulled for another goalie (not empty net) ==
+pulls 830
+att share 10 min before 0.446  after 0.546; GF/GA before 211/1300 after 262/267 (even strength)
+trailing teams that changed goalie: wins 64 vs expected 59.8 for same deficit/period; goal diff rest of game -39 vs expected -96.4
+
+== D. Goalie GSAx in periods 1-2 vs his 3rd period ==
+                  goalies   ga3  ...  p3 act/xG  p3 act/exp(talent)
+b                                ...                               
+(-5.206, -0.873]     2210  1883  ...      1.054               1.055
+(-0.873, -0.107]     2209  1930  ...      1.009               1.013
+(-0.107, 0.564]      2210  1971  ...      0.974               0.978
+(0.564, 1.276]       2209  2007  ...      0.944               0.954
+(1.276, 4.324]       2210  2145  ...      0.952               0.963
+
+[5 rows x 8 columns]
+r(gsax12, p3 gsax) = 0.0398  after talent: 0.0355 n 11048
+
+== E. Next-game prediction: team shots model + goalie ==
+games 5911
+  r(mom, goal gap) = 0.2673
+  r(gq, goal gap) = 0.1133
+  r(tq, goal gap) = 0.0662
+  r(rec, goal gap) = 0.0245
+  test 2024-27 r(mom) = 0.2064  coef [18.976 -0.213]
+  test 2024-27 r(gq) = 0.0870  coef [ 3.128 -0.179]
+  test 2024-27 r(mom+gq) = 0.2148  coef [18.073  1.656 -0.2  ]
+  test 2024-27 r(mom+tq) = 0.2053  coef [18.431  1.158 -0.212]
+  test 2024-27 r(mom+gq+rec) = 0.2140  coef [18.026  1.876 -0.263 -0.201]
+  test 2024-27 r(mom+rec) = 0.2071  coef [18.937  0.14  -0.211]
+
+== F. Is it a skill? first half vs second half of season, goalies 400+ shots each half ==
+rebound rate per save 0.1147
+goalie-seasons 181; r(sv% H1, sv% H2) = 0.466; r(GSAx/shot H1,H2) = 0.360; r(rebound rate H1,H2) = 0.565; r(rebound H1, GSAx/shot H2) = 0.024
+
+== G. Games within one goal after 2 periods: win % by periods 1-2 shot share and goalie GSAx gap ==
+linear win model, n=3954: per goal of lead +0.245±0.015; per 10 pts of shot share +0.045±0.011; per goal saved above expected (gap) +0.003±0.013
+  without goalie term: share coef per 10 pts +0.043

@@ -1,0 +1,50 @@
+== 1. Shooter finishing skill ==
+player-seasons 1053 (60+ shots each half): r(goals/xG H1,H2) = 0.264; r(shooting % H1,H2) = 0.467
+season to next season (80+ shots both): r(goals/xG) = 0.333  n=1358
+  spread: players with prior-season goals/xG in top vs bottom fifth, next season:
+    prev   next      n
+q                     
+0  0.622  0.905  272.0
+1  0.845  0.947  271.0
+2  1.020  1.010  272.0
+3  1.203  1.110  271.0
+4  1.521  1.237  272.0
+
+== next-game tests (games 5911; fit 2021-24, test 2024-27) ==
+  mom                          r=0.2064 pick=0.5664  coef [18.976 -0.213]
+  mom+gq                       r=0.2148 pick=0.5720  coef [18.073  1.656 -0.2  ]
+  fin                          r=0.0861 pick=0.5325  coef [ 0.076 -0.202]
+  finx                         r=0.0844 pick=0.5381  coef [ 1.577 -0.202]
+  luck                         r=0.0612 pick=0.5272  coef [ 0.465 -0.203]
+  mom+fin                      r=0.2154 pick=0.5599  coef [18.546  0.046 -0.212]
+  mom+finx                     r=0.2154 pick=0.5579  coef [18.546  0.998 -0.212]
+  mom+luck                     r=0.2128 pick=0.5708  coef [18.632  0.196 -0.213]
+  mom+gq+fin                   r=0.2226 pick=0.5680  coef [17.721  1.572  0.043 -0.2  ]
+  rate                         r=0.2054 pick=0.5700  coef [22.132 -0.206]
+  adj                          r=0.2057 pick=0.5712  coef [19.739 -0.213]
+  adj+gq                       r=0.2141 pick=0.5764  coef [18.808  1.645 -0.201]
+  mom+rate                     r=0.2060 pick=0.5656  coef [ 2.965 18.741 -0.207]
+  b2b                          r=0.0529 pick=0.5397  coef [-0.476 -0.152]
+  mom+gq+b2b                   r=0.2204 pick=0.5760  coef [18.257  1.467 -0.472 -0.152]
+  mom+gq+b2b+tzs               r=0.2195 pick=0.5752  coef [18.263  1.474 -0.48  -0.023 -0.146]
+  mom+gq+dayd                  r=0.2210 pick=0.5764  coef [18.201  1.548  0.137 -0.175]
+  mom+gq+road                  r=0.2134 pick=0.5728  coef [18.137  1.657  0.03  -0.264]
+  adj+gq+fin+b2b               r=0.2268 pick=0.5720  coef [18.66   1.359  0.047 -0.479 -0.152]
+  mom+gq+fin+b2b               r=0.2279 pick=0.5752  coef [17.899  1.38   0.044 -0.476 -0.151]
+
+== rest and travel, raw (games after each team's 10th) ==
+  all                                      n= 5911 away win 0.466 away goal gap -0.210 away v4 share 0.489
+  away b2b, home rested                    n=  956 away win 0.401 away goal gap -0.546 away v4 share 0.479
+  home b2b, away rested                    n=  339 away win 0.558 away goal gap +0.307 away v4 share 0.502
+  both b2b                                 n=  287 away win 0.470 away goal gap -0.118 away v4 share 0.493
+  away crossed 2+ time zones               n=  644 away win 0.484 away goal gap -0.129 away v4 share 0.491
+  away 4th+ road game in a row             n=  887 away win 0.446 away goal gap -0.278 away v4 share 0.482
+  residual goal gap (after v4 + goalie) when away b2b & home rested: -0.333 ± 0.081
+  residual when home b2b & away rested: +0.492 ± 0.134
+
+== same-game winner pick, shots weighted by shooter talent (known before the game) ==
+  v4 no-goals + 0 x finishing: pick 0.5744
+  v4 no-goals + 1 x finishing: pick 0.5764
+  v4 no-goals + 2 x finishing: pick 0.5769
+  v4 no-goals + 4 x finishing: pick 0.5745
+  v4 no-goals + 8 x finishing: pick 0.5656
