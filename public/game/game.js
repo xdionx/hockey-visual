@@ -189,7 +189,7 @@ function withPregame(g, info) {
 
 async function showGame(data) {
   const info = data.status?.state === 'pre' && !params.has('sim') ? await loadPick(data) : null;
-  watchGoals([data]);
+  if (params.has('sim')) watchGoals([data]); // live horns come from horn.js's own watcher, on every page
   const text = JSON.stringify(data) + (radioOpen(data) ? '1' : '0'); // redraw when the pregame radio buttons appear
   if (text === lastText) return;
   game = withPregame(withTiers(withFinishRate(upgradeShots(data), rate), rate), info);

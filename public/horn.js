@@ -1,10 +1,13 @@
+import { getData, later, cancelLater, LIVE_REFRESH_MS } from './data.js';
+
 // Goal horns: per team and per game, off by default, remembered in this browser.
 // Shared by the Scores page and the box score. Horn files live in audio/horns/<ABBREV>.mp3.
 const HORNS = new Set(['ANA', 'BOS', 'BUF', 'CGY', 'CAR', 'CHI', 'COL', 'CBJ', 'DAL', 'DET', 'EDM', 'FLA', 'LAK', 'MIN', 'MTL', 'NSH', 'NJD', 'NYI', 'NYR', 'OTT', 'PHI', 'PIT', 'SJS', 'SEA', 'STL', 'TBL', 'TOR', 'UTA', 'VAN', 'VGK', 'WSH', 'WPG']); // every team has a horn file
 const KEY = (id, abbrev) => `horn:${id}:${abbrev}`;
 const store = (k, v) => { try { return v === undefined ? localStorage.getItem(k) : (v === null ? localStorage.removeItem(k) : localStorage.setItem(k, v)); } catch { return null; } };
 
-export const hornOn = (id, abbrev) => store(KEY(id, abbrev)) === '1';
+// The stored value is the game's date (so horns can be watched from any page or date), or '1' from before that.
+export const hornOn = (id, abbrev) => { const v = store(KEY(id, abbrev)); return v != null && v !== ''; };
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
@@ -12,7 +15,7 @@ const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '
 export function hornToggles(game, cls = '') {
   const btns = ['away', 'home'].map((s) => game[s].abbrev).filter((a) => HORNS.has(a)).map((a) => {
     const on = hornOn(game.id, a);
-    return `<button type="button" class="horn-btn${on ? ' on' : ''}" data-horn-game="${game.id}" data-horn-team="${esc(a)}" aria-pressed="${on}" title="Play the ${esc(a)} goal horn when they score">🚨 ${esc(a)} horn ${on ? 'on' : 'off'}</button>`;
+    return `<button type="button" class="horn-btn${on ? ' on' : ''}" data-horn-game="${game.id}" data-horn-team="${esc(a)}"${game.gameDate ? ` data-horn-date="${esc(game.gameDate)}"` : ''} aria-pressed="${on}" title="Play the ${esc(a)} goal horn when they score">🚨 ${esc(a)} horn ${on ? 'on' : 'off'}</button>`;
   });
   const listen = listenButtons(game);
   return btns.length || listen ? `<span class="horn-toggles ${cls}">${listen}${btns.join('')}</span>` : '';
@@ -408,9 +411,10 @@ document.addEventListener('click', (e) => {
   if (!b) return;
   const id = b.dataset.hornGame; const a = b.dataset.hornTeam;
   const on = !hornOn(id, a);
-  store(KEY(id, a), on ? '1' : null);
+  store(KEY(id, a), on ? (/^\d{4}-\d{2}-\d{2}$/.test(b.dataset.hornDate ?? '') ? b.dataset.hornDate : '1') : null);
   // Tapping is the browser's permission to play sound later: unlock audio now.
   if (on) primeHorn(); else stopAll();
+  watchSoon();
   document.querySelectorAll(`[data-horn-game="${id}"][data-horn-team="${a}"]`).forEach((x) => {
     x.classList.toggle('on', on);
     x.setAttribute('aria-pressed', String(on));
@@ -418,10 +422,92 @@ document.addEventListener('click', (e) => {
   });
 });
 
-const seen = new Map();
+// ── Watching for goals, on every page of the site ──
+// Horns are per game and remembered in this browser, so the watcher below runs on every page that loads this
+// file (Scores on any date, box scores, stats, player pages) and follows every game with a horn on, whatever is
+// on screen. It polls scores/<date>.json for those games' dates and is the only thing that sounds a live horn.
+// Goal counts are saved in localStorage with a time, so a goal scored while moving between pages still honks,
+// another open tab doesn't honk the same goal twice, and opening the site after a while never honks old goals.
+const FRESH_MS = 10 * 60_000; // a saved count older than this is a fresh baseline
+const SEEN = (id, abbrev) => `hornSeen:${id}:${abbrev}`;
+const seenMem = new Map(); // used when localStorage isn't available
+function readSeen(k) {
+  const v = store(k) ?? seenMem.get(k);
+  try { const o = JSON.parse(v); return Number.isFinite(o?.n) && Number.isFinite(o?.t) ? o : null; } catch { return null; }
+}
+function writeSeen(k, n, t) { const v = JSON.stringify({ n, t }); seenMem.set(k, v); store(k, v); }
+const goalCount = (g, a) => (g.goals ?? g.scoring ?? []).filter((x) => x.period !== 'SO' && x.team === a).length;
+const isoDay = (ms) => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(ms));
+
+/** Games with a horn on, grouped by date: Map(date -> Set of game ids). Old dates are forgotten. */
+function hornedByDate(now = Date.now()) {
+  const out = new Map();
+  const oldest = isoDay(now - 3 * 86400_000);
+  const recent = [isoDay(now), isoDay(now - 86400_000)]; // for horns saved before dates were stored
+  let keys = [];
+  try { keys = Object.keys(localStorage).filter((k) => k.startsWith('horn:')); } catch { return out; }
+  for (const k of keys) {
+    const [, id] = k.split(':');
+    const v = store(k);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(v ?? '')) {
+      if (v < oldest) { store(k, null); store(SEEN(id, k.split(':')[2]), null); continue; } // long over: tidy up
+      if (!out.has(v)) out.set(v, new Set());
+      out.get(v).add(id);
+    } else for (const d of recent) { if (!out.has(d)) out.set(d, new Set()); out.get(d).add(id); }
+  }
+  return out;
+}
+
+/** Compare each horned game with its saved goal counts and sound the horn for new goals. */
+export function checkGoals(games, now = Date.now()) {
+  for (const g of games ?? []) {
+    const state = g.status?.state;
+    if (state !== 'live' && state !== 'final') continue; // final too: an overtime winner can land as the game ends
+    for (const side of ['away', 'home']) {
+      const a = g[side].abbrev;
+      if (!hornOn(g.id, a)) continue;
+      const k = SEEN(g.id, a);
+      const n = goalCount(g, a);
+      const before = readSeen(k);
+      writeSeen(k, n, now);
+      if (before && now - before.t < FRESH_MS && n > before.n && HORNS.has(a)) play(alertFor(g, side));
+    }
+  }
+}
+
+let watchTimer = null;
+const doneDates = new Map(); // date -> when every horned game on it was found final
+async function watchTick() {
+  watchTimer = null;
+  if (window.__radioShell) return; // the page in the radio frame watches instead
+  if (/[?&]sim\b/.test(location.search)) return; // replays sound their own horns
+  const now = Date.now();
+  let wait = 15_000; // nothing to watch: look again in a bit (a horn may be turned on in another tab)
+  for (const [date, ids] of hornedByDate(now)) {
+    if (now - (doneDates.get(date) ?? -Infinity) < 10 * 60_000) continue;
+    let data = null;
+    try { data = await getData(`scores/${date}.json`); } catch { wait = Math.min(wait, LIVE_REFRESH_MS); continue; }
+    const games = (data?.games ?? []).filter((g) => ids.has(String(g.id)));
+    if (!games.length) continue;
+    checkGoals(games);
+    if (games.some((g) => g.status?.state === 'live' || g.status?.imminent || g.status?.settling)) wait = Math.min(wait, LIVE_REFRESH_MS);
+    else if (games.some((g) => g.status?.state === 'pre')) wait = Math.min(wait, 60_000);
+    else doneDates.set(date, now);
+  }
+  if (!window.__radioShell) watchTimer = later(watchTick, wait);
+}
+function watchSoon() { cancelLater(watchTimer); watchTimer = later(watchTick, 0); }
+if (typeof document !== 'undefined' && typeof localStorage !== 'undefined') {
+  watchSoon();
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') watchSoon(); });
+  // A horn turned on or off in another tab.
+  window.addEventListener('storage', (e) => { if (e.key?.startsWith('horn:')) { doneDates.clear(); watchSoon(); } });
+}
+
+// ── Replays (box score ?sim) feed their own frames here and keep their counts in memory ──
+const seen = new Map(); // `${gameId}:${abbrev}` -> goals counted so far
 /** Forget the goal counts, so the next frame is a fresh baseline (after a seek or restart). */
 export function resetGoals() { seen.clear(); }
- // `${gameId}:${abbrev}` -> goals counted so far
 /** Call with every game on each refresh. The first sight of a game sets the baseline, so opening the page never honks. */
 export function watchGoals(games) {
   for (const g of games ?? []) {
