@@ -1,6 +1,6 @@
 // Box score page: loads one game's data/games/<id>.json and renders it in the chosen design.
 // Switch designs with the bar at the top, keys 1-4, or ?design=<name> in the URL.
-import { hornToggles, watchGoals, radioOpen } from '../horn.js';
+import { hornIcons, watchGoals, radioOpen } from '../horn.js';
 import { setHtmlFilter, filterHtml, esc, initVideo, makeSortable, makeTabs, upgradeShots, morphInner, setMountSignal, resetRinkIds, withFinishRate } from './core.js';
 import { loadSeason } from '../player/store.js';
 import { leagueRate } from '../src/seasonStats.js';
@@ -199,7 +199,7 @@ async function showGame(data) {
   document.title = `${game.away.abbrev} @ ${game.home.abbrev} ${shortDate(game.gameDate)}${params.has('sim') ? ' (sim)' : ''}`;
   document.querySelector('#back').href = params.has('sim') ? 'sim.html' : `./?date=${game.gameDate}`;
   // Finished games have no horns to blow, except while replaying one in the simulator.
-  document.querySelector('#horns').innerHTML = game.status.state === 'final' && !params.has('sim') ? '' : hornToggles(game);
+  document.querySelector('#horns').innerHTML = hornIcons(game, { horn: game.status.state !== 'final' || params.has('sim') });
   render();
 }
 

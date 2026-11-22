@@ -1057,3 +1057,16 @@ main { padding: 0 0 48px; }
   .pg-sw { grid-template-columns: 1fr; }
   .pg-bar b { min-width: 36px; font-size: 18px; }
 }
+
+/* Radio + horn icons per team in the top bar: "BUF 🎧 🚨  TBL 🎧 🚨" */
+.horn-icons { display: inline-flex; align-items: center; gap: 12px; flex-wrap: nowrap; }
+.ta-team { display: inline-flex; align-items: center; gap: 4px; }
+.ta-team b { font: 700 12px Inter, sans-serif; letter-spacing: .04em; opacity: .8; margin-right: 2px; }
+.team-audio { display: inline-flex; gap: 4px; }
+.horn-btn.ico { width: 30px; height: 30px; padding: 0; display: inline-grid; place-items: center; font-size: 14px; line-height: 1; filter: grayscale(1); opacity: .6; }
+.horn-btn.ico:hover, .horn-btn.ico:focus-visible { opacity: 1; filter: none; }
+.horn-btn.ico.on { filter: none; opacity: 1; background: #c8102e; border-color: #c8102e; }
+.listen-btn.ico.on { background: #1d6fd8; border-color: #1d6fd8; }
+.listen-btn.ico.on { animation: ta-pulse 1.6s ease-in-out infinite; }
+@keyframes ta-pulse { 50% { box-shadow: 0 0 0 4px rgba(29,111,216,.35); } }
+@media (prefers-reduced-motion: reduce) { .listen-btn.ico.on { animation: none; } }

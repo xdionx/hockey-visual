@@ -1,6 +1,6 @@
 import { getData, getStatic, LIVE_REFRESH_MS, live, later, cancelLater } from './data.js';
 import { teamColors, strengthBadge, contrastRatio } from './game/core.js';
-import { hornToggles, watchGoals, radioOpen } from './horn.js';
+import { teamAudio, watchGoals, radioOpen } from './horn.js';
 import { playerIndex, linkPlayers, installPlayerLinks } from './player/link.js';
 import { loadSeason } from './player/store.js';
 import { seasonOf } from './src/seasonStats.js';
@@ -313,6 +313,14 @@ $('#lightbox-close').addEventListener('click', () => lightbox.close());
 lightbox.addEventListener('click', (e) => e.target === lightbox && lightbox.close()); // backdrop
 lightbox.addEventListener('close', () => { lightboxFrame.innerHTML = ''; }); // stops playback
 
+// Under the name: the record (before the game) and the team's radio + horn icons.
+function subline(game, team, big) {
+  if (!big) return '';
+  const rec = team.record ? `<span>${esc(team.record)}</span>` : '';
+  const icons = teamAudio(game, team.abbrev, { horn: game.status.state !== 'final' });
+  return rec || icons ? `<small class="sub">${rec}${icons}</small>` : '';
+}
+
 function teamBlock(game, side, tc, big) {
   const team = game[side];
   const ls = game.linescore;
@@ -320,14 +328,12 @@ function teamBlock(game, side, tc, big) {
   const loser = game.status.state === 'final' && ls.totals[side] < ls.totals[other];
   return `<div class="tb ${side}${loser ? ' loser' : ''}${big ? ' big' : ''}" style="--team:${tc[side]}">
     <img src="${esc(team.logo.replace('_light.', '_dark.'))}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">
-    <span class="nm">${esc(team.name || team.abbrev)}${team.record && big ? `<small>${esc(team.record)}</small>` : ''}</span>
+    <span class="nm">${esc(team.name || team.abbrev)}${subline(game, team, big)}</span>
     <button type="button" class="fav${favorites.has(team.abbrev) ? ' on' : ''}" data-fav="${esc(team.abbrev)}" aria-pressed="${favorites.has(team.abbrev)}" title="${favorites.has(team.abbrev) ? 'Remove from' : 'Add to'} favorites: ${esc(team.abbrev)} games stay at the top (saved in this browser)" aria-label="Favorite ${esc(team.name || team.abbrev)}">${favorites.has(team.abbrev) ? '★' : '☆'}</button>
     <b class="tot">${started(game) ? ls.totals[side] : ''}</b>
   </div>`;
 }
 
-// Horns only matter while a game is on (or being replayed in the simulator), so finished games have none.
-const horns = (game) => (game.status.state === 'final' ? '' : hornToggles(game));
 
 function gameHtml(game) {
   const tc = teamColors(game, { dark: true });
@@ -350,7 +356,7 @@ function gameHtml(game) {
     ${statLines(game, tc)}
     ${predictionLine(game, tc)}
     ${goals}
-    <div class="cd-foot"><span class="videos">${links}</span>${hasBox ? `<a class="cg-box" href="game.html?id=${game.id}" aria-label="View game: ${esc(game.away.abbrev)} at ${esc(game.home.abbrev)}">View Game ›</a>` : ''}${horns(game)}</div>
+    <div class="cd-foot"><span class="videos">${links}</span>${hasBox ? `<a class="cg-box" href="game.html?id=${game.id}" aria-label="View game: ${esc(game.away.abbrev)} at ${esc(game.home.abbrev)}">View Game ›</a>` : ''}</div>
   </article>`;
 }
 
