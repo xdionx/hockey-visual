@@ -320,8 +320,41 @@ const MAX_MS = 150000; // safety cap if the horn never reports that it ended (lo
 const word = (s) => String(s ?? '').toUpperCase();
 const LIGHT = '<svg viewBox="0 0 100 130" aria-hidden="true"><ellipse class="halo" cx="50" cy="52" rx="42" ry="46"/><rect x="16" y="104" width="68" height="18" rx="4" fill="#3b4558"/><rect x="24" y="92" width="52" height="14" rx="3" fill="#59647a"/><path class="dome" d="M22 92V52a28 28 0 0 1 56 0v40z"/><g stroke="#cfd6e4" stroke-width="2.5" fill="none" opacity=".8"><path d="M22 92V52a28 28 0 0 1 56 0v40"/><path d="M36 92V30M50 92V24M64 92V30"/><path d="M24 70h52M26 50h48"/></g></svg>';
 
+// A tiny silent clip, played muted on the reader's first tap or key press, to win the browser's permission.
+const SILENCE = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=';
+let hornEl = null;
+function hornAudio() {
+  if (!hornEl) { hornEl = new Audio(); hornEl.preload = 'auto'; hornEl.setAttribute('playsinline', ''); }
+  return hornEl;
+}
+let primed = false;
+function primeHorn() {
+  if (primed || audio) return;
+  primed = true;
+  const el = hornAudio();
+  el.muted = true; el.src = SILENCE;
+  el.play().then(() => { if (audio !== el) el.pause(); }).catch(() => { primed = false; });
+}
+// Any tap or key press on the page counts, so horns work in the background even after a reload.
+for (const ev of ['pointerdown', 'keydown', 'touchend']) document.addEventListener(ev, primeHorn, { capture: true, passive: true });
+
+// While the tab is in the background, a goal also shows in the tab's title, until the reader comes back.
+let badge = '';
+const awayGoals = []; // goals while hidden
+function setBadge(text) {
+  badge = text;
+  const base = document.title.replace(/^🚨 [^·]*· /, '');
+  document.title = badge ? `🚨 ${badge} · ${base}` : base;
+}
+// Pages retitle themselves on redraw: keep the badge in front.
+try {
+  new MutationObserver(() => { if (badge && !document.title.startsWith('🚨 ')) setBadge(badge); })
+    .observe(document.querySelector('title') ?? document.head, { childList: true, characterData: true, subtree: true });
+} catch { /* ignore */ }
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && badge) { awayGoals.length = 0; setBadge(''); } });
+
 function hideAlert() {
-  if (audio) { audio.pause(); audio = null; }
+  if (audio) { audio.pause(); audio.onended = audio.onerror = null; audio = null; }
   clearTimeout(alertTimer);
   document.getElementById('goal-flash')?.remove();
 }
@@ -342,17 +375,22 @@ function show(a) {
     <div class="ga-ctl">${more ? `<span class="ga-q">+${more} more goal${more > 1 ? 's' : ''} queued</span>` : ''}<button type="button" class="ga-btn" data-ga="skip">${more ? 'Skip' : 'Dismiss'}</button>${more ? '<button type="button" class="ga-btn stop" data-ga="stop">Stop all</button>' : ''}</div>`;
   document.body.append(el);
   // The alert stays up for the whole horn and ends when the MP3 does (or when the reader skips).
-  const me = new Audio(new URL(`audio/horns/${a.abbrev}.mp3`, document.baseURI).href);
+  // One <audio> element, started by an earlier tap, is reused for every horn: Safari only lets an element
+  // the reader has already started play later on its own, which a background tab needs.
+  const me = hornAudio();
+  me.muted = false;
+  me.src = new URL(`audio/horns/${a.abbrev}.mp3`, document.baseURI).href;
   audio = me;
   const done = () => { if (audio === me) skip(); };
   const short = () => { if (audio !== me) return; clearTimeout(alertTimer); alertTimer = setTimeout(done, ALERT_MS); };
-  me.addEventListener('ended', done);
-  me.addEventListener('error', short);
+  me.onended = done;
+  me.onerror = short;
   alertTimer = setTimeout(done, MAX_MS);
   me.play().catch(short); // blocked until the reader has tapped a horn toggle once: fall back to a short alert
 }
 function next() { const a = queue.shift(); if (a) show(a); }
 function play(a) {
+  if (document.hidden) { awayGoals.push(a.abbrev); setBadge(awayGoals.length === 1 ? `${a.abbrev} goal` : `${awayGoals.length} goals`); }
   const busy = document.getElementById('goal-flash');
   queue.push(a);
   if (busy) { // keep the queue counter on screen current
@@ -372,7 +410,7 @@ document.addEventListener('click', (e) => {
   const on = !hornOn(id, a);
   store(KEY(id, a), on ? '1' : null);
   // Tapping is the browser's permission to play sound later: unlock audio now.
-  if (on) { const u = new Audio(); u.muted = true; u.play().catch(() => {}); } else stopAll();
+  if (on) primeHorn(); else stopAll();
   document.querySelectorAll(`[data-horn-game="${id}"][data-horn-team="${a}"]`).forEach((x) => {
     x.classList.toggle('on', on);
     x.setAttribute('aria-pressed', String(on));
