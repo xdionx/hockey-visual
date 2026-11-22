@@ -40,13 +40,15 @@ tg = tg.merge(opp, on=['season', 'game'])
 tg = tg[tg.team != tg.opp_t]
 tg['rate'] = tg.season.map(rate)
 tg['chance'] = (tg.xg - tg.oxg) * tg.rate          # shot quality edge, in average-shooter goals
-tg['fin'] = tg.gva - tg.ogva                         # finishing edge
-tg['goalie'] = tg.gsaa_all - tg.ogsaa                # goaltending edge
+# Our shooters vs their goalie, and their shooters vs our goalie. (Our goalie's saves vs avg is the
+# opponent's goals vs avg turned around, so goalie and the other side's finishing are one number.)
+tg['fin'] = tg.gva                                   # our shooters: goals vs average shooter
+tg['goalie'] = -tg.ogva                              # our goalie: goals saved vs average
 tg['mom'] = tg.tn / (tg.tn + tg.otn)                 # momentum share, goals left out
 dec = tg[tg.gf != tg.ga]
 reg = dec[dec.end == 'REG']
 say(f'{dec.game.nunique()} games')
-for k, lab in [('mom', 'Won momentum (share > 50%)'), ('chance', 'Better chances (more expected goals)'), ('fin', 'Better finishing'), ('goalie', 'Better goaltending')]:
+for k, lab in [('mom', 'Won momentum (share > 50%)'), ('chance', 'Better chances (more expected goals)'), ('fin', 'Shooters beat average (goals vs avg > 0)'), ('goalie', 'Goalie beat average (saved more than avg)')]:
     thr = 0.5 if k == 'mom' else 0
     w = dec[dec[k] > thr]
     say(f'  {lab}: won {w.won.mean():.1%} of {len(w)} team-games')

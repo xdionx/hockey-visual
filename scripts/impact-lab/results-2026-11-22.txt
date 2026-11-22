@@ -3,12 +3,12 @@
 6932 games
   Won momentum (share > 50%): won 57.3% of 6920 team-games
   Better chances (more expected goals): won 56.8% of 6911 team-games
-  Better finishing: won 84.0% of 6932 team-games
-  Better goaltending: won 84.0% of 6932 team-games
-  Regulation winners, biggest piece of their goal edge: {'fin': 0.422, 'goalie': 0.343, 'chance': 0.235}
-  Winners who lost the momentum battle: 42.7%; of those, carried by finishing 53.8%, goaltending 44.6%
+  Shooters beat average (goals vs avg > 0): won 73.2% of 6653 team-games
+  Goalie beat average (saved more than avg): won 71.4% of 7211 team-games
+  Regulation winners, biggest piece of their goal edge: {'fin': 0.407, 'goalie': 0.4, 'chance': 0.192}
+  Winners who lost the momentum battle: 42.7%; of those, carried by finishing 45.4%, goaltending 53.9%
   win ~ mom: acc 57.3%
-  win ~ mom+fin: acc 94.8%
+  win ~ mom+fin: acc 75.5%
   win ~ mom+fin+goalie: acc 94.8%
   win ~ chance+fin+goalie: acc 96.0%
 
