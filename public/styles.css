@@ -344,3 +344,5 @@ main { padding-left: 20px; padding-right: 20px; }
 .gc-play { width: 30px; height: 30px; border-radius: 50%; background: var(--accent); color: #fff; display: grid; place-items: center; transition: transform .12s, filter .12s; }
 .gc-play svg { margin-left: 1px; }
 a.gc:hover .gc-play, a.gc:focus-visible .gc-play { transform: scale(1.08); filter: brightness(1.15); }
+/* Data delay for video/audio: the card says when its data is held back */
+.status .dly { display: inline-block; margin-right: 8px; padding: 1px 7px; border-radius: 999px; background: #f59e0b; color: #111; font: 700 11px Inter, sans-serif; letter-spacing: 0; text-transform: none; }
