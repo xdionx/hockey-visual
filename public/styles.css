@@ -171,6 +171,9 @@ main.compact { grid-template-columns: repeat(auto-fill, minmax(min(100%, 440px),
 .tb .nm { flex: 1; min-width: 0; font: 800 22px/1 "Barlow Condensed", sans-serif; letter-spacing: .03em; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tb .nm small { display: block; margin-top: 3px; font: 500 12px Inter, sans-serif; letter-spacing: 0; text-transform: none; color: #aab4c5; }
 .tb .tot { font: 800 34px/1 "Barlow Condensed", sans-serif; font-variant-numeric: tabular-nums; }
+.tb .fav { flex: none; width: 30px; height: 30px; border: 0; border-radius: 50%; background: transparent; color: #6b7689; font-size: 18px; line-height: 1; cursor: pointer; }
+.tb .fav:hover, .tb .fav:focus-visible { color: #e8edf5; background: rgba(255,255,255,.06); }
+.tb .fav.on { color: #fbbf24; }
 .tb.loser .nm, .tb.loser .tot { color: #aab4c5; }
 .tb.home { flex-direction: row-reverse; }
 .tb.home .nm { text-align: right; }
@@ -225,6 +228,9 @@ main.compact { grid-template-columns: repeat(auto-fill, minmax(min(100%, 640px),
 .cd .tb.home { flex-direction: row; }
 .cd .tb.home .nm { text-align: left; }
 .cd .sxs { margin-top: 10px; }
+.pred { margin-top: 10px; display: grid; gap: 4px; }
+.pred small { font: 500 11px/1.35 Inter, sans-serif; color: #aab4c5; }
+.pred strong { color: #e8edf5; }
 .cd .gts { margin-top: 10px; }
 .cd .no-goals { margin: 10px 0 0; }
 .cd-foot { margin-top: 10px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }

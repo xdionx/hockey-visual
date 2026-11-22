@@ -4,6 +4,7 @@ import { getData, getStatic } from '../data.js';
 import { perGame, rankOf, seasonOf, minGames } from '../src/seasonStats.js';
 
 const players = new Map();
+const FIN_MIN_XG = 3;
 const seasons = new Map();
 
 export function loadPlayer(id) {
@@ -30,6 +31,8 @@ export function ourStats(total, id) {
     ...avg,
     satRank: row.p === 'G' ? null : rankOf(total, id, 'satPerGame', opts),
     momRank: row.p === 'G' ? null : rankOf(total, id, 'momPerGame', opts),
+    // Finishing is noisy on few chances: rank only among skaters with a few expected goals.
+    finRank: row.p === 'G' || avg?.finPct == null || (row.xg ?? 0) < FIN_MIN_XG ? null : rankOf(total, id, 'finPct', { ...opts, minXg: FIN_MIN_XG }),
     minGp: opts.minGp,
     games: total.games,
     complete: !!total.complete,
@@ -48,6 +51,7 @@ export const fmt = {
     const v = n % 100;
     return `${n}${s[(v - 20) % 10] || s[v] || s[0]}`;
   },
+  fin: (n) => (n == null ? '-' : `${n}%`),
   season: (s) => `${String(s).slice(0, 4)}-${String(s).slice(6, 8)}`,
   height: (inches) => (inches ? `${Math.floor(inches / 12)}'${inches % 12}"` : null),
   age: (birth) => {
