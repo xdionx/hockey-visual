@@ -174,7 +174,7 @@ function unfolded(game, final) {
   return { points, penalty, periods };
 }
 
-/** Who owned play over time. Shot attempts are only part of it: momentum also counts faceoffs, takeaways, power plays and more. */
+/** Who owned play over time. Shot attempts are only part of it: momentum also weighs shot location, penalties and power plays. */
 function control(game, final) {
   const m = game.momentum;
   const shots = shotSummary(game);
