@@ -235,6 +235,8 @@ main { padding: 0 0 48px; }
 .a-seg { display: flex; background: #0a0e17; border: 1px solid var(--a-line); border-radius: 6px; padding: 2px; }
 .a-seg button { border: 0; background: none; color: var(--a-mute); padding: 3px 9px; border-radius: 4px; font-size: 12px; cursor: pointer; font-family: "JetBrains Mono", monospace; }
 .a-seg button[aria-pressed="true"] { background: #1e293b; color: var(--a-ink); }
+.a-heat[data-team="away"] tbody tr:not([data-side="away"]), .a-heat[data-team="home"] tbody tr:not([data-side="home"]),
+.a-heat[data-pos="F"] tbody tr:not([data-pos="F"]), .a-heat[data-pos="D"] tbody tr:not([data-pos="D"]) { display: none; }
 .a-rinkwrap { position: relative; padding-top: 18px; }
 .a-att { position: absolute; top: 0; left: 4px; font-size: 11px; font-weight: 600; z-index: 1; }
 .a-att.r { left: auto; right: 4px; }
