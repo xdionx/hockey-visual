@@ -54,12 +54,12 @@ function body(id, p, ours, season) {
       tile('PIM', now?.pim ?? '-'), tile('TOI/GP', fmt.toi(now?.toiPerGame ?? ours?.toiPerGame)),
       tile('SAT/GP', fmt.dec(ours?.satPerGame), rankBit(ours?.satRank), 'pq-ours'),
       tile('MOM/GP', fmt.signed(ours?.momPerGame, 1), rankBit(ours?.momRank), 'pq-ours'),
-      ...(ours?.finPct != null ? [tile('FIN%', fmt.fin(ours.finPct), rankBit(ours.finRank), 'pq-ours')] : []),
+      ...(ours?.gaa != null ? [tile('Goals vs avg', fmt.signed(ours.gaa, 1), rankBit(ours.finRank), 'pq-ours')] : []),
     ];
   }
   const sub = [p?.number != null ? `#${p.number}` : null, positionName(p?.position ?? ours?.row?.p), p?.teamName ?? team].filter(Boolean).join(' · ');
   const note = goalie ? '' : ours
-    ? `SAT, MOM and FIN% (goals per expected goal, 100% = average) come from our own play-by-play model, across ${ours.gp} of ${ours.games} finished games this season. Ranks are among skaters with ${ours.minGp}+ games.`
+    ? `SAT, MOM and Goals vs avg (goals scored minus what an average shooter would score from the same shots) come from our own play-by-play model, across ${ours.gp} of ${ours.games} finished games this season. Ranks are among skaters with ${ours.minGp}+ games.`
     : 'No SAT or momentum yet: this player hasn\'t played a finished game this season.';
   return `
     <div class="pq-head" style="--team:${color}">

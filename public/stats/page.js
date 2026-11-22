@@ -161,7 +161,7 @@ function teamsCard(m) {
     <td data-v="${t.ptsPct}"><b>${pct(t.ptsPct)}</b></td><td data-v="${t.gdPerGame}">${fmt.signed(t.gdPerGame, 2)}</td>
     <td class="pc-o" data-v="${t.ngShare ?? ''}">${pct(t.ngShare)}</td><td class="pc-o" data-v="${t.momShare}">${pct(t.momShare)}</td>
     <td data-v="${t.satShare}">${pct(t.satShare)}</td><td data-v="${t.momPerGame}" class="pc-o ${t.momPerGame >= 0 ? 'up' : 'down'}">${fmt.signed(t.momPerGame, 1)}</td>
-    <td data-v="${t.finPct ?? ''}">${fmt.fin(t.finPct)}</td></tr>`).join('');
+    <td class="${t.gaa > 0 ? 'up' : t.gaa < 0 ? 'down' : ''}" data-v="${t.gaa ?? ''}">${fmt.signed(t.gaa, 1)}</td></tr>`).join('');
   return card('Teams', 'momentum share against the standings', `
     <div class="ms-toggle" role="group" aria-label="Chart">
       <button type="button" data-x="ngShare" aria-pressed="true">Momentum, no goals <small>r ${r2(m.fit.ng)}</small></button>
@@ -171,7 +171,7 @@ function teamsCard(m) {
     <div class="ms-scatter">${scatter(m.teams, 'ngShare')}</div>
     <p class="pq-note">Each dot is a team. The closer the dots hug the line, the better that number explains who is winning.</p>
     <div class="pc-scroll"><table class="pc-table sortable"><thead><tr><th class="l" data-sort>Team</th><th data-sort>GP</th><th class="l">W-L-OTL</th><th data-sort data-dir="desc">Pts %</th><th data-sort title="Goal differential per game">GD/GP</th>
-      <th class="pc-o" data-sort title="Share of the momentum both teams built, goals left out">MOM% no goals</th><th class="pc-o" data-sort title="Share of all momentum, goals included">MOM%</th><th data-sort title="Share of shot attempts (Corsi for %)">SAT%</th><th class="pc-o" data-sort title="Momentum built minus momentum given up, per game">MOM +/− /GP</th><th data-sort title="Finishing: goals on a goalie per expected goal (100% = average). Not part of momentum.">FIN%</th></tr></thead>
+      <th class="pc-o" data-sort title="Share of the momentum both teams built, goals left out">MOM% no goals</th><th class="pc-o" data-sort title="Share of all momentum, goals included">MOM%</th><th data-sort title="Share of shot attempts (Corsi for %)">SAT%</th><th class="pc-o" data-sort title="Momentum built minus momentum given up, per game">MOM +/− /GP</th><th data-sort title="Finishing: goals scored minus what average NHL shooters would score from the same shots. Not part of momentum.">Goals vs avg</th></tr></thead>
       <tbody>${rows}</tbody></table></div>`, 'ms-teams');
 }
 
@@ -209,55 +209,50 @@ function playersCard(total, pos, showAll) {
     <p class="pq-note">Click a name for the player card. Minimum games is a quarter of the most games anyone has played this season.${has60 ? '' : ' Per-60 numbers need time on ice, which seasons rebuilt from the play-by-play don\'t have.'}</p>`, 'ms-players-card');
 }
 
-// Finishing: goals scored on a goalie against our expected goals (src/xg.js). Its own stat, not part of momentum.
+// Finishing: goals scored against what an average NHL shooter would score from the same shots (our xG,
+// scaled to the league's real scoring that season). Its own stat, not part of momentum.
 const FIN_MIN_XG = 3;
+const NO_FIN = '<p class="pq-note">No finishing numbers in this season file yet. They fill in on the next data refresh.</p>';
 
-/** FIN% against the league's own average that season, as "+31%" (our xG runs a little low, so raw FIN% sits above 100%). */
-function vsAvg(fin, league) {
-  if (fin == null || !league?.pct) return '<td class="pc-na">-</td>';
-  const d = Math.round((100 * fin) / league.pct) - 100;
-  return `<td class="pc-o ${d > 0 ? 'up' : d < 0 ? 'down' : ''}" data-v="${d}">${d > 0 ? '+' : d < 0 ? '−' : ''}${Math.abs(d)}%</td>`;
+function gaaCell(v, d = 1, strong = false) {
+  const txt = fmt.signed(v, d);
+  return `<td class="pc-o ${v > 0 ? 'up' : v < 0 ? 'down' : ''}" data-v="${v ?? ''}">${strong ? `<b>${txt}</b>` : txt}</td>`;
 }
 
-function finCell(v, d = 2) {
-  return `<td class="${v > 0 ? 'up' : v < 0 ? 'down' : ''}" data-v="${v ?? ''}">${fmt.signed(v, d)}</td>`;
-}
-
-function finPlayers(total, league, pos, showAll) {
+function finPlayers(total, pos, showAll) {
   const minGp = minGames(total);
-  const board = leaderboard(total, 'finPct', { pos, minGp, minXg: FIN_MIN_XG });
-  if (!board.length) return '<p class="pq-note">No finishing numbers in this season file yet. They fill in on the next data refresh.</p>';
+  const board = leaderboard(total, 'gaa', { pos, minGp, minXg: FIN_MIN_XG });
+  if (!board.length) return NO_FIN;
   const shown = showAll ? board : board.slice(0, 50);
   const rows = shown.map((r) => `<tr><td data-v="${r.rank}">${r.rank}</td><td class="l">${playerLink(r.id, r.n)}</td><td class="l">${esc(r.t)}</td><td class="l">${esc(r.p)}</td><td>${r.gp}</td>
-    <td>${r.sog}</td><td data-v="${r.xgg ?? 0}">${r.xgg ?? 0}</td><td data-v="${r.xg}">${fmt.dec(r.xg, 2)}</td>${finCell(r.gax)}<td class="pc-o" data-v="${r.finPct}"><b>${fmt.fin(r.finPct)}</b></td>${vsAvg(r.finPct, league)}</tr>`).join('');
+    <td>${r.sog}</td><td data-v="${r.xgg ?? 0}">${r.xgg ?? 0}</td><td data-v="${r.shPct ?? ''}">${pct(r.shPct)}</td><td data-v="${r.xShPct ?? ''}">${pct(r.xShPct)}</td>${gaaCell(r.gaa, 1, true)}</tr>`).join('');
   const filter = [[null, 'All skaters'], ['F', 'Forwards'], ['D', 'Defense']].map(([p, l]) => `<button type="button" data-finpos="${p ?? ''}" aria-pressed="${p === pos}">${l}</button>`).join('');
   return `<div class="ms-toggle" role="group" aria-label="Position">${filter}</div>
     <div class="pc-scroll"><table class="pc-table sortable ms-players"><thead><tr><th data-sort>#</th><th class="l" data-sort>Player</th><th class="l" data-sort>Team</th><th class="l">Pos</th><th data-sort>GP</th>
-      <th data-sort title="Shots on goal">SOG</th><th data-sort title="Goals scored with a goalie in net (empty-net goals left out)">G</th><th data-sort title="Expected goals from the player's shots on a goalie">xG</th><th data-sort title="Goals minus expected goals">G−xG</th><th class="pc-o" data-sort data-dir="desc" title="Goals per expected goal">FIN%</th><th class="pc-o" data-sort title="FIN% compared with the league average this season">vs avg</th></tr></thead>
+      <th data-sort title="Shots on goal">Shots</th><th data-sort title="Goals scored with a goalie in net (empty-net goals left out)">Goals</th><th data-sort title="Share of shots on goal that went in">Shooting %</th><th data-sort title="What an average NHL shooter would shoot from the same shots (same distance, angle and shot type) this season">Avg shooter %</th><th class="pc-o" data-sort data-dir="desc" title="Goals scored minus what an average NHL shooter would score from the same shots">Goals vs avg</th></tr></thead>
       <tbody>${rows}</tbody></table></div>
     ${board.length > shown.length ? `<button type="button" class="ms-more" data-finmore>Show all ${board.length}</button>` : ''}
-    <p class="pq-note">${board.length} skaters with ${minGp}+ games and at least ${FIN_MIN_XG} expected goals (fewer chances than that is mostly luck).</p>`;
+    <p class="pq-note">${board.length} skaters with ${minGp}+ games and enough good chances to judge (about 3 goals' worth).</p>`;
 }
 
 function finTeams(m) {
-  const teams = m.teams.filter((t) => t.finPct != null).sort((a, b) => b.finPct - a.finPct);
-  if (!teams.length) return '<p class="pq-note">No finishing numbers in this season file yet. They fill in on the next data refresh.</p>';
+  const teams = m.teams.filter((t) => t.gaa != null).sort((a, b) => b.gaa - a.gaa);
+  if (!teams.length) return NO_FIN;
   const rows = teams.map((t) => `<tr style="--team:${teamColor(t.abbrev)}"><td class="l ms-team">${esc(t.abbrev)}</td><td>${t.gp}</td><td data-v="${t.ptsPct}">${pct(t.ptsPct)}</td>
-    <td data-v="${t.finGoals}">${t.finGoals}</td><td data-v="${t.finXg}">${fmt.dec(t.finXg, 1)}</td>${finCell(t.finGax, 1)}${finCell(t.finGaxPerGame)}<td class="pc-o" data-v="${t.finPct}"><b>${fmt.fin(t.finPct)}</b></td>${vsAvg(t.finPct, m.finLeague)}</tr>`).join('');
+    <td>${t.finSog}</td><td>${t.finGoals}</td><td data-v="${t.shPct ?? ''}">${pct(t.shPct)}</td><td data-v="${t.xShPct ?? ''}">${pct(t.xShPct)}</td>${gaaCell(t.gaa, 1, true)}${gaaCell(t.gaaPerGame, 2)}</tr>`).join('');
   return `<div class="pc-scroll"><table class="pc-table sortable"><thead><tr><th class="l" data-sort>Team</th><th data-sort>GP</th><th data-sort>Pts %</th>
-      <th data-sort title="Goals scored with a goalie in net (empty-net goals and shootouts left out)">G</th><th data-sort title="Expected goals from the team's shots on a goalie">xG</th><th data-sort title="Goals minus expected goals">G−xG</th><th data-sort title="Goals minus expected goals, per game">G−xG /GP</th><th class="pc-o" data-sort data-dir="desc" title="Goals per expected goal">FIN%</th><th class="pc-o" data-sort title="FIN% compared with the league average this season">vs avg</th></tr></thead>
+      <th data-sort title="Shots on goal with a goalie in net">Shots</th><th data-sort title="Goals scored with a goalie in net (empty-net goals and shootouts left out)">Goals</th><th data-sort title="Share of shots on goal that went in">Shooting %</th><th data-sort title="What average NHL shooters would shoot from the same shots this season">Avg shooter %</th><th class="pc-o" data-sort data-dir="desc" title="Goals scored minus what average NHL shooters would score from the same shots">Goals vs avg</th><th class="pc-o" data-sort title="Goals vs average, per game">Per game</th></tr></thead>
       <tbody>${rows}</tbody></table></div>
-    <p class="pq-note">Team FIN% against points %: r ${r2(m.fit.fin)}.${m.finSource === 'players' ? ' This season was saved before game rows carried team expected goals, so team totals add up every skater\'s season under the player\'s latest team (a traded player counts fully for the new team). Exact numbers arrive when the season is next rebuilt.' : ''}</p>`;
+    <p class="pq-note">Goals vs average per game against points %: r ${r2(m.fit.fin)}.${m.finSource === 'players' ? ' This season was saved before game rows carried team shots, so team totals add up every skater\'s season under the player\'s latest team (a traded player counts fully for the new team).' : ''}</p>`;
 }
 
 function finishingCard(total, m, view, pos, showAll) {
-  const lg = m.finLeague;
   const tabs = [['players', 'Players'], ['teams', 'Teams']].map(([k, l]) => `<button type="button" data-fin="${k}" aria-pressed="${k === view}">${l}</button>`).join('');
-  return card('Finishing', 'goals against expected goals', `
-    <p class="ms-lede">Who scores more than their chances say they should. <b>FIN%</b> is goals scored on a goalie per expected goal from the shots taken (distance, angle, shot type). <b>vs avg</b> compares it with the whole league that season${lg ? ` (<b>${lg.pct}%</b>: ${lg.goals.toLocaleString()} goals on ${Math.round(lg.xg).toLocaleString()} expected)` : ''}, so +20% means 20% more goals than a typical shooter gets from the same shots. It is its own stat and doesn't count toward momentum.</p>
+  return card('Finishing', 'who buries their chances', `
+    <p class="ms-lede">Some shots are far easier to score on than others: a tip at the side of the net goes in much more often than a slap shot from the point. <b>Avg shooter %</b> is how often an average NHL shooter scores from the same shots (same spots, same kinds of shot) this season. <b>Shooting %</b> is how often this shooter actually scored. <b>Goals vs avg</b> turns the gap into goals: +8 means 8 more goals than an average shooter would have scored. It's its own stat and isn't part of momentum.</p>
     <div class="ms-toggle" role="group" aria-label="Finishing view">${tabs}</div>
-    ${view === 'teams' ? finTeams(m) : finPlayers(total, lg, pos, showAll)}
-    <p class="pq-note">Expected goals (xG) are our own estimate from shot location and type, not an official NHL stat. It runs a little low (it can't see rebounds, rushes or passes before the shot), which is why the league itself finishes above 100%. Finishing is a real skill but a noisy one: about a third of a player's hot or cold year carries into the next.</p>`, 'ms-fin-card');
+    ${view === 'teams' ? finTeams(m) : finPlayers(total, pos, showAll)}
+    <p class="pq-note">Shot quality is our own estimate from shot location and type, scaled so the league as a whole comes out exactly average each season. Finishing is a real skill but a streaky one: about a third of a hot or cold year carries into the next.</p>`, 'ms-fin-card');
 }
 
 /** League view across every season we have: win % per season (line chart) plus a table. */
