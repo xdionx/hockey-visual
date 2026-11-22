@@ -332,6 +332,7 @@ main { padding-left: 20px; padding-right: 20px; }
 .edges li { font: 500 13px/1.4 Inter, sans-serif; color: #e8edf5; }
 .edges p { margin: 6px 0 0; font: 500 11px/1.4 Inter, sans-serif; color: #aab4c5; }
 .cd .pr-bars .sx:nth-child(2) .bar { opacity: 1; }
-.lu-alert { margin: 0; padding: 6px 10px; border-radius: 8px; background: rgba(255, 176, 32, .12); border: 1px solid rgba(255, 176, 32, .35); color: #ffcf70; font: 600 12px/1.4 Inter, sans-serif; }
-.lu-alert small { display: block; font-weight: 500; font-size: 10px; color: #c9a45a; }
+.lu-alert { margin: 0; padding: 4px 8px; border-left: 3px solid #ffb020; border-radius: 4px; background: rgba(255, 176, 32, .1); color: #ffcf70; font: 600 12px/1.35 Inter, sans-serif; }
+.lu-alert small { margin-left: 6px; font-weight: 500; font-size: 10px; color: #c9a45a; white-space: nowrap; }
+@media (max-width: 480px) { .lu-alert small { display: block; margin: 1px 0 0; white-space: normal; } }
 .pred-why .muted { color: #6f7a8d; }
