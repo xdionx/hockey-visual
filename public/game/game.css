@@ -975,5 +975,5 @@ main { padding: 0 0 48px; }
 .hw-tier p { margin: 4px 0; color: #cbd5e1; line-height: 1.45; }
 .hw-up, .hw-dn { display: inline-block; margin-right: 6px; padding: 0 6px; border-radius: 3px; font-weight: 700; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
 .hw-up { background: color-mix(in srgb, #22c55e 22%, transparent); color: #4ade80; }
-.hw-dn { background: color-mix(in srgb, #ef4444 22%, transparent); color: #f87171; }
+.hw-dn { background: rgba(141, 152, 171, .16); color: #aab4c5; }
 @media (max-width: 640px) { .hw-tiers { grid-template-columns: 1fr; } }
