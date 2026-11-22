@@ -103,12 +103,13 @@ export function finishTile(p) {
   if (p.xg == null) return '';
   const goals = p.xgGoals ?? 0;
   if (!goals && p.xg < 0.005) return '';
-  const diff = goals - p.xg;
+  const avg = p.avgGoals ?? p.xg;
+  const diff = p.gaa ?? goals - avg;
   const sign = diff > 0.005 ? '+' : diff < -0.005 ? '−' : '';
-  const cls = p.finPct == null ? '' : p.finPct > 100 ? ' up' : p.finPct < 100 ? ' down' : '';
-  return scTile(`s-fin${cls}`, 'Finishing', p.finPct != null ? `${p.finPct}%` : '-',
-    `${goals} G on ${p.xg.toFixed(2)} xG (${sign}${Math.abs(diff).toFixed(2)})`,
-    "Finishing: goals scored on a goalie per expected goal from this player's shots (distance, angle, shot type). 100% = an average finisher. One game is a tiny sample.");
+  const cls = diff > 0.005 ? ' up' : diff < -0.005 ? ' down' : '';
+  return scTile(`s-fin${cls}`, 'Goals vs avg', `${sign}${Math.abs(diff).toFixed(2)}`,
+    `${goals} G on ${p.sog ?? 0} shot${p.sog === 1 ? "" : "s"}, avg shooter ${avg.toFixed(2)}`,
+    "Finishing: goals scored on a goalie minus what an average NHL shooter would score from the same shots (same distance, angle and shot type). One game is a tiny sample.");
 }
 
 /** Weighted shot attempts for and against while on the ice, as a share with a small bar. */
@@ -186,7 +187,7 @@ function playerRow(game, p, c, scale, rank) {
   const fo = g ? null : faceoffLine(p);
   const stats = g
     ? [[p.saves, 'SV'], [p.goalsAgainst, 'GA'], [pct(p.savePct), 'SV%'], [esc(p.toi), 'TOI']]
-    : [[p.goals, 'G'], [p.assists, 'A'], [p.sog, 'SOG'], ...(p.xg != null ? [[p.xg.toFixed(1), 'xG']] : []), [signed(p.plusMinus), '+/-'], [fo ? fo.won + '/' + fo.total : '', 'FO'], [esc(p.toi), 'TOI']];
+    : [[p.goals, 'G'], [p.assists, 'A'], [p.sog, 'SOG'], ...(p.xg != null ? [[(p.avgGoals ?? p.xg).toFixed(1), 'xG']] : []), [signed(p.plusMinus), '+/-'], [fo ? fo.won + '/' + fo.total : '', 'FO'], [esc(p.toi), 'TOI']];
   const sub = `#${p.number ?? ''} · ${esc(p.position)}${g && p.decision ? ` · ${esc(p.decision)}` : ''}`;
   const detail = g ? goalieCard(p, c) : skaterCard(game, p, c, scale);
   return `<details class="pr${g ? ' goalie' : ''}" data-pid="${p.id}" style="--team:${c[p.side]}"${openRows.has(p.id) ? ' open' : ''}>
@@ -238,7 +239,7 @@ export function scorecardKey() {
         <div><b>Rating</b> starts at 6.0 for a quiet game and moves 1.5 per point of game score. It is not capped: past 9.0 (or below 4.0) each extra point counts only 0.4, so a great night can read over 10 and a terrible one under 3, but it takes a lot to get there. ${['#dc2626', '#ea580c', '#ca8a04', '#65a30d', '#16a34a', '#2563eb'].map((x) => `<i style="background:${x}"></i>`).join('')}</div>
         <div><b>Game score</b> adds up what a player did: ${GS_PARTS.map(([k, l]) => `<span><i style="background:${PART_COLORS[k]}"></i>${esc(l)}</span>`).join('')}. Goalies: +0.1 per save, -0.75 per goal against.</div>
         <div><b>Goals that matter</b> earn a bonus on top of their normal value: +0.25 for a goal that ties the game or puts the team ahead, and +0.35 for the go-ahead goal that turns out to be the game winner (that one counts once, not twice). Assists get 40% (primary) or 20% (secondary) of it. A player who scores several tying or go-ahead goals gets the bonus every time. These goals also count 1.25x in momentum, and the opening goal 1.5x.</div>
-        <div><b>Momentum (MOM)</b> credits each player for the plays that pushed momentum their team's way: shots on goal (3x from the home plate area), goals and assists, blocks and drawn penalties, minus penalties taken. Faceoffs, hits, takeaways and giveaways stay in the box score but don't count toward momentum: over 6 seasons they added nothing to predicting wins, and rinks record them very differently. A penalty taken costs the player the momentum the other team gained from it, including the whole power play and 1.5 more if it scored. A penalty drawn earns the player that momentum: 1.0, the power play pressure, and 0.75 more if it scored. Penalties also move game score by a flat amount, +0.15 drawn and -0.15 taken, whether or not the power play scores (that part is mostly luck; momentum covers it). A <b>swing play</b> came while the team was behind on momentum and counts 1.5x. <b>Finishing</b> compares a skater's goals on a goalie with the expected goals (xG) from his shots: 100% is an average finisher, above 100% means he beat the odds. <b>Goalies</b> get expected save % (xSV%) from where, and how, each shot came: close, central and tipped shots are likelier goals. <b>GSAx</b> is goals saved above expected (positive means the goalie stopped more than an average goalie would have) and feeds the goalie's game score. These expected-goals numbers are our own estimate from shot distance, angle and type, not an official NHL stat. The <b>momentum bar</b> under game score splits MOM into what the player gained (green) and lost (red), with the biggest reasons for each.</div>
+        <div><b>Momentum (MOM)</b> credits each player for the plays that pushed momentum their team's way: shots on goal (3x from the home plate area), goals and assists, blocks and drawn penalties, minus penalties taken. Faceoffs, hits, takeaways and giveaways stay in the box score but don't count toward momentum: over 6 seasons they added nothing to predicting wins, and rinks record them very differently. A penalty taken costs the player the momentum the other team gained from it, including the whole power play and 1.5 more if it scored. A penalty drawn earns the player that momentum: 1.0, the power play pressure, and 0.75 more if it scored. Penalties also move game score by a flat amount, +0.15 drawn and -0.15 taken, whether or not the power play scores (that part is mostly luck; momentum covers it). A <b>swing play</b> came while the team was behind on momentum and counts 1.5x. <b>Finishing</b> is a skater's goals on a goalie minus what an average NHL shooter would score from the same shots (same distance, angle and shot type): +0.50 means half a goal more than average. <b>Goalies</b> get expected save % (xSV%) from where, and how, each shot came: close, central and tipped shots are likelier goals. <b>GSAx</b> is goals saved above expected (positive means the goalie stopped more than an average goalie would have) and feeds the goalie's game score. These expected-goals numbers are our own estimate from shot distance, angle and type, not an official NHL stat. The <b>momentum bar</b> under game score splits MOM into what the player gained (green) and lost (red), with the biggest reasons for each.</div>
         <div class="s-muted">Weights follow the public Game Score model. <b>On-ice</b> uses shot attempts for and against while the player was on the ice (on goal 1, missed 0.5, blocked 0.35, and 1.5x from the home plate area in front of the net) plus goals for and against; <b>Shooting</b> adds a bonus for every attempt from home plate; if the NHL's shift data isn't available yet, it falls back to plus/minus.</div>
       </section>`, { cls: 's-fold' });
 }
