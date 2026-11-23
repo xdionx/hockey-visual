@@ -124,7 +124,7 @@ function intro() {
       <li><b>Finishing</b>: goals scored against what average NHL shooters would score from the same shots. Explains records, but swings a lot.</li>
       <li><b>Goaltending</b>: goals an average NHL goalie would allow on the shots faced, minus goals actually allowed.</li>
     </ul>
-    <p>For players, finishing is counted together with <b>playmaking</b>: goals above what an average shooter would score from the same shots, plus assists above an average forward or defenseman (each assist worth about 3/4 of a goal). A player with few goals but plenty of assists isn't flagged as a poor finisher. Team finishing is unchanged, since every goal already has its assists.</p>
+    <p>For players, the finishing part uses the separate <b>Scoring</b> stat, which adds <b>playmaking</b> to finishing: goals above what an average shooter would score from the same shots, plus assists above an average forward or defenseman (each assist worth about 3/4 of a goal). A player with few goals but plenty of assists isn't flagged as a poor finisher. Team finishing is unchanged, since every goal already has its assists.</p>
     <p>Power play, penalty kill and back-to-backs aren't in the season files yet, so they aren't scored here.</p>
   </details></section>`;
 }
