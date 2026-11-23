@@ -4,13 +4,13 @@
 // A version scores every game into the same row as the season files (seasonStats.js GAME_FIELDS):
 // team momentum with goals, without goals, and shot attempts. The checks then ask how well the
 // "no goals" number explains and predicts results, next to shot attempts (SAT).
-import { pushes, MOMENTUM_WEIGHTS, HOME_PLATE_BONUS, inHomePlate, elapsedOf } from './momentum.js';
+import { pushes, MOMENTUM_WEIGHTS, HOME_PLATE_BONUS, plateMult, elapsedOf } from './momentum.js';
 import { shotXg, LEAGUE_GOAL_RATE } from './xg.js';
 import { winRates, teamTable, pearson, predictive } from './momentumModel.js';
 import { contextModel } from './modelContext.js';
 
 const SHOTS = new Set(['goal', 'sog', 'miss', 'block-attempt']);
-const plate = (e, bonus = HOME_PLATE_BONUS) => (inHomePlate(e.x, e.y) ? bonus : 1);
+const plate = (e, bonus = HOME_PLATE_BONUS) => plateMult({ xCoord: e.x, yCoord: e.y }, bonus);
 
 /** Skaters and goalies for one side from situationCode ("1551" = away goalie, away, home, home goalie). */
 function onIce(sit, side) {
@@ -41,7 +41,7 @@ export const VERSIONS = [
   { id: 'v3-xg', weights: V3, name: 'Shot quality (xG)', goalAsShot: true, goalShot: 'xg', value: xgValue(), note: 'Shots are worth their chance of going in (distance, angle, shot type) instead of a flat 1.0 with a home-plate bonus.' },
   { id: 'v3-pp', weights: V3, name: 'v3, power-play shots 0.6x', goalAsShot: true, value: ppShots(0.6), note: 'Power-play shots are easier to get; the penalty drawn already earned the credit.' },
   { id: 'v3-plate3', name: 'v3, home plate 3x', goalAsShot: true, weights: { ...V3, plate: 3 }, note: 'Shots from the home plate area (posts to dots to top of circles) count 3x instead of 1.5x.' },
-  { id: 'v4', name: 'v4 momentum', live: true, goalAsShot: true, weights: { ...V3, ...LEAN, plate: 3 }, note: 'The momentum model on the site today: every MOM number on the site uses it. Goals count as shots, faceoffs, hits, takeaways and giveaways left out, home plate shots 3x. Found by searching weights on 2021-24 and checked on 2024-26, where it beat v3 and SAT in every season.' },
+  { id: 'v4', name: 'v4 momentum', live: true, goalAsShot: true, weights: { ...V3, ...LEAN, plate: 3 }, note: 'The momentum model on the site today (plate shape and area weights updated 2026-11-23, see v6 in the notes: 19 ft wide plate, inner 2x / outer 3.5x, wide shots 0.5x; before that one flat 3x plate to the dots; those shifted standings fit .733 to .765, same-game 55.8% to 57.4% over 2023-26): every MOM number on the site uses it. Goals count as shots, faceoffs, hits, takeaways and giveaways left out, home plate shots 3x. Found by searching weights on 2021-24 and checked on 2024-26, where it beat v3 and SAT in every season.' },
   { id: 'v4-pick', name: 'v4 + goalie + back-to-back (Scores pick)', live: true, goalAsShot: true, weights: { ...V3, ...LEAN, plate: 3 }, context: () => contextModel({ finishing: false }), note: 'What the pre-game pick on the Scores page uses: v4 momentum share, plus the starting goalie\'s goals saved above expected and a back-to-back penalty. Those two only change "Predicts next game"; the other checks match v4.' },
   { id: 'v5', name: 'v5: + shooter finishing (tested, not adopted)', goalAsShot: true, weights: { ...V3, ...LEAN, plate: 3 }, context: contextModel, note: 'v4, plus three things known before puck drop: shots count more for players who have finished above expected so far (shrunk hard toward average), and the next-game prediction adds the starting goalie\'s goals saved above expected and a back-to-back penalty. The goalie and back-to-back parts only affect "Predicts next game". Weights fit on 2021-24; 2024-25 on is the fair test. Not adopted (November 2026): the goalie and back-to-back parts went into the live pick, which predicts the next game a little better without the finishing part; finishing helps standings but is slightly worse on same game and second half, and would count finishing twice now that Goals vs avg is shown on its own.' },
   { id: 'v4-score', name: 'v4, score-adjusted', goalAsShot: true, leaky: true, weights: { ...V3, ...LEAN, plate: 3 }, value: scoreAdjusted(0.1), note: 'v4 with pushes by the leading team counted a little more (10% per goal of lead). Better at prediction, but uses the score, so not fair for the same-game test.' },

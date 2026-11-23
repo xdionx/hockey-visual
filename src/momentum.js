@@ -25,22 +25,46 @@
 import { penaltyKind } from './penalties.js';
 
 /**
- * "Home plate": the most dangerous scoring area. From the goal posts out to the faceoff dots,
- * then straight out to the top of the circles. Works on either end (rink feet, centre ice = 0).
+ * "Home plate": the most dangerous scoring area. From the goal posts (4 ft either side of centre) the
+ * edges run out to PLATE_HALF_WIDTH feet from centre at PLATE_SHOULDER feet from centre ice, then straight
+ * out to the top of the faceoff circles (54 ft). Works on either end (rink feet, centre ice = 0).
+ * Nov 2026 (v6): narrowed from 22 ft (the faceoff dots) to 19 ft each side, which tested slightly better.
  */
 export const HOME_PLATE_BONUS = 1.5;
+export const PLATE_HALF_WIDTH = 19;
+export const PLATE_SHOULDER = 69; // where the angled edges meet the straight sides
+export const PLATE_INNER_X = 79; // inner plate: within 10 ft of the goal line
 export function inHomePlate(x, y) {
   if (x == null || y == null) return false;
   const ax = Math.abs(x);
   const ay = Math.abs(y);
   if (ax > 89 || ax < 54) return false;
-  if (ax >= 69) return ay <= 4 + ((89 - ax) * 18) / 20; // posts (89, 4) to dots (69, 22)
-  return ay <= 22; // dots out to the top of the circles
+  if (ax >= PLATE_SHOULDER) return ay <= 4 + ((89 - ax) * (PLATE_HALF_WIDTH - 4)) / (89 - PLATE_SHOULDER);
+  return ay <= PLATE_HALF_WIDTH;
 }
-const plateMult = (d, bonus = HOME_PLATE_BONUS) => (inHomePlate(d.xCoord, d.yCoord) ? bonus : 1);
+/** Shot-location area: 'inner' and 'outer' plate, 'wide' (outside the circles' width / the point wings), or 'other'. */
+export function plateArea(x, y) {
+  if (x == null || y == null) return 'other';
+  if (inHomePlate(x, y)) return Math.abs(x) >= PLATE_INNER_X ? 'inner' : 'outer';
+  const ax = Math.abs(x);
+  const ay = Math.abs(y);
+  if (ax >= 25 && ax <= 89 && ay > 22) return 'wide';
+  if (ax >= 25 && ax < 54 && ay > 15) return 'wide';
+  return 'other';
+}
+// Shot multipliers by area relative to the plate bonus (3x in the momentum model): the inner plate is
+// 2/3 of it, the outer plate 7/6, wide shots 0.5x. Tested on 5 seasons: see the Model versions card.
+const AREA_MULT = { inner: 2 / 3, outer: 7 / 6 };
+export const plateMult = (d, bonus = HOME_PLATE_BONUS) => {
+  const area = plateArea(d.xCoord, d.yCoord);
+  if (area === 'wide') return 0.5;
+  return AREA_MULT[area] ? bonus * AREA_MULT[area] : 1;
+};
 
 // Model v4 (Nov 2026): faceoffs, hits, takeaways and giveaways no longer count (tested over 6 seasons, they
 // either added nothing or went with the losing team), and home-plate shots count 3x instead of 1.5x.
+// Model v6 (Nov 2026): narrower plate (19 ft), inner plate (within 10 ft of the goal) 2x and outer 3.5x, shots
+// wide of the circles 0.5x.
 // See scripts/model-lab.js and the "Model versions" card on the stats page.
 export const MOMENTUM_WEIGHTS = {
   goal: 3, sog: 1, miss: 0.35, blockedShooter: 0.2, blocker: 0.2, firstGoalMult: 1.5, tieOrLeadMult: 1.25, plate: 3,
