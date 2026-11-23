@@ -77,7 +77,7 @@ function areaWhy(a, team) {
 
 function playerRow(p) {
   return `<li class="td-player">
-    <div class="td-player-h"><span class="td-pn">${playerLink(p.id, p.name)} <small>${esc(p.pos)} · ${p.gp} GP</small></span><span class="td-cost" title="Goals below a typical player at the position so far: momentum plus scoring, with early finishing luck mostly discounted">${fmt.signed(p.cost, 1)} goals</span></div>
+    <div class="td-player-h"><span class="td-pn">${playerLink(p.id, p.name)} <small>${esc(p.pos)} · ${p.gp} ${p.goalie ? "starts" : "GP"}</small></span><span class="td-cost" title="Goals below a typical player at the position so far: momentum plus scoring, with early finishing luck mostly discounted">${fmt.signed(p.cost, 1)} goals</span></div>
     <ul class="td-why">${p.reasons.map((r) => `<li>${r.text}</li>`).join('')}</ul>
   </li>`;
 }
@@ -97,8 +97,8 @@ function teamCard(r, team) {
     <h3 class="pc-sub">Underperforming so far <small>goals below a typical player at the position this season; short-term, not a verdict on the player</small></h3>
     ${players.length ? `<ul class="td-players">${players.map(playerRow).join('')}</ul>` : '<p class="pq-note">No skater with enough games is this far below a typical player yet.</p>'}
     ${team.onIce?.length ? `<h3 class="pc-sub">The team does worse with them on the ice <small>and they are below a typical player on their own numbers</small></h3>
-    <ul class="td-players">${team.onIce.map((r) => `<li class="td-player"><div class="td-player-h"><span class="td-pn">${playerLink(r.id, r.name)} <small>${esc(r.pos)} · ${r.gp} GP</small></span><span class="td-cost" title="Share of shot attempts with him on the ice minus the team's other players at his position">${fmt.signed(r.gap * 100, 0)} pts</span></div><ul class="td-why"><li>${onIceText(r)}</li></ul></li>`).join('')}</ul>
-    <p class="pq-note">Shot attempts come from shift charts, this season only. Usage matters (who he plays against, where shifts start, who he plays with), so treat this as a reason to watch the player, not a verdict. Needs 150+ minutes.</p>` : ''}
+    <ul class="td-players">${team.onIce.map((r) => `<li class="td-player"><div class="td-player-h"><span class="td-pn">${playerLink(r.id, r.name)} <small>${esc(r.pos)} · ${r.gp} GP</small></span><span class="td-cost" title="${r.goalie ? "Share of points in his starts minus the team's other games" : "Share of shot attempts with him on the ice minus the team's other players at his position"}">${r.tag ?? `${fmt.signed(r.gap * 100, 0)} pts`}</span></div><ul class="td-why"><li>${r.text ?? onIceText(r)}</li></ul></li>`).join('')}</ul>
+    <p class="pq-note">Skater shot attempts come from shift charts; goalies are judged on points in their starts. Usage matters (who he plays against, where shifts start, who he plays with), so treat this as a reason to watch the player, not a verdict. Needs 150+ minutes.</p>` : ''}
     <p class="pq-note">Player goals add momentum (0.023 goals per point, as in "How it was won") and scoring (finishing plus assists), each against the average forward or defenseman. Skaters need ${r.minGp}+ games; a traded player counts for their latest team.</p>
   </section>`;
 }

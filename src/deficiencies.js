@@ -50,7 +50,7 @@ function teamGames(list) {
       const ga = away ? g.hg : g.ag;
       const win = away ? !homeWon : homeWon;
       const row = { n: g.n, home: !away, gf, ga, win, otl: !win && (g.end === 'OT' || g.end === 'SO'), close: Math.abs(gf - ga) === 1 || g.end === 'SO',
-        ngF: away ? g.an : g.hn, ngA: away ? g.hn : g.an };
+        ngF: away ? g.an : g.hn, ngA: away ? g.hn : g.an, gk: (away ? g.ags : g.hgs) ?? null };
       (out.get(t) ?? out.set(t, []).get(t)).push(row);
     }
   }
@@ -172,15 +172,38 @@ export function onIceText(r) {
   return `With him on the ice the team gets ${pctTxt(r.share, 0)} of the shot attempts, ${pts} point${pts === 1 ? '' : 's'} fewer than with its other ${kind} (${pctTxt(r.mateShare, 0)}), over ${Math.round(r.min)} minutes.${gd}`;
 }
 
-/** Goalies who started for the team, worst goals saved above expected first. */
-function goalieRows(total, team, rate) {
+/** Goalies who started for the team, worst goals saved above expected first; with the team's record in their starts. */
+function goalieRows(total, team, rate, games = []) {
   return Object.entries(total.players ?? {})
     .filter(([, p]) => p.p === 'G' && p.t === team && (p.gs ?? 0) > 0 && p.xga != null)
     .map(([id, p]) => {
       const exp = p.xga * rate;
-      return { id: Number(id), name: p.n, gs: p.gs ?? 0, gp: p.gp, ga: p.ga ?? 0, expGa: exp, gsax: exp - (p.ga ?? 0) };
+      const mine = games.filter((g) => g.gk === Number(id));
+      const rest = games.filter((g) => g.gk !== Number(id) && g.gk != null);
+      return { id: Number(id), name: p.n, gs: p.gs ?? 0, gp: p.gp, ga: p.ga ?? 0, expGa: exp, gsax: exp - (p.ga ?? 0), withHim: points(mine), without: points(rest) };
     })
     .sort((a, b) => b.gs - a.gs);
+}
+
+export const GOALIE_MIN_STARTS = 3;
+export const GOALIE_COST = -1.5; // goals below an average goalie on the same shots
+
+/** Goalies for the "Underperforming so far" list: goals saved above expected, counted in full. */
+function goalieDragging(goalies) {
+  return goalies.filter((g) => g.gs >= GOALIE_MIN_STARTS && g.gsax <= GOALIE_COST).map((g) => {
+    const w = g.withHim;
+    const rec = w.gp ? ` The team has ${w.w} win${w.w === 1 ? '' : 's'} in his ${w.gp} starts (${pctTxt(w.ptsPct, 0)} of points).` : '';
+    return { id: g.id, name: g.name, pos: 'G', gp: g.gs, cost: g.gsax, goalie: true,
+      reasons: [{ k: 'gsax', cost: g.gsax, text: `Goaltending: ${g.ga} goals against on shots an average goalie would allow ${g.expGa.toFixed(1)} on, in ${g.gs} start${g.gs === 1 ? '' : 's'}: ${goals(-g.gsax)} worse than an average goalie.${rec}` }] };
+  }).sort((a, b) => a.cost - b.cost);
+}
+
+/** Goalies the team does worse with: a clearly lower share of points in his starts than in the others, and below an average goalie. */
+function goalieOnIce(goalies) {
+  return goalies.filter((g) => g.gsax <= GOALIE_COST && g.withHim.gp >= 4 && g.without.gp >= 4 && g.withHim.ptsPct <= g.without.ptsPct - 0.15).map((g) => ({
+    id: g.id, name: g.name, pos: 'G', gp: g.gs, goalie: true, gap: g.withHim.ptsPct - g.without.ptsPct, tag: `${sign((g.withHim.ptsPct - g.without.ptsPct) * 100, 0)} pts %`,
+    text: `The team earns ${pctTxt(g.withHim.ptsPct, 0)} of the points in his ${g.withHim.gp} starts, against ${pctTxt(g.without.ptsPct, 0)} in its other games, and he has let in ${goals(-g.gsax)} more than an average goalie would. Records in a few starts are partly luck.`,
+  })).sort((a, b) => a.gap - b.gap);
 }
 
 /**
@@ -239,15 +262,15 @@ export function deficiencies(total) {
     const players = skaterRows(total, t.abbrev, rate, minGp, pos, sbase);
     const trouble = AREAS.map(([k]) => areas[k]).filter((a) => a.trouble).sort((a, b) => a.value - b.value);
     const strengths = AREAS.map(([k]) => areas[k]).filter((a) => a.strength).sort((a, b) => b.value - a.value);
-    const dragging = players.map((p) => ({ ...p, reasons: skaterReasons(p) }))
-      .filter((p) => p.cost <= -1.5 && p.reasons.length)
+    const goalies = goalieRows(total, t.abbrev, rate, games);
+    const dragging = [...players.map((p) => ({ ...p, reasons: skaterReasons(p) })).filter((p) => p.cost <= -1.5 && p.reasons.length), ...goalieDragging(goalies)]
       .sort((a, b) => a.cost - b.cost);
-    const onIce = onIceRows(players.map((p) => ({ ...p })))
-      .filter((r) => r.gap <= -ONICE_GAP && r.cost < 0).slice(0, ONICE_MAX);
+    const onIce = [...onIceRows(players.map((p) => ({ ...p })))
+      .filter((r) => r.gap <= -ONICE_GAP && r.cost < 0).slice(0, ONICE_MAX), ...goalieOnIce(goalies)];
     return {
       onIce,
       abbrev: t.abbrev, gp: t.gp, w: t.w, l: t.l, otl: t.otl, ptsPct: t.ptsPct, ptsRank: rk.ptsPct(t.ptsPct), gdPerGame: t.gdPerGame,
-      areas, trouble, strengths, checks, players: dragging, goalies: goalieRows(total, t.abbrev, rate),
+      areas, trouble, strengths, checks, players: dragging, goalies,
     };
   });
   return { rate, n, minGp, pos: { F: { mom: pos.F.mom, below: pos.F.below }, D: { mom: pos.D.mom, below: pos.D.below } }, teams };
