@@ -25,7 +25,8 @@ import { tierOf } from './impact.js';
 // 4: momentum model v4 (shots and penalties only, home plate 3x, goals count as shots in "no goals").
 // 5: finishing (xg = expected goals from the player's shots on a goalie, xgg = goals on a goalie), goalie
 //    goals against vs expected (ga, xga, gs = games started), and each game's starting goalies (ags, hgs).
-export const SEASON_VERSION = 5;
+// 6: scoring (g = all goals, a1 primary assists, a2 secondary assists; shootouts left out) for Scoring vs avg.
+export const SEASON_VERSION = 6;
 
 /** First season the NHL play-by-play has every event with rink coordinates (needed for momentum). */
 export const FIRST_FULL_SEASON = 20092010;
@@ -107,6 +108,7 @@ export function linesFromDetail(detail) {
       out.push({
         id: s.id, name: s.fullName ?? s.name, team, pos: s.position,
         sat: s.attempts ?? 0, sog: s.sog ?? 0, ...(s.xg != null ? { xg: s.xg, xgg: s.xgGoals ?? 0 } : {}),
+        ...(s.a1 != null ? { g: s.goals ?? 0, a1: s.a1, a2: s.a2 ?? 0 } : {}),
         mom: s.momentum ?? 0, mp: s.momentumParts?.pos ?? Math.max(0, s.momentum ?? 0), mn: s.momentumParts?.neg ?? Math.min(0, s.momentum ?? 0),
         toi: s.toiSeconds ?? null,
       });
@@ -150,6 +152,13 @@ export function fromPbp(pbp) {
     }
     att.set(id, a);
   }
+  // Goals and primary / secondary assists (all strengths, empty net included, like the NHL's own points).
+  const pts = new Map();
+  const bump = (id, k) => { if (!id) return; const p = pts.get(id) ?? { g: 0, a1: 0, a2: 0 }; p[k]++; pts.set(id, p); };
+  for (const e of pbp.plays) {
+    if (e.typeDescKey !== 'goal' || e.periodDescriptor?.periodType === 'SO') continue;
+    bump(e.details?.scoringPlayerId, 'g'); bump(e.details?.assist1PlayerId, 'a1'); bump(e.details?.assist2PlayerId, 'a2');
+  }
   // A dressed backup goalie who never went in didn't play (the NHL doesn't count that as a game).
   const inNet = new Set(pbp.plays.map((e) => e.details?.goalieInNetId).filter(Boolean));
   // Goals against and expected goals against per goalie, and who started for each team.
@@ -177,7 +186,8 @@ export function fromPbp(pbp) {
     }
     const m = momentum[r.playerId];
     const a = att.get(r.playerId) ?? { sat: 0, sog: 0, xg: 0, xgg: 0 };
-    return { ...base, sat: a.sat, sog: a.sog, xg: Math.round(a.xg * 100) / 100, xgg: a.xgg, mom: m?.impact ?? 0, mp: m?.pos ?? 0, mn: m?.neg ?? 0, toi: null };
+    const pt = pts.get(r.playerId) ?? { g: 0, a1: 0, a2: 0 };
+    return { ...base, sat: a.sat, sog: a.sog, xg: Math.round(a.xg * 100) / 100, xgg: a.xgg, g: pt.g, a1: pt.a1, a2: pt.a2, mom: m?.impact ?? 0, mp: m?.pos ?? 0, mn: m?.neg ?? 0, toi: null };
   });
   const a = pbp.awayTeam?.abbrev;
   const h = pbp.homeTeam?.abbrev;
@@ -215,6 +225,11 @@ export function addGame(total, lines, game = null) {
         if (tier === 1) p.ab = (p.ab ?? 0) + 1;
         if (tier === -1) p.bl = (p.bl ?? 0) + 1;
       }
+      if (l.a1 != null) {
+        p.g = (p.g ?? 0) + (l.g ?? 0);
+        p.a1 = (p.a1 ?? 0) + l.a1;
+        p.a2 = (p.a2 ?? 0) + (l.a2 ?? 0);
+      }
       p.mom = round1((p.mom ?? 0) + (l.mom ?? 0));
       p.mp = round1((p.mp ?? 0) + (l.mp ?? 0));
       p.mn = round1((p.mn ?? 0) + (l.mn ?? 0));
@@ -244,6 +259,34 @@ export function leagueRate(total) {
   return xg > 0 ? goals / xg : 1;
 }
 
+/**
+ * Scoring in plain numbers. Goals vs avg only credits finishing, so a player who sets up plays looks cold.
+ * Playmaking is the assists above what an average forward (or defenseman) gets in the same games, each worth
+ * ASSIST_WEIGHT of a goal (fit on 6 seasons, scripts/scoring-lab: a primary assist ~0.75, a secondary ~0.79).
+ * Scoring vs avg = Goals vs avg + playmaking.
+ */
+export const ASSIST_WEIGHT = 0.75;
+
+/** Average assists per game for forwards and defensemen this season (null when the file has no assists yet). */
+export function scoringBase(total, minGp = 5) {
+  const acc = { F: { a: 0, gp: 0 }, D: { a: 0, gp: 0 } };
+  for (const p of Object.values(total?.players ?? {})) {
+    if (p.p === 'G' || p.a1 == null || p.gp < minGp) continue;
+    const k = acc[p.p === 'D' ? 'D' : 'F'];
+    k.a += p.a1 + (p.a2 ?? 0);
+    k.gp += p.gp;
+  }
+  return acc.F.gp && acc.D.gp ? { F: acc.F.a / acc.F.gp, D: acc.D.a / acc.D.gp } : null;
+}
+
+/** Goals, assists, playmaking and scoring vs average for one season row; nulls when the row has no assists or no base. */
+export function scoringLine(row, finGaa, base) {
+  if (row.p === 'G' || row.a1 == null) return { goals: null, assists: null, playVsAvg: null, scoringVsAvg: null };
+  const assists = row.a1 + (row.a2 ?? 0);
+  const playVsAvg = base ? ASSIST_WEIGHT * (assists - base[row.p === 'D' ? 'D' : 'F'] * row.gp) : null;
+  return { goals: row.g ?? 0, assists, playVsAvg, scoringVsAvg: playVsAvg != null && finGaa != null ? finGaa + playVsAvg : null };
+}
+
 /** Finishing in plain numbers: shooting %, an average shooter's shooting % on the same shots, goals above average. */
 export function finishingLine(goals, xg, sog, rate = 1) {
   if (xg == null) return { shPct: null, xShPct: null, gaa: null };
@@ -259,7 +302,7 @@ export function goalieLineOf(row, rate = 1) {
 }
 
 /** Per-game averages for one player's season row (null when the player has no games). rate: leagueRate(total). */
-export function perGame(row, rate = 1) {
+export function perGame(row, rate = 1, base = null) {
   if (!row?.gp) return null;
   const skater = row.p !== 'G';
   return {
@@ -282,6 +325,7 @@ export function perGame(row, rate = 1) {
     belowPct: skater && row.tg ? (row.bl ?? 0) / row.tg : null,
     // The same against an average NHL shooter that season (what the pages show).
     ...(skater ? finishingLine(row.xgg ?? 0, row.xg, row.sog ?? 0, rate) : { shPct: null, xShPct: null, gaa: null }),
+    ...scoringLine(row, skater && row.xg != null ? (row.xgg ?? 0) - row.xg * rate : null, base),
     // Goalies: goals saved above what an average NHL goalie would allow on the same shots (xGA x league rate).
     ...(!skater && row.xga != null ? goalieLineOf(row, rate) : {}),
   };
@@ -300,11 +344,12 @@ export function minGames(total) {
 export function leaderboard(total, key, { pos = null, minGp = minGames(total), minXg = 0 } = {}) {
   const rows = [];
   const rate = leagueRate(total);
+  const base = scoringBase(total);
   for (const [id, row] of Object.entries(total?.players ?? {})) {
     if (row.p === 'G' || row.gp < minGp || (minXg && (row.xg ?? 0) < minXg)) continue;
     if (pos === 'D' && row.p !== 'D') continue;
     if (pos === 'F' && row.p === 'D') continue;
-    const avg = perGame(row, rate);
+    const avg = perGame(row, rate, base);
     if (avg[key] == null) continue;
     rows.push({ id: Number(id), ...row, ...avg, value: avg[key] });
   }

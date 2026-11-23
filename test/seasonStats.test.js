@@ -90,3 +90,19 @@ test('goalieLineOf: goals saved above expected against an average goalie', async
   assert.equal(pg.gsaxPerGame, 0.5);
   assert.equal(perGame({ p: 'C', gp: 1, sat: 2, sog: 1, mom: 0 }).gsax, undefined);
 });
+
+test('scoring vs avg: assists above the position average make up for cold finishing', async () => {
+  const { perGame, scoringBase } = await import('../src/seasonStats.js');
+  const mk = (p, gp, a1, a2, xg, xgg) => ({ n: 'x', t: 'AAA', p, gp, sat: 0, sog: 20, xg, xgg, g: xgg, a1, a2, mom: 0 });
+  const total = { players: { 1: mk('R', 20, 8, 2, 5, 3), 2: mk('C', 20, 3, 1, 5, 5), 3: mk('L', 20, 3, 1, 5, 5), 4: mk('D', 20, 2, 2, 1, 1) } };
+  const base = scoringBase(total);
+  assert.ok(base.F > 0 && base.D > 0);
+  const a = perGame(total.players[1], 1, base);
+  assert.equal(a.assists, 10);
+  assert.ok(a.gaa < 0 && a.playVsAvg > 0);
+  assert.ok(Math.abs(a.scoringVsAvg - (a.gaa + a.playVsAvg)) < 1e-9);
+  // Files without assists yet: no scoring number, finishing unchanged.
+  const old = perGame({ n: 'x', t: 'AAA', p: 'R', gp: 20, sog: 20, xg: 5, xgg: 3, mom: 0 }, 1, null);
+  assert.equal(old.scoringVsAvg, null);
+  assert.ok(old.gaa < 0);
+});

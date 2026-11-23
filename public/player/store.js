@@ -1,7 +1,7 @@
 // Loads player profiles (live data Worker) and season totals (static files the GitHub Action saves),
 // with small in-memory caches so opening the same card twice is instant.
 import { getData, getStatic } from '../data.js';
-import { perGame, rankOf, seasonOf, seasonFile, minGames, leagueRate, REGULAR, PLAYOFFS } from '../src/seasonStats.js';
+import { perGame, scoringBase, rankOf, seasonOf, seasonFile, minGames, leagueRate, REGULAR, PLAYOFFS } from '../src/seasonStats.js';
 import { goalieLine } from '../src/matchup.js';
 
 const players = new Map();
@@ -47,7 +47,7 @@ export const currentSeason = () => seasonOf(new Date(Date.now() - 10 * 3600_000)
 export function ourStats(total, id) {
   const row = total?.players?.[String(id)];
   if (!row) return null;
-  const avg = perGame(row, leagueRate(total));
+  const avg = perGame(row, leagueRate(total), scoringBase(total));
   const opts = { minGp: minGames(total) };
   return {
     row,
@@ -57,6 +57,7 @@ export function ourStats(total, id) {
     // Finishing is noisy on few chances: rank only among skaters with a few expected goals.
     finRank: row.p === 'G' || avg?.gaa == null || (row.xg ?? 0) < FIN_MIN_XG ? null : rankOf(total, id, 'gaa', { ...opts, minXg: FIN_MIN_XG }),
     // Goalies: goals saved above expected, ranked among goalies with 5+ starts (as on the Pregame view).
+    scoreRank: row.p === 'G' || avg?.scoringVsAvg == null || (row.xg ?? 0) < FIN_MIN_XG ? null : rankOf(total, id, 'scoringVsAvg', { ...opts, minXg: FIN_MIN_XG }),
     gsaxRank: row.p === 'G' && avg?.gsax != null ? goalieRank(total, id) : null,
     minGp: opts.minGp,
     games: total.games,

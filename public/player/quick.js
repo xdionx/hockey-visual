@@ -67,6 +67,7 @@ function body(id, p, ours, season, type) {
       tile('MOM/GP', fmt.signed(ours?.momPerGame, 1), rankBit(ours?.momRank), 'pq-ours'),
       ...(ours?.abovePct != null ? [tile('Above avg', fmt.pct(ours.abovePct, 0), `below ${fmt.pct(ours.belowPct, 0)}`, 'pq-ours')] : []),
       ...(ours?.gaa != null ? [tile('Goals vs avg', fmt.signed(ours.gaa, 1), rankBit(ours.finRank), 'pq-ours')] : []),
+      ...(ours?.scoringVsAvg != null ? [tile('Scoring vs avg', fmt.signed(ours.scoringVsAvg, 1), 'goals and assists', 'pq-ours')] : []),
     ];
   }
   const sub = [p?.number != null ? `#${p.number}` : null, positionName(p?.position ?? ours?.row?.p), p?.teamName ?? team].filter(Boolean).join(' · ');

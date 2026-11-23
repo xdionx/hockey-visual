@@ -1,0 +1,40 @@
+6 seasons, 6,937 games, 3,989 player-seasons (20+ GP)
+league rate (goals per our xG): 20212022: 1.11 20222023: 1.11 20232024: 1.14 20242025: 1.19 20252026: 1.18 20262027: 1.24
+
+1) How much of each number is skill (odd vs even games, same season; higher = more repeatable)
+   Goals vs avg (finishing)           r 0.27
+   Goals                              r 0.71
+   Primary assists                    r 0.64
+   Secondary assists                  r 0.56
+   Points                             r 0.83
+   Shot chances (avg-shooter goals)   r 0.89
+   Momentum                           r 0.91
+
+2) First half of a season predicting the second half (fit 2021-24, held-out test 2024-27)
+   Target: points per game
+   Goals vs avg alone                           pts r 0.273   weights +1.40
+   Goals alone                                  pts r 0.646   weights +1.55
+   Points                                       pts r 0.778   weights +0.86
+   Goals, primary, secondary assists            pts r 0.778   weights +0.99 +0.75 +0.79
+   Goals vs avg + assists                       pts r 0.703   weights +0.75 +1.25 +0.84
+   Shot chances + goals vs avg + assists        pts r 0.790   weights +1.32 +0.69 +0.69 +0.81
+   + momentum                                   pts r 0.799   weights +0.29 +0.60 +0.54 +0.64 +0.05
+   Target: goals per game
+   Goals vs avg alone                           gls r 0.223   weights +0.58
+   Shot chances + goals vs avg                  gls r 0.702   weights +1.09 +0.36
+   Shot chances + goals vs avg + assists        gls r 0.716   weights +0.96 +0.31 +0.15 +0.07
+
+3) Players a cold first half would flag (Goals vs avg -1.5 or worse in the half), by first-half assists
+   fewer assists than typical   n  504   2nd half points/GP vs position avg -0.146   2nd half Goals vs avg -0.85
+   more assists than typical    n  372   2nd half points/GP vs position avg +0.133   2nd half Goals vs avg -0.23
+
+4) Trust in a Goals vs avg number by sample (odd/even reliability from player-seasons)
+   observed variance per expected goal 1.33 (pure luck would be 1.00)
+   true finishing spread 0.211 goals per expected goal; half-trust point k = 22 expected goals
+    3 expected goals: trust 12% of the raw Goals vs avg
+    6 expected goals: trust 21% of the raw Goals vs avg
+   10 expected goals: trust 31% of the raw Goals vs avg
+   20 expected goals: trust 47% of the raw Goals vs avg
+   40 expected goals: trust 64% of the raw Goals vs avg
+
+5) Weights from the points fit, goal = 1: 1.00 0.76 0.79
