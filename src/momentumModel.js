@@ -63,11 +63,15 @@ export function winByShare(list) {
 }
 
 function blankTeam(abbrev) {
-  return { abbrev, gp: 0, w: 0, l: 0, otl: 0, gf: 0, ga: 0, momF: 0, momA: 0, ngF: 0, ngA: 0, ngGp: 0, satF: 0, satA: 0, xgF: 0, ggF: 0, xgA: 0, ggA: 0, sogF: 0, finGp: 0 };
+  return { abbrev, gp: 0, w: 0, l: 0, otw: 0, otl: 0, gf: 0, ga: 0, momF: 0, momA: 0, ngF: 0, ngA: 0, ngGp: 0, satF: 0, satA: 0, xgF: 0, ggF: 0, xgA: 0, ggA: 0, sogF: 0, finGp: 0 };
 }
 
-/** Per-team season totals and shares from game rows. */
-export function teamTable(list) {
+/**
+ * Per-team season totals and shares from game rows. Regular season: l is regulation losses and otl
+ * overtime/shootout losses (each earns a point, so ptsPct is points %). Playoffs (opts.playoffs): no points,
+ * an overtime loss is a plain loss (l counts it), otw/otl are the overtime record, and ptsPct is the win %.
+ */
+export function teamTable(list, { playoffs = false } = {}) {
   const teams = new Map();
   const get = (a) => teams.get(a) ?? (teams.set(a, blankTeam(a)), teams.get(a));
   for (const g of list) {
@@ -80,8 +84,9 @@ export function teamTable(list) {
       const ga = away ? g.hg : g.ag;
       t.gf += gf;
       t.ga += ga;
-      if (w === side) t.w++;
-      else if (g.end === 'OT' || g.end === 'SO') t.otl++;
+      const over = g.end === 'OT' || g.end === 'SO';
+      if (w === side) { t.w++; if (over) t.otw++; }
+      else if (over) { t.otl++; if (playoffs) t.l++; }
       else t.l++;
       t.momF += away ? g.am : g.hm;
       t.momA += away ? g.hm : g.am;
@@ -105,7 +110,8 @@ export function teamTable(list) {
   return [...teams.values()].map((t) => ({
     ...t,
     pts: 2 * t.w + t.otl,
-    ptsPct: t.gp ? (2 * t.w + t.otl) / (2 * t.gp) : null,
+    ptsPct: t.gp ? (playoffs ? t.w / t.gp : (2 * t.w + t.otl) / (2 * t.gp)) : null,
+    winPct: t.gp ? t.w / t.gp : null,
     gdPerGame: t.gp ? (t.gf - t.ga) / t.gp : null,
     momShare: t.momF + t.momA ? t.momF / (t.momF + t.momA) : null,
     ngShare: t.ngF + t.ngA ? t.ngF / (t.ngF + t.ngA) : null,
@@ -185,14 +191,16 @@ export function predictive(list) {
 /** Everything the page shows for one season's games. */
 export function seasonModel(total) {
   const list = games(total);
+  const playoffs = total?.gameType === 3;
   // Team finishing comes from the game rows when every row has it, else from the player rows (approximate).
   const exactFin = list.length > 0 && list.every((g) => g.asog != null);
   const rate = leagueRate(total);
   const teams = exactFin
-    ? teamTable(list).map((t) => ({ ...t, ...finishing(t.ggF, t.xgF, t.sogF, t.finGp, rate) }))
-    : teamFinishingFromPlayers(total, teamTable(list), rate);
+    ? teamTable(list, { playoffs }).map((t) => ({ ...t, ...finishing(t.ggF, t.xgF, t.sogF, t.finGp, rate) }))
+    : teamFinishingFromPlayers(total, teamTable(list, { playoffs }), rate);
   const pts = teams.map((t) => t.ptsPct);
   return {
+    playoffs,
     games: list.length,
     noGoalGames: list.filter((g) => g.an != null && g.hn != null).length,
     wins: winRates(list),
