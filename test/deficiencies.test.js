@@ -55,4 +55,28 @@ test('league list ranks costly skaters across teams, worst first', () => {
   assert.ok(r.players.every((p, i, a) => i === 0 || a[i - 1].cost <= p.cost));
   assert.ok(r.players.every((p) => p.team && p.reasons.length));
   assert.equal(leaguePlayers(null), null);
+
+});
+test('on-ice list: flags a regular whose team shot share drops with him, not a normal-share player', async () => {
+  const { onIceRows } = await import('../src/deficiencies.js');
+  const mk = (id, cf, ca, extra = {}) => ({ id, name: `P${id}`, pos: 'D', gp: 15, toiPg: 18 * 60, cost: -2, oi: { sec: 200 * 60, cf, ca, gf: 5, ga: 5 }, ...extra });
+  const rows = onIceRows([mk(1, 40, 60), mk(2, 55, 45), mk(3, 56, 44), mk(4, 54, 46)]);
+  assert.equal(rows[0].id, 1);
+  assert.ok(rows[0].gap < -0.1);
+  assert.ok(rows.find((r) => r.id === 2).gap > -0.1);
+  // Too few minutes: left out.
+  assert.equal(onIceRows([mk(1, 40, 60, { oi: { sec: 60 * 60, cf: 40, ca: 60, gf: 1, ga: 2 } }), mk(2, 55, 45)]).find((r) => r.id === 1), undefined);
+});
+
+test('goalies who let in far more than an average goalie show up in both lists', () => {
+  const g = (n, ags, hgs, ag, hg) => [n, 'AAA', 'BBB', ag, hg, 5, 5, 5, 5, 20, 20, 'REG', ags, hgs];
+  const rows = [];
+  for (let i = 1; i <= 8; i++) rows.push(g(i, 1, 9, 2, 5)); // AAA loses 2-5 with goalie 1
+  for (let i = 9; i <= 16; i++) rows.push(g(i, 2, 9, 3, 1)); // AAA wins with goalie 2
+  const players = { 1: { n: 'Bad', t: 'AAA', p: 'G', gp: 8, gs: 8, ga: 40, xga: 20 }, 2: { n: 'Good', t: 'AAA', p: 'G', gp: 8, gs: 8, ga: 8, xga: 8 }, 9: { n: 'X', t: 'BBB', p: 'G', gp: 16, gs: 16, ga: 30, xga: 30 } };
+  const r = deficiencies({ g: rows, players });
+  const a = r.teams.find((t) => t.abbrev === 'AAA');
+  assert.ok(a.players.some((p) => p.goalie && p.name === 'Bad'));
+  assert.ok(a.onIce.some((p) => p.goalie && p.name === 'Bad'));
+  assert.ok(!a.players.some((p) => p.name === 'Good'));
 });

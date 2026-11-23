@@ -129,7 +129,9 @@ for (const f of (await readdir(join(outDir, 'games'))).filter((x) => x.endsWith(
   }
   // Time on ice comes from the box score (the play-by-play doesn't carry it).
   const toi = new Map(linesFromDetail(g).map((l) => [l.id, l.toi]));
-  addGame(total, saved.lines.map((l) => ({ ...l, toi: toi.get(l.id) ?? null })), saved.game ?? null);
+  // On-ice shot attempts and goals per skater come from the box score's shift charts (when the game had them).
+  const oi = new Map(g.hasShifts ? ['away', 'home'].flatMap((side) => [...(g.players?.[side]?.forwards ?? []), ...(g.players?.[side]?.defense ?? [])]).filter((s) => s.onIce).map((s) => [s.id, s.onIce]) : []);
+  addGame(total, saved.lines.map((l) => ({ ...l, toi: toi.get(l.id) ?? null, oi: oi.get(l.id) })), saved.game ?? null);
 }
 await mkdir(join(outDir, 'seasons'), { recursive: true });
 for (const total of Object.values(totals)) {

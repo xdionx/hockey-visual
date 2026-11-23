@@ -5,7 +5,7 @@ import '../horn.js'; // goal horns for games with a horn on, on every page
 import { loadSeason, currentSeason, fmt } from '../player/store.js';
 import { installPlayerLinks, playerLink } from '../player/link.js';
 import { esc, makeSortable, teamColor } from '../game/core.js';
-import { deficiencies, headline, AREAS, ord } from '../src/deficiencies.js';
+import { deficiencies, headline, onIceText, AREAS, ord } from '../src/deficiencies.js';
 
 installPlayerLinks();
 const main = document.querySelector('#stats');
@@ -77,7 +77,7 @@ function areaWhy(a, team) {
 
 function playerRow(p) {
   return `<li class="td-player">
-    <div class="td-player-h"><span class="td-pn">${playerLink(p.id, p.name)} <small>${esc(p.pos)} · ${p.gp} GP</small></span><span class="td-cost" title="Goals of goal difference lost against a typical player at the position, momentum plus finishing">${fmt.signed(p.cost, 1)} goals</span></div>
+    <div class="td-player-h"><span class="td-pn">${playerLink(p.id, p.name)} <small>${esc(p.pos)} · ${p.gp} ${p.goalie ? "starts" : "GP"}</small></span><span class="td-cost" title="Goals below a typical player at the position so far: momentum plus scoring, with early finishing luck mostly discounted">${fmt.signed(p.cost, 1)} goals</span></div>
     <ul class="td-why">${p.reasons.map((r) => `<li>${r.text}</li>`).join('')}</ul>
   </li>`;
 }
@@ -94,8 +94,11 @@ function teamCard(r, team) {
     <p class="td-lede">${esc(headline(team))}</p>
     <div class="td-areas">${AREAS.map(([k]) => areaTile(team.areas[k], team, r.n)).join('')}</div>
     ${checks ? `<h3 class="pc-sub">Other warning signs</h3><ul class="td-checks">${checks}</ul>` : ''}
-    <h3 class="pc-sub">Players holding them back <small>goals lost against a typical player at the position, this season</small></h3>
-    ${players.length ? `<ul class="td-players">${players.map(playerRow).join('')}</ul>` : '<p class="pq-note">No skater with enough games is costing this team 1.5 goals yet.</p>'}
+    <h3 class="pc-sub">Underperforming so far <small>goals below a typical player at the position this season; short-term, not a verdict on the player</small></h3>
+    ${players.length ? `<ul class="td-players">${players.map(playerRow).join('')}</ul>` : '<p class="pq-note">No skater with enough games is this far below a typical player yet.</p>'}
+    ${team.onIce?.length ? `<h3 class="pc-sub">The team does worse with them on the ice <small>and they are below a typical player on their own numbers</small></h3>
+    <ul class="td-players">${team.onIce.map((r) => `<li class="td-player"><div class="td-player-h"><span class="td-pn">${playerLink(r.id, r.name)} <small>${esc(r.pos)} · ${r.gp} GP</small></span><span class="td-cost" title="${r.goalie ? "Share of points in his starts minus the team's other games" : "Share of shot attempts with him on the ice minus the team's other players at his position"}">${r.tag ?? `${fmt.signed(r.gap * 100, 0)} pts`}</span></div><ul class="td-why"><li>${r.text ?? onIceText(r)}</li></ul></li>`).join('')}</ul>
+    <p class="pq-note">Skater shot attempts come from shift charts; goalies are judged on points in their starts. Usage matters (who he plays against, where shifts start, who he plays with), so treat this as a reason to watch the player, not a verdict. Needs 150+ minutes.</p>` : ''}
     <p class="pq-note">Player goals add momentum (0.023 goals per point, as in "How it was won") and scoring (finishing plus assists), each against the average forward or defenseman. Skaters need ${r.minGp}+ games; a traded player counts for their latest team.</p>
   </section>`;
 }
@@ -110,7 +113,7 @@ function overview(r, selected) {
   }).join('');
   return `<section class="pc-card td-all"><h2>Where every team loses ground <small>goals per game against an average team</small></h2>
     <div class="pc-scroll"><table class="pc-table sortable"><thead><tr><th class="l" data-sort>Team</th><th data-sort>Pts %</th>
-      ${AREAS.map(([, l], i) => `<th class="pc-o" data-sort title="Goals per game above (+) or below (−) an average team">${l}</th>`).join('')}<th class="l">Biggest leak</th><th data-sort title="Skaters costing the team 1.5+ goals this season">Players</th></tr></thead>
+      ${AREAS.map(([, l], i) => `<th class="pc-o" data-sort title="Goals per game above (+) or below (−) an average team">${l}</th>`).join('')}<th class="l">Biggest leak</th><th data-sort title="Skaters 1.5+ goals below a typical player at the position this season">Underperforming</th></tr></thead>
       <tbody>${rows}</tbody></table></div>
     <p class="pq-note">Worst record first. Tap a team to see its card. Red cells are trouble spots: bottom third of the league, or a tenth of a goal a game below average.</p>
   </section>`;
