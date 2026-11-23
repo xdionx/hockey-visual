@@ -22,7 +22,8 @@ test('slim play-by-play scores the same as the raw one', () => {
 test('goals count as shots adds one shot value per goal to "no goals"', () => {
   const a = scoreGame(pbp, v('v3'));
   const b = scoreGame(pbp, v('v3-gs'));
-  assert.ok(b.an >= a.an + a.ag && b.hn >= a.hn + a.hg);
+  // each goal adds its shot value (at least half a shot: goals from wide of the circles count 0.5x)
+  assert.ok(b.an >= a.an + a.ag * 0.5 && b.hn >= a.hn + a.hg * 0.5);
   assert.equal(b.am, a.am);
 });
 

@@ -26,7 +26,8 @@ import { tierOf } from './impact.js';
 // 5: finishing (xg = expected goals from the player's shots on a goalie, xgg = goals on a goalie), goalie
 //    goals against vs expected (ga, xga, gs = games started), and each game's starting goalies (ags, hgs).
 // 6: scoring (g = all goals, a1 primary assists, a2 secondary assists; shootouts left out) for Scoring vs avg.
-export const SEASON_VERSION = 6;
+// 7: home plate narrowed to 19 ft, inner 2x / outer 3.5x, wide shots 0.5x (momentum and on-ice weights).
+export const SEASON_VERSION = 7;
 
 /** First season we keep on-ice shot attempts for (shift charts; the Team deficiencies tab starts here too). */
 export const FIRST_SHIFT_SEASON = 20202021;
