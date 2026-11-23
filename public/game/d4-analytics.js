@@ -2,7 +2,7 @@
 // Inspired by HockeyStats and NHL EDGE style analytics pages.
 import { hero, statBars, scoringCards, stars } from './d2-broadcast.js';
 import { colors, header as secHeader, lineScore } from './d6-story.js';
-import { ZONES, faceoffLine, esc, logo, teamColors, statusText, statusHtml, prettyDate, allSkaters, allGoalies, pct, signed, rinkMarkup, shotMark, elapsed, headshot, on, morphInner, goalieXg, fold, onColor } from './core.js';
+import { ZONES, faceoffLine, esc, logo, teamColors, statusText, statusHtml, prettyDate, allSkaters, allGoalies, pct, signed, rinkMarkup, shotMark, elapsed, headshot, on, morphInner, goalieXg, fold, onColor, decisionLabel } from './core.js';
 
 function header(game, c) {
   const ls = game.linescore;
@@ -152,7 +152,7 @@ export function goalieTable(game, c) {
   const sv3 = (n) => (n == null ? '-' : n.toFixed(3).replace(/^0/, ''));
   const heat = (v, scale) => (v == null ? '' : ` style="background:${v >= 0 ? `rgba(56, 189, 248, ${Math.min(0.55, (v / scale) * 0.55).toFixed(2)})` : `rgba(248, 113, 113, ${Math.min(0.5, (-v / scale) * 0.5).toFixed(2)})`}"`);
   const rows = list.sort((a, b) => b.toiSeconds - a.toiSeconds).map((g) => `<tr>
-    <td class="l" data-v="${esc(g.lastName ?? g.name)}">${esc(g.name)}${g.decision ? ` <small class="a-muted">(${esc(g.decision)})</small>` : ''}</td>
+    <td class="l" data-v="${esc(g.lastName ?? g.name)}">${esc(g.name)}${g.decision ? ` <small class="a-muted">(${esc(decisionLabel(game, g.decision))})</small>` : ''}</td>
     <td><span class="a-tm" style="background:${c[g.side]};color:${onColor(c[g.side])}">${esc(g.team)}</span></td>
     <td data-v="${g.toiSeconds}">${esc(g.toi)}</td>
     <td>${g.shotsAgainst}</td><td>${g.goalsAgainst}</td><td>${g.saves}</td>
@@ -179,7 +179,7 @@ export function goalies(game, c) {
     const sv = g.shotsAgainst ? g.saves / g.shotsAgainst : 0;
     return `<div class="a-g" style="--team:${c[g.side]}">
       <svg viewBox="0 0 36 36" class="a-ring"><circle cx="18" cy="18" r="15.9" class="bgc"/><circle cx="18" cy="18" r="15.9" class="fg" stroke-dasharray="${(sv * 100).toFixed(1)} 100"/></svg>
-      <div><strong>${esc(g.fullName)}</strong> <span class="a-muted">${esc(g.team)}${g.decision ? ` · ${esc(g.decision)}` : ''}</span>
+      <div><strong>${esc(g.fullName)}</strong> <span class="a-muted">${esc(g.team)}${g.decision ? ` · ${esc(decisionLabel(game, g.decision))}` : ''}</span>
         <div class="a-big">${pct(g.savePct)}</div>
         <div class="a-muted">${g.saves}/${g.shotsAgainst} saves · EV ${esc(g.evenStrength)} · PP ${esc(g.powerPlay)} · SH ${esc(g.shorthanded)} · GS ${g.gameScore.toFixed(2)}</div>${goalieXg(g)}</div>
     </div>`;
