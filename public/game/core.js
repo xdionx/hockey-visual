@@ -47,6 +47,19 @@ export function contrastRatio(a, b) {
   const [hi, lo] = [relLum(a), relLum(b)].sort((x, y) => y - x);
   return (hi + 0.05) / (lo + 0.05);
 }
+/**
+ * Background for a big team panel (the box score header). A white or silver accent (Utah, Boston, Chicago
+ * away) would put white names on white, so those use the team's darkest brand color instead.
+ */
+export function teamPanel(accent, abbrev) {
+  if (contrastRatio(accent, '#ffffff') >= 1.6) return panelColor(accent);
+  const dark = [...(TEAM_COLORS[abbrev] ?? []), ...(TEAM_EXTRA[abbrev] ?? [])].sort((a, b) => luminance(a) - luminance(b))[0];
+  return panelColor(dark ?? '#334155');
+}
+
+/** Text color for a label sitting on a team color: white, or near-black when the color is light (Utah's white). */
+export const onColor = (c) => (contrastRatio(c, '#ffffff') >= 3 ? '#fff' : '#0a0e17');
+
 /** Make a team color readable as text, bars and borders on the dark page (default 4.5:1). */
 export function readable(color, bg = '#111827', min = 4.5) {
   for (let l = 0.3; contrastRatio(color, bg) < min && l <= 0.9; l += 0.04) color = lift(color, l);

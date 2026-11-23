@@ -2,7 +2,7 @@
 // Inspired by HockeyStats and NHL EDGE style analytics pages.
 import { hero, statBars, scoringCards, stars } from './d2-broadcast.js';
 import { colors, header as secHeader, lineScore } from './d6-story.js';
-import { ZONES, faceoffLine, esc, logo, teamColors, statusText, statusHtml, prettyDate, allSkaters, allGoalies, pct, signed, rinkMarkup, shotMark, elapsed, headshot, on, morphInner, goalieXg, fold } from './core.js';
+import { ZONES, faceoffLine, esc, logo, teamColors, statusText, statusHtml, prettyDate, allSkaters, allGoalies, pct, signed, rinkMarkup, shotMark, elapsed, headshot, on, morphInner, goalieXg, fold, onColor } from './core.js';
 
 function header(game, c) {
   const ls = game.linescore;
@@ -153,7 +153,7 @@ export function goalieTable(game, c) {
   const heat = (v, scale) => (v == null ? '' : ` style="background:${v >= 0 ? `rgba(56, 189, 248, ${Math.min(0.55, (v / scale) * 0.55).toFixed(2)})` : `rgba(248, 113, 113, ${Math.min(0.5, (-v / scale) * 0.5).toFixed(2)})`}"`);
   const rows = list.sort((a, b) => b.toiSeconds - a.toiSeconds).map((g) => `<tr>
     <td class="l" data-v="${esc(g.lastName ?? g.name)}">${esc(g.name)}${g.decision ? ` <small class="a-muted">(${esc(g.decision)})</small>` : ''}</td>
-    <td><span class="a-tm" style="background:${c[g.side]}">${esc(g.team)}</span></td>
+    <td><span class="a-tm" style="background:${c[g.side]};color:${onColor(c[g.side])}">${esc(g.team)}</span></td>
     <td data-v="${g.toiSeconds}">${esc(g.toi)}</td>
     <td>${g.shotsAgainst}</td><td>${g.goalsAgainst}</td><td>${g.saves}</td>
     <td data-v="${g.savePct ?? 0}"><b>${sv3(g.savePct)}</b></td>
