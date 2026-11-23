@@ -13,7 +13,8 @@
 // games never count.
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { emptySeason, addGame, fromPbp, seasonOf, seasonFile, SEASON_VERSION, FIRST_FULL_SEASON, REGULAR, PLAYOFFS } from '../src/seasonStats.js';
+import { onIceAttempts } from '../src/momentum.js';
+import { emptySeason, addGame, fromPbp, seasonOf, seasonFile, SEASON_VERSION, FIRST_FULL_SEASON, FIRST_SHIFT_SEASON, REGULAR, PLAYOFFS } from '../src/seasonStats.js';
 
 const args = process.argv.slice(2);
 const outDir = args.find((a) => !a.startsWith('--')) ?? 'seasons-data';
@@ -42,6 +43,31 @@ async function api(path) {
 }
 const pbp = (gameId) => api(`gamecenter/${gameId}/play-by-play`);
 
+/** Shift charts (stats API, a different host); null when unavailable, so a game just has no on-ice numbers. */
+async function shifts(gameId) {
+  for (let attempt = 0; attempt < 4; attempt++) {
+    try {
+      const res = await fetch(`https://api.nhle.com/stats/rest/en/shiftcharts?cayenneExp=gameId=${gameId}`, { headers: { accept: 'application/json', 'user-agent': 'hockey-visual-backfill/1.0' } });
+      if (res.status === 429 || res.status >= 500) { await new Promise((r) => setTimeout(r, 2000 * 2 ** attempt)); continue; }
+      return res.ok ? await res.json() : null;
+    } catch {
+      await new Promise((r) => setTimeout(r, 2000 * 2 ** attempt));
+    }
+  }
+  return null;
+}
+const toSec = (mmss) => { const [m, s] = String(mmss ?? '0:00').split(':').map(Number); return (m || 0) * 60 + (s || 0); };
+
+/** Seconds on ice per skater from the shift chart. */
+function shiftSeconds(raw) {
+  const out = new Map();
+  for (const s of raw?.data ?? []) {
+    if ((s.typeCode != null && s.typeCode !== 517) || s.eventDescription || !s.startTime || !s.endTime) continue;
+    out.set(s.playerId, (out.get(s.playerId) ?? 0) + Math.max(0, toSec(s.endTime) - toSec(s.startTime)));
+  }
+  return out;
+}
+
 /**
  * Every playoff game id of a season, in order, from the weekly schedule. Starts April 1 of the season's
  * second year and stops two empty weeks after the last playoff game (the 2020 bubble ran into September).
@@ -67,7 +93,9 @@ let outOfTime = false;
 async function build(season, gameType) {
   const file = join(outDir, 'seasons', seasonFile(season, gameType));
   let total = JSON.parse(await readFile(file, 'utf8').catch(() => 'null'));
-  if (total?.v !== SEASON_VERSION) total = { ...emptySeason(season, gameType), next: gameType === REGULAR ? 1 : 0, complete: false };
+  // Seasons from FIRST_SHIFT_SEASON on also carry on-ice shot attempts (total.shifts); files built before that are rebuilt once.
+  const wantShifts = season >= FIRST_SHIFT_SEASON;
+  if (total?.v !== SEASON_VERSION || (wantShifts && total && !total.shifts)) total = { ...emptySeason(season, gameType), shifts: wantShifts, next: gameType === REGULAR ? 1 : 0, complete: false };
   if (total.complete) return true;
   const save = async () => {
     total.updated = new Date().toISOString();
@@ -93,6 +121,14 @@ async function build(season, gameType) {
     }
     misses = 0;
     const { lines, game } = fromPbp(data);
+    if (wantShifts) {
+      await new Promise((r) => setTimeout(r, PAUSE_MS));
+      const raw = await shifts(id);
+      const goalies = new Set((data.rosterSpots ?? []).filter((r) => r.positionCode === 'G').map((r) => r.playerId));
+      const oi = raw ? onIceAttempts(data, raw, goalies) : null;
+      const sec = raw ? shiftSeconds(raw) : new Map();
+      if (oi) for (const l of lines) { const o = oi.get(l.id); if (o && sec.get(l.id)) l.oi = { cf: o.cf, ca: o.ca, gf: o.gf, ga: o.ga, sec: sec.get(l.id) }; }
+    }
     addGame(total, lines, game);
     total.next++;
     done++;

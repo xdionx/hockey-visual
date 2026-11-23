@@ -28,6 +28,9 @@ import { tierOf } from './impact.js';
 // 6: scoring (g = all goals, a1 primary assists, a2 secondary assists; shootouts left out) for Scoring vs avg.
 export const SEASON_VERSION = 6;
 
+/** First season we keep on-ice shot attempts for (shift charts; the Team deficiencies tab starts here too). */
+export const FIRST_SHIFT_SEASON = 20202021;
+
 /** First season the NHL play-by-play has every event with rink coordinates (needed for momentum). */
 export const FIRST_FULL_SEASON = 20092010;
 
@@ -227,12 +230,12 @@ export function addGame(total, lines, game = null) {
       }
       // On-ice shot attempts and goals (weighted attempts, from the shift charts): ocf/oca for and against, ogf/oga goals,
       // oto seconds on ice in the games that had shift data. Only games with shifts count, so this stays aligned.
-      if (l.oi && l.toi) {
+      if (l.oi && (l.oi.sec ?? l.toi)) {
         p.ocf = Math.round(((p.ocf ?? 0) + l.oi.cf) * 100) / 100;
         p.oca = Math.round(((p.oca ?? 0) + l.oi.ca) * 100) / 100;
         p.ogf = (p.ogf ?? 0) + l.oi.gf;
         p.oga = (p.oga ?? 0) + l.oi.ga;
-        p.oto = (p.oto ?? 0) + l.toi;
+        p.oto = (p.oto ?? 0) + (l.oi.sec ?? l.toi);
       }
       if (l.a1 != null) {
         p.g = (p.g ?? 0) + (l.g ?? 0);
