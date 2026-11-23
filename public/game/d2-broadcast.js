@@ -15,7 +15,7 @@ export function hero(game, c, { strip = true, shots = false } = {}) {
   const panel = (s) => `<div class="b-panel ${s}" style="--team:${s === 'away' ? c.panelAway : c.panelHome}">
     ${logo(game[s], 'b-logo', true)}
     <div class="b-name"><span>${esc(game[s].placeName)}</span><strong>${esc(game[s].commonName)}</strong></div>
-    <div class="b-scorebox"><div class="b-score">${game.status.state === 'pre' ? '–' : ls.totals[s]}</div>${shots ? shotLine(game, s) : ''}</div>
+    <div class="b-scorebox"><div class="b-score">${game.status.state === 'pre' ? '' : ls.totals[s]}</div>${shots ? shotLine(game, s) : ''}</div>
   </div>`;
   if (!strip) {
     return `<section class="b-hero">
