@@ -334,7 +334,7 @@ function hookFrame() {
   }, true);
 }
 if (!host && window.top === window) {
-  window.__radioHost = { start: (d) => startRadio(d), stop: () => stopRadio(), abbrev: () => radio?.abbrev ?? null };
+  window.__radioHost = { start: (d) => startRadio(d), stop: () => stopRadio(), abbrev: () => radio?.abbrev ?? null, hornEl: () => (shellFrame ? ownHornAudio() : null) };
   // On window, bubbling: runs after the page's own handlers, so links they take over (player cards) are left alone.
   window.addEventListener('click', (e) => {
     if (!radio || shellFrame || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
@@ -359,17 +359,41 @@ const LIGHT = '<svg viewBox="0 0 100 130" aria-hidden="true"><ellipse class="hal
 // A tiny silent clip, played muted on the reader's first tap or key press, to win the browser's permission.
 const SILENCE = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=';
 let hornEl = null;
-function hornAudio() {
+function ownHornAudio() {
   if (!hornEl) { hornEl = new Audio(); hornEl.preload = 'auto'; hornEl.setAttribute('playsinline', ''); }
   return hornEl;
 }
+// Inside the radio shell the page is a frame: play horns on the top window's element, which the Listen tap
+// already unlocked (browsers allow sound per page, and the frame's own page may never have been tapped).
+function hornAudio() {
+  try { const el = host?.hornEl?.(); if (el) return el; } catch { /* ignore */ }
+  return ownHornAudio();
+}
+// Browsers only let a page play sound after the reader has tapped or pressed a key on it since it loaded.
+// A page opened (or reloaded) and then left alone, which is what happens while watching a game on a delay,
+// shows the goal alert but stays silent. We say so on screen until the first tap.
 let primed = false;
+const activated = () => primed || navigator.userActivation?.hasBeenActive === true || !!host;
 function primeHorn() {
   if (primed || audio) return;
   primed = true;
+  document.getElementById('horn-unlock')?.remove();
   const el = hornAudio();
   el.muted = true; el.src = SILENCE;
   el.play().then(() => { if (audio !== el) el.pause(); }).catch(() => { primed = false; });
+}
+/** A small note while horns are on but this page can't make sound yet. */
+function unlockHint(show) {
+  let el = document.getElementById('horn-unlock');
+  if (!show || activated()) { el?.remove(); return; }
+  if (el) return;
+  el = document.createElement('button');
+  el.type = 'button';
+  el.id = 'horn-unlock';
+  el.textContent = '🔇 Tap anywhere so goal horns can play sound';
+  el.style.cssText = 'position:fixed;left:16px;bottom:16px;z-index:999;max-width:calc(100vw - 32px);padding:8px 14px;border-radius:999px;border:1px solid #f59e0b;background:#111827;color:#fde68a;font:600 13px Inter,system-ui,sans-serif;box-shadow:0 6px 20px rgba(0,0,0,.4);cursor:pointer';
+  el.addEventListener('click', () => el.remove());
+  document.body.append(el);
 }
 // Any tap or key press on the page counts, so horns work in the background even after a reload.
 for (const ev of ['pointerdown', 'keydown', 'touchend']) document.addEventListener(ev, primeHorn, { capture: true, passive: true });
@@ -422,7 +446,18 @@ function show(a) {
   me.onended = done;
   me.onerror = short;
   alertTimer = setTimeout(done, MAX_MS);
-  me.play().catch(short); // blocked until the reader has tapped a horn toggle once: fall back to a short alert
+  me.play().catch((err) => {
+    if (audio !== me) return;
+    // Sound blocked (no tap on this page yet): offer a button, which is the tap the browser wants.
+    if (err?.name === 'NotAllowedError') {
+      primed = false;
+      const ctl = el.querySelector('.ga-ctl');
+      if (ctl && !ctl.querySelector('[data-ga="sound"]')) ctl.insertAdjacentHTML('afterbegin', '<button type="button" class="ga-btn" data-ga="sound">🔊 Play horn</button>');
+      clearTimeout(alertTimer); alertTimer = setTimeout(done, ALERT_MS * 2);
+      return;
+    }
+    short();
+  });
 }
 function next() { const a = queue.shift(); if (a) show(a); }
 function play(a) {
@@ -436,7 +471,14 @@ function play(a) {
 
 document.addEventListener('click', (e) => {
   const c = e.target.closest('[data-ga]');
-  if (c) { if (c.dataset.ga === 'stop') stopAll(); else skip(); }
+  if (!c) return;
+  if (c.dataset.ga === 'sound') {
+    const me = audio;
+    c.remove();
+    if (me) { clearTimeout(alertTimer); alertTimer = setTimeout(() => { if (audio === me) skip(); }, MAX_MS); me.play().then(() => { primed = true; }).catch(() => {}); }
+    return;
+  }
+  if (c.dataset.ga === 'stop') stopAll(); else skip();
 });
 
 document.addEventListener('click', (e) => {
@@ -551,6 +593,7 @@ async function watchTick() {
   markFront();
   const now = Date.now();
   let wait = 15_000; // nothing to watch: look again in a bit (a horn may be turned on in another tab)
+  let liveHorned = false;
   watching.clear();
   for (const [date, ids] of hornedByDate(now)) {
     if (now - (doneDates.get(date) ?? -Infinity) < 10 * 60_000) continue;
@@ -561,11 +604,13 @@ async function watchTick() {
     const games = checkDate(date, ids, data);
     watching.set(date, ids);
     const on = (g) => g.status?.state === 'live' || g.status?.imminent || g.status?.settling;
+    if (fresh.some((g) => g.status?.state === 'live' || g.status?.imminent)) liveHorned = true;
     if (fresh.some(on) || games.some(on)) wait = Math.min(wait, LIVE_REFRESH_MS);
     else if (fresh.some((g) => g.status?.state === 'pre')) wait = Math.min(wait, 60_000);
     else doneDates.set(date, now);
   }
   checkDue();
+  unlockHint(liveHorned);
   if (!window.__radioShell && !watchTimer) watchTimer = later(watchTick, wait);
 }
 function watchSoon() { cancelLater(watchTimer); watchTimer = later(watchTick, 0); }

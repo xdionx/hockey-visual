@@ -1,6 +1,6 @@
 // Design 2 "Broadcast": a dark, bold, on-air graphics look.
 // Inspired by TSN and NHL broadcast score bugs: team-color panels, condensed type, big numbers.
-import { esc, logo, teamColors, statusText, prettyDate, skaters, goaliesOf, pct, signed, videoButton, visualizerButton, elapsed, headshot, strengthBadge } from './core.js';
+import { esc, logo, teamColors, statusText, statusHtml, prettyDate, skaters, goaliesOf, pct, signed, videoButton, visualizerButton, elapsed, headshot, strengthBadge } from './core.js';
 
 /** Shots on goal and shot attempts for one team, for next to the score. */
 export function shotLine(game, side) {
@@ -20,13 +20,13 @@ export function hero(game, c, { strip = true, shots = false } = {}) {
   if (!strip) {
     return `<section class="b-hero">
     ${panel('away')}
-    <div class="b-mid"><span class="b-state ${game.status.state}">${esc(statusText(game))}</span>${strengthBadge(game, c)}<span class="b-date">${esc(prettyDate(game.gameDate))}</span>${game.gameType === 1 || game.gameType === 3 ? `<span class="b-type" title="${game.gameType === 1 ? 'Not counted in our season stats' : 'Kept apart from our regular-season stats'}">${game.gameType === 1 ? 'Preseason' : 'Playoffs'}</span>` : ''}<span class="b-venue">${esc(game.venue)}</span></div>
+    <div class="b-mid"><span class="b-state ${game.status.state}">${statusHtml(game)}</span>${strengthBadge(game, c)}<span class="b-date">${esc(prettyDate(game.gameDate))}</span>${game.gameType === 1 || game.gameType === 3 ? `<span class="b-type" title="${game.gameType === 1 ? 'Not counted in our season stats' : 'Kept apart from our regular-season stats'}">${game.gameType === 1 ? 'Preseason' : 'Playoffs'}</span>` : ''}<span class="b-venue">${esc(game.venue)}</span></div>
     ${panel('home')}
   </section>`;
   }
   return `<section class="b-hero">
     ${panel('away')}
-    <div class="b-mid"><span class="b-state ${game.status.state}">${esc(statusText(game))}</span>${strengthBadge(game, c)}<span class="b-date">${esc(prettyDate(game.gameDate))}</span>${game.gameType === 1 || game.gameType === 3 ? `<span class="b-type" title="${game.gameType === 1 ? 'Not counted in our season stats' : 'Kept apart from our regular-season stats'}">${game.gameType === 1 ? 'Preseason' : 'Playoffs'}</span>` : ''}<span class="b-venue">${esc(game.venue)}</span></div>
+    <div class="b-mid"><span class="b-state ${game.status.state}">${statusHtml(game)}</span>${strengthBadge(game, c)}<span class="b-date">${esc(prettyDate(game.gameDate))}</span>${game.gameType === 1 || game.gameType === 3 ? `<span class="b-type" title="${game.gameType === 1 ? 'Not counted in our season stats' : 'Kept apart from our regular-season stats'}">${game.gameType === 1 ? 'Preseason' : 'Playoffs'}</span>` : ''}<span class="b-venue">${esc(game.venue)}</span></div>
     ${panel('home')}
   </section>
   <div class="b-strip">${ls.periods.map((p) => `<div class="b-per"><span>${esc(p.label)}</span><b>${p.away ?? '-'}</b><b>${p.home ?? '-'}</b></div>`).join('')}

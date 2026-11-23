@@ -2,13 +2,13 @@
 // Inspired by HockeyStats and NHL EDGE style analytics pages.
 import { hero, statBars, scoringCards, stars } from './d2-broadcast.js';
 import { colors, header as secHeader, lineScore } from './d6-story.js';
-import { ZONES, faceoffLine, esc, logo, teamColors, statusText, prettyDate, allSkaters, allGoalies, pct, signed, rinkMarkup, shotMark, elapsed, headshot, on, morphInner, goalieXg, fold } from './core.js';
+import { ZONES, faceoffLine, esc, logo, teamColors, statusText, statusHtml, prettyDate, allSkaters, allGoalies, pct, signed, rinkMarkup, shotMark, elapsed, headshot, on, morphInner, goalieXg, fold } from './core.js';
 
 function header(game, c) {
   const ls = game.linescore;
   return `<section class="a-head">
     <div class="a-side" style="--team:${c.away}">${logo(game.away, 'a-logo', true)}<b>${esc(game.away.abbrev)}</b><span class="a-sc">${ls.totals.away}</span></div>
-    <div class="a-mid"><span class="a-st ${game.status.state}">${esc(statusText(game))}</span><span>${esc(prettyDate(game.gameDate))}</span></div>
+    <div class="a-mid"><span class="a-st ${game.status.state}">${statusHtml(game)}</span><span>${esc(prettyDate(game.gameDate))}</span></div>
     <div class="a-side r" style="--team:${c.home}"><span class="a-sc">${ls.totals.home}</span><b>${esc(game.home.abbrev)}</b>${logo(game.home, 'a-logo', true)}</div>
   </section>`;
 }

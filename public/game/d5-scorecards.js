@@ -2,7 +2,7 @@
 // A modern take on HockeyStats-style player game cards; the start of the per-player scorecard.
 import { hero } from './d2-broadcast.js';
 import { colors, header as secHeader } from './d6-story.js';
-import { faceoffLine, esc, logo, teamColors, statusText, prettyDate, allSkaters, allGoalies, pct, signed, rinkMarkup, shotMark, headshot, ratingColor, GS_PARTS, on, morphInner, goalieXg, fold, penKind, elapsed, byRating, tieBreak } from './core.js';
+import { faceoffLine, esc, logo, teamColors, statusText, statusHtml, prettyDate, allSkaters, allGoalies, pct, signed, rinkMarkup, shotMark, headshot, ratingColor, GS_PARTS, on, morphInner, goalieXg, fold, penKind, elapsed, byRating, tieBreak } from './core.js';
 
 export const PART_COLORS = { scoring: '#6366f1', momentum: '#22c55e', shooting: '#0ea5e9', onIce: '#14b8a6', defense: '#a3a3a3', discipline: '#f59e0b', faceoffs: '#ec4899' };
 
@@ -10,7 +10,7 @@ function header(game, c) {
   const ls = game.linescore;
   return `<section class="s-head">
     <div class="s-t" style="--team:${c.away}">${logo(game.away, 's-logo')}<div><b>${esc(game.away.commonName)}</b><span>${esc(game.away.abbrev)}</span></div><em>${ls.totals.away}</em></div>
-    <div class="s-mid"><span class="s-st ${game.status.state}">${esc(statusText(game))}</span><span>${esc(prettyDate(game.gameDate))}</span></div>
+    <div class="s-mid"><span class="s-st ${game.status.state}">${statusHtml(game)}</span><span>${esc(prettyDate(game.gameDate))}</span></div>
     <div class="s-t r" style="--team:${c.home}"><em>${ls.totals.home}</em><div><b>${esc(game.home.commonName)}</b><span>${esc(game.home.abbrev)}</span></div>${logo(game.home, 's-logo')}</div>
   </section>`;
 }

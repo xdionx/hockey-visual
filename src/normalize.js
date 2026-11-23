@@ -80,9 +80,13 @@ export function gameStatus(g) {
   if (LIVE_STATES.has(g.gameState)) {
     const p = periodLabel(g.periodDescriptor);
     const pText = /^\d$/.test(p) ? ordinal(Number(p)) : displayPeriod(p, g.gameType);
-    if (g.clock?.inIntermission) return { state: 'live', label: `${pText} Intermission` };
+    // The feed's clock, so pages can count it down between refreshes (in an intermission it counts the break down).
+    const clock = g.clock && p !== 'SO' && Number.isFinite(g.clock.secondsRemaining)
+      ? { n: g.periodDescriptor?.number ?? null, p: pText, s: g.clock.secondsRemaining, run: !!g.clock.running, int: !!g.clock.inIntermission }
+      : undefined;
+    if (g.clock?.inIntermission) return { state: 'live', label: `${pText} Intermission`, clock };
     if (p === 'SO') return { state: 'live', label: 'Shootout' };
-    return { state: 'live', label: `${pText} ${(g.clock?.timeRemaining ?? '').replace(/^0(?=\d:)/, '')}`.trim() };
+    return { state: 'live', label: `${pText} ${(g.clock?.timeRemaining ?? '').replace(/^0(?=\d:)/, '')}`.trim(), clock };
   }
   return { state: 'pre', label: 'Scheduled', startTimeUTC: g.startTimeUTC };
 }
