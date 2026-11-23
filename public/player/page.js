@@ -7,6 +7,7 @@ import { installPlayerLinks } from './link.js';
 import { rankBit } from './quick.js';
 import { getData } from '../data.js';
 import { FIRST_FULL_SEASON } from '../src/seasonStats.js';
+import { goalieRating, W } from '../src/predict.js';
 
 const id = new URLSearchParams(location.search).get('id');
 const main = document.querySelector('#player');
@@ -42,7 +43,27 @@ function card(title, sub, html, cls = '') {
   return `<section class="pc-card ${cls}"><h2>${title}${sub ? ` <small>${sub}</small>` : ''}</h2>${html}</section>`;
 }
 
-function thisSeason(p, ours) {
+const svPts = (v) => (v == null ? '-' : `${fmt.signed(v * 100, 1)}%`);
+
+/** Our goaltending numbers for this season (goals saved above expected and what our pick makes of it). */
+function goalieOurs(p, ours, pick) {
+  if (!ours || ours.gsax == null) return '';
+  const sa = p.now?.shotsAgainst;
+  const xsv = sa ? 1 - ours.xgaAvg / sa : null;
+  return `
+    <h3 class="pc-sub">Our numbers <small>from the play-by-play, ${ours.gp} finished games</small></h3>
+    <div class="pq-grid pc-grid">
+      ${tile('GSAx', fmt.signed(ours.gsax, 1), rankBit(ours.gsaxRank) || 'goals saved above expected', 'pq-ours')}
+      ${tile('GSAx/GP', fmt.signed(ours.gsaxPerGame, 2), 'per game played', 'pq-ours')}
+      ${tile('Goals against', ours.ga, `avg goalie ${fmt.dec(ours.xgaAvg)} on the same shots`, 'pq-ours')}
+      ${sa ? tile('SV% vs exp', svPts(ours.gsax / sa), `expected ${fmt.sv(xsv)} on these shots`, 'pq-ours') : ''}
+      ${tile('Starts', ours.starts, `${ours.gp} games played`, 'pq-ours')}
+      ${pick?.id ? tile('Pick edge', fmt.signed(W.goalie * pick.value, 2), 'goals a game in our pick when starting, vs an average goalie', 'pq-ours') : ''}
+    </div>
+    <p class="pq-note">GSAx is how many goals this goalie kept out beyond what an average NHL goalie would allow on the same shots (distance, angle and shot type, our own estimate). Goalie skill is real over a season, but in six seasons of tests save streaks, big saves and goalie pulls didn't swing games, so goalies get no in-game momentum. What does help is who starts: <b>Pick edge</b> is what the goalie's GSAx this season and last (shrunk toward average) adds to our pre-game pick on the Scores page.</p>`;
+}
+
+function thisSeason(p, ours, pick) {
   const n = p.now;
   if (!n && !ours) return card('This season', fmt.season(p.currentSeason ?? ''), '<p class="pq-note">No games this regular season yet.</p>');
   let tiles;
@@ -57,7 +78,7 @@ function thisSeason(p, ours) {
       ...(n?.foPct ? [tile('FO%', fmt.pct(n.foPct))] : []),
     ];
   }
-  const ourTiles = p.goalie || !ours ? '' : `
+  const ourTiles = p.goalie ? goalieOurs(p, ours, pick) : !ours ? '' : `
     <h3 class="pc-sub">Our numbers <small>from the play-by-play, ${ours.gp} finished games</small></h3>
     <div class="pq-grid pc-grid">
       ${tile('SAT/GP', fmt.dec(ours.satPerGame), rankBit(ours.satRank), 'pq-ours')}
@@ -78,7 +99,7 @@ function thisSeason(p, ours) {
 /** Two bar charts, one per number, a bar per season (oldest left). Seasons not built yet are hollow. */
 const yr = (s) => `${String(s).slice(2, 4)}-${String(s).slice(6, 8)}`;
 
-function trend(rows) {
+function trend(rows, goalie = false) {
   const list = rows.filter((r) => r.season >= FIRST_FULL_SEASON).slice().reverse();
   if (!list.length) return '';
   const chart = (key, label, signed, fmtV) => {
@@ -104,6 +125,11 @@ function trend(rows) {
       <line class="pt-zero" x1="0" x2="${w}" y1="${zero}" y2="${zero}"/>${bars}</svg></div></figure>`;
   };
   const pending = list.some((r) => !r.ours && !r.built);
+  if (goalie) {
+    return card('Goaltending by season', 'regular season, vs an average goalie on the same shots',
+      `<div class="pt-wrap">${chart('gsax', 'Goals saved above expected', true, (v) => fmt.signed(v, 1))}${chart('svVsExp', 'SV% vs expected (points)', true, (v) => fmt.signed(v * 100, 1))}</div>
+      ${pending ? '<p class="pq-note">Hollow bars are seasons we are still building from the NHL play-by-play (goalie numbers go back to 2020-21 so far). They fill in on their own.</p>' : ''}`);
+  }
   return card('SAT and momentum by season', 'per game, regular season',
     `<div class="pt-wrap">${chart('satPerGame', 'SAT per game', false, (v) => v.toFixed(1))}${chart('momPerGame', 'Momentum per game', true, (v) => fmt.signed(v, 1))}</div>
     ${pending ? '<p class="pq-note">Hollow bars are seasons we are still building from the NHL play-by-play (about a dozen seasons a day). They fill in on their own.</p>' : ''}`);
@@ -118,8 +144,15 @@ function seasonsTable(p, rows) {
     const xgg = have.reduce((a, r) => a + (r.ours.row.xgg ?? 0), 0);
     return { gp, sat: have.reduce((a, r) => a + r.ours.row.sat, 0) / gp, mom: have.reduce((a, r) => a + r.ours.row.mom, 0) / gp, seasons: have.length, gaa: have.some((r) => r.ours.gaa != null) ? have.reduce((a, r) => a + (r.ours.gaa ?? 0), 0) : null, xgg };
   })();
+  const goalieCells = (r) => {
+    if (r.season < FIRST_FULL_SEASON) return '<td class="pc-na" title="No full play-by-play before 2009-10">n/a</td><td class="pc-na">n/a</td>';
+    if (r.ours?.gsax == null) return `<td class="pc-na" title="${r.built ? 'No games in our data' : 'Still being built'}">${r.built ? '-' : '…'}</td><td class="pc-na">${r.built ? '-' : '…'}</td>`;
+    const part = !r.ours.complete && r.season !== p.currentSeason;
+    const t = r.ours.gsaxRank ? ` title="${fmt.ord(r.ours.gsaxRank.rank)} of ${r.ours.gsaxRank.of} goalies with 5+ starts"` : '';
+    return `<td class="pc-o ${r.ours.gsax >= 0 ? 'up' : 'down'}${part ? ' pc-part' : ''}"${t}>${fmt.signed(r.ours.gsax, 1)}${part ? '*' : ''}</td><td class="pc-o${part ? ' pc-part' : ''}">${r.ours.svVsExp == null ? '-' : svPts(r.ours.svVsExp)}</td>`;
+  };
   const ourCells = (r) => {
-    if (p.goalie) return '';
+    if (p.goalie) return goalieCells(r);
     if (r.season < FIRST_FULL_SEASON) return '<td class="pc-na" title="No full play-by-play before 2009-10">n/a</td><td class="pc-na">n/a</td><td class="pc-na">n/a</td>';
     if (!r.ours) return `<td class="pc-na" title="${r.built ? 'No games in our data' : 'Still being built'}">${r.built ? '-' : '…'}</td><td class="pc-na">${r.built ? '-' : '…'}</td><td class="pc-na">${r.built ? '-' : '…'}</td>`;
     const fin = `<td class="pc-o"${r.ours.shPct != null ? ` title="Shot ${fmt.pct(r.ours.shPct)}; an average shooter ${fmt.pct(r.ours.xShPct)} on the same shots"` : ''}>${fmt.signed(r.ours.gaa, 1)}</td>`;
@@ -131,15 +164,22 @@ function seasonsTable(p, rows) {
     return `<td class="pc-o"${t(r.ours.satRank)}>${fmt.dec(r.ours.satPerGame)}</td><td class="pc-o ${r.ours.momPerGame >= 0 ? 'up' : 'down'}"${t(r.ours.momRank)}>${fmt.signed(r.ours.momPerGame, 1)}</td>${fin}`;
   };
   const head = p.goalie
-    ? '<th class="l">Season</th><th class="l">Team</th><th>GP</th><th>W</th><th>L</th><th>OTL</th><th>SV%</th><th>GAA</th><th>SO</th>'
+    ? '<th class="l">Season</th><th class="l">Team</th><th>GP</th><th>W</th><th>L</th><th>OTL</th><th>SV%</th><th>GAA</th><th>SO</th><th class="pc-o" title="Goals saved above expected (our model)">GSAx</th><th class="pc-o" title="Save % minus what an average goalie would stop on the same shots">SV% vs exp</th>'
     : '<th class="l">Season</th><th class="l">Team</th><th>GP</th><th>G</th><th>A</th><th>P</th><th>+/-</th><th>PIM</th><th>TOI/GP</th><th class="pc-o" title="Own shot attempts per game (our model)">SAT/GP</th><th class="pc-o" title="Momentum impact per game (our model)">MOM/GP</th><th class="pc-o" title="Goals scored minus what an average NHL shooter would score from the same shots">Goals vs avg</th>';
   const line = (r, label = fmt.season(r.season), team = r.team, ours = ourCells(r)) => (p.goalie
-    ? `<td class="l">${label}</td><td class="l">${esc(team)}</td><td>${r.gp}</td><td>${r.wins}</td><td>${r.losses}</td><td>${r.otLosses}</td><td>${fmt.sv(r.savePct)}</td><td>${fmt.dec(r.gaa, 2)}</td><td>${r.shutouts}</td>`
+    ? `<td class="l">${label}</td><td class="l">${esc(team)}</td><td>${r.gp}</td><td>${r.wins}</td><td>${r.losses}</td><td>${r.otLosses}</td><td>${fmt.sv(r.savePct)}</td><td>${fmt.dec(r.gaa, 2)}</td><td>${r.shutouts}</td>${ours}`
     : `<td class="l">${label}</td><td class="l">${esc(team)}</td><td>${r.gp}</td><td>${r.goals}</td><td>${r.assists}</td><td><b>${r.points}</b></td><td>${fmt.signed(r.plusMinus, 0)}</td><td>${r.pim}</td><td>${fmt.toi(r.toiPerGame)}</td>${ours}`);
-  const careerCells = careerOurs ? `<td class="pc-o" title="Across the ${careerOurs.seasons} seasons we have">${fmt.dec(careerOurs.sat)}</td><td class="pc-o">${fmt.signed(careerOurs.mom, 1)}</td><td class="pc-o" title="Added up across the seasons we have">${fmt.signed(careerOurs.gaa, 1)}</td>` : '<td></td><td></td><td></td>';
+  const careerGoalie = (() => {
+    const have = rows.filter((r) => r.ours?.gsax != null);
+    if (!have.length) return '<td></td><td></td>';
+    const gsax = have.reduce((a, r) => a + r.ours.gsax, 0);
+    const sa = have.reduce((a, r) => a + (r.shotsAgainst ?? 0), 0);
+    return `<td class="pc-o ${gsax >= 0 ? 'up' : 'down'}" title="Added up across the ${have.length} seasons we have">${fmt.signed(gsax, 1)}</td><td class="pc-o">${sa ? svPts(gsax / sa) : '-'}</td>`;
+  })();
+  const careerCells = p.goalie ? careerGoalie : careerOurs ? `<td class="pc-o" title="Across the ${careerOurs.seasons} seasons we have">${fmt.dec(careerOurs.sat)}</td><td class="pc-o">${fmt.signed(careerOurs.mom, 1)}</td><td class="pc-o" title="Added up across the seasons we have">${fmt.signed(careerOurs.gaa, 1)}</td>` : '<td></td><td></td><td></td>';
   const career = p.career ? `<tr class="pc-tot">${line(p.career, 'Career', `${p.nhl.length} season${p.nhl.length === 1 ? '' : 's'}`, careerCells)}</tr>` : '';
   return card('Season by season', 'NHL regular season', `<div class="pc-scroll"><table class="pc-table"><thead><tr>${head}</tr></thead><tbody>${rows.map((r) => `<tr>${line(r)}</tr>`).join('')}${career}</tbody></table></div>
-    ${p.goalie ? '' : `<p class="pq-note">SAT/GP, MOM/GP and Goals vs avg are our own numbers, built from every game's play-by-play (2009-10 on). Goals vs avg is how many more (or fewer) goals the player scored than an average NHL shooter would have from the same shots that season; about a third of a hot or cold year carries into the next. Hover a value for the league rank that season.${rows.some((r) => r.ours && !r.ours.complete && r.season !== p.currentSeason) ? ' * = season still being built, numbers so far.' : ''}</p>`}`);
+    ${p.goalie ? `<p class="pq-note">GSAx and SV% vs exp are our own numbers from every game's play-by-play: goals kept out beyond what an average NHL goalie would allow on the same shots that season. Built back to 2020-21 so far; older seasons fill in as we rebuild them. Hover a GSAx value for the league rank that season.${rows.some((r) => r.ours && !r.ours.complete && r.season !== p.currentSeason) ? ' * = season still being built, numbers so far.' : ''}</p>` : `<p class="pq-note">SAT/GP, MOM/GP and Goals vs avg are our own numbers, built from every game's play-by-play (2009-10 on). Goals vs avg is how many more (or fewer) goals the player scored than an average NHL shooter would have from the same shots that season; about a third of a hot or cold year carries into the next. Hover a value for the league rank that season.${rows.some((r) => r.ours && !r.ours.complete && r.season !== p.currentSeason) ? ' * = season still being built, numbers so far.' : ''}</p>`}`);
 }
 
 async function lastFive(p) {
@@ -155,7 +195,7 @@ async function lastFive(p) {
     return null;
   };
   const head = p.goalie
-    ? '<th class="l">Date</th><th class="l">Opp</th><th>SA</th><th>GA</th><th>SV%</th><th>TOI</th><th>Rating</th>'
+    ? '<th class="l">Date</th><th class="l">Opp</th><th title="Win, loss or overtime loss">Dec</th><th>SA</th><th>GA</th><th>SV%</th><th class="pc-o" title="Goals saved above expected that game (as on the box score)">GSAx</th><th>TOI</th><th>Rating</th>'
     : '<th class="l">Date</th><th class="l">Opp</th><th>G</th><th>A</th><th>P</th><th>SOG</th><th>TOI</th><th class="pc-o">SAT</th><th class="pc-o">MOM</th><th>Rating</th>';
   const rows = p.last5.map((g, i) => {
     const m = mine(games[i]);
@@ -164,7 +204,7 @@ async function lastFive(p) {
     const opp = `${g.home ? 'vs' : '@'} ${esc(g.opponent)}`;
     const rating = m?.rating != null ? `<span class="pc-rate">${m.rating.toFixed(1)}</span>` : '-';
     return p.goalie
-      ? `<tr><td class="l">${link}</td><td class="l">${opp}</td><td>${g.shotsAgainst ?? '-'}</td><td>${g.goalsAgainst ?? '-'}</td><td>${fmt.sv(g.savePct)}</td><td>${esc(g.toi ?? '-')}</td><td>${rating}</td></tr>`
+      ? `<tr><td class="l">${link}</td><td class="l">${opp}</td><td>${esc(g.decision ?? '-')}</td><td>${g.shotsAgainst ?? '-'}</td><td>${g.goalsAgainst ?? '-'}</td><td>${fmt.sv(g.savePct)}</td><td class="pc-o ${(m?.gsax ?? 0) >= 0 ? 'up' : 'down'}">${m?.gsax != null ? fmt.signed(m.gsax, 1) : '-'}</td><td>${esc(g.toi ?? '-')}</td><td>${rating}</td></tr>`
       : `<tr><td class="l">${link}</td><td class="l">${opp}</td><td>${g.goals}</td><td>${g.assists}</td><td><b>${g.points}</b></td><td>${g.shots}</td><td>${esc(g.toi ?? '-')}</td><td class="pc-o">${m?.attempts ?? '-'}</td><td class="pc-o ${(m?.momentum ?? 0) >= 0 ? 'up' : 'down'}">${m ? fmt.signed(m.momentum, 1) : '-'}</td><td>${rating}</td></tr>`;
   });
   return card('Last 5 games', 'tap a date for the box score', `<div class="pc-scroll"><table class="pc-table"><thead><tr>${head}</tr></thead><tbody>${rows.join('')}</tbody></table></div>`);
@@ -192,9 +232,16 @@ async function load() {
   document.title = `${p.fullName} · Player card`;
   // Our season totals for every NHL season this player has.
   const files = await Promise.all(p.nhl.map((r) => (r.season >= FIRST_FULL_SEASON ? loadSeason(r.season) : null)));
-  const rows = p.nhl.map((r, i) => ({ ...r, built: !!files[i], ours: ourStats(files[i], p.id) }));
-  const ours = rows.find((r) => r.season === p.currentSeason)?.ours ?? ourStats(await loadSeason(p.currentSeason), p.id);
-  main.innerHTML = `${hero(p)}<div class="pc-cols">${thisSeason(p, ours)}${p.goalie ? '' : trend(rows)}${seasonsTable(p, rows)}<div id="pc-last5"></div>${playoffs(p)}</div>`;
+  const rows = p.nhl.map((r, i) => {
+    const o = ourStats(files[i], p.id);
+    // Goalies: save % vs expected needs the NHL's shots against for that season.
+    if (o?.gsax != null) o.svVsExp = r.shotsAgainst ? o.gsax / r.shotsAgainst : null;
+    return { ...r, built: !!files[i], ours: o };
+  });
+  const curFile = await loadSeason(p.currentSeason);
+  const ours = rows.find((r) => r.season === p.currentSeason)?.ours ?? ourStats(curFile, p.id);
+  const pick = p.goalie ? goalieRating(p.id, curFile, await loadSeason(p.currentSeason - 10001)) : null;
+  main.innerHTML = `${hero(p)}<div class="pc-cols">${thisSeason(p, ours, pick)}${trend(rows, p.goalie)}${seasonsTable(p, rows)}<div id="pc-last5"></div>${playoffs(p)}</div>`;
   // Season bars scroll sideways on narrow screens: start at the newest seasons.
   document.querySelectorAll('.pt-scroll').forEach((el) => { el.scrollLeft = el.scrollWidth; });
   document.querySelector('#pc-last5').outerHTML = await lastFive(p) || '';

@@ -47,6 +47,10 @@ function body(id, p, ours, season) {
     tiles = [
       tile('GP', now?.gp ?? ours?.gp ?? 0), tile('W', now?.wins ?? '-'), tile('L', now?.losses ?? '-'), tile('OTL', now?.otLosses ?? '-'),
       tile('SV%', fmt.sv(now?.savePct)), tile('GAA', fmt.dec(now?.gaa, 2)), tile('SO', now?.shutouts ?? '-'), tile('TOI/GP', fmt.toi(now?.toiPerGame)),
+      ...(ours?.gsax != null ? [
+        tile('GSAx', fmt.signed(ours.gsax, 1), rankBit(ours.gsaxRank), 'pq-ours'),
+        ...(now?.shotsAgainst ? [tile('SV% vs exp', `${fmt.signed((ours.gsax / now.shotsAgainst) * 100, 1)}%`, `expected ${fmt.sv(1 - ours.xgaAvg / now.shotsAgainst)}`, 'pq-ours')] : []),
+      ] : []),
     ];
   } else {
     tiles = [
@@ -59,7 +63,7 @@ function body(id, p, ours, season) {
     ];
   }
   const sub = [p?.number != null ? `#${p.number}` : null, positionName(p?.position ?? ours?.row?.p), p?.teamName ?? team].filter(Boolean).join(' · ');
-  const note = goalie ? '' : ours
+  const note = goalie ? (ours?.gsax != null ? `GSAx (goals saved above expected) is goals kept out beyond what an average NHL goalie would allow on the same shots, from our own play-by-play model across ${ours.gp} games this season. Ranks are among goalies with 5+ starts.` : '') : ours
     ? `SAT, MOM and Goals vs avg (goals scored minus what an average shooter would score from the same shots) come from our own play-by-play model, across ${ours.gp} of ${ours.games} finished games this season. Ranks are among skaters with ${ours.minGp}+ games.`
     : 'No SAT or momentum yet: this player hasn\'t played a finished game this season.';
   return `

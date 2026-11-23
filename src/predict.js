@@ -8,7 +8,7 @@ import { gameObj } from './seasonStats.js';
 
 // Expected goal gap (away minus home) = 18.257 x share gap + 1.467 x goalie gap - 0.472 x back-to-back gap - 0.152,
 // then a win chance from a logistic fit on the same games (a = -0.011, b = 0.665).
-const W = { share: 18.257, goalie: 1.467, b2b: -0.472, home: -0.152 };
+export const W = { share: 18.257, goalie: 1.467, b2b: -0.472, home: -0.152 };
 const LOGIT = { a: -0.011, b: 0.665 };
 const GOALIE_SHRINK = 40; // expected goals of average goaltending added to every goalie's record
 export const MIN_GAMES = 5;
@@ -40,7 +40,7 @@ export function probableStarter(starts) {
 }
 
 /** Goals saved above expected per expected goal (shrunk), over this season and last. Scaled to real goal totals. */
-function goalieRating(id, total, prev) {
+export function goalieRating(id, total, prev) {
   if (!id) return { id: null, value: 0 };
   const league = (tot) => Object.values(tot?.players ?? {}).filter((p) => p.p === 'G' && p.xga != null).reduce((a, p) => [a[0] + p.ga, a[1] + p.xga], [0, 0]);
   const [lg, lx] = [league(total), league(prev)].reduce((a, b) => [a[0] + b[0], a[1] + b[1]], [0, 0]);

@@ -2,6 +2,7 @@
 // with small in-memory caches so opening the same card twice is instant.
 import { getData, getStatic } from '../data.js';
 import { perGame, rankOf, seasonOf, minGames, leagueRate } from '../src/seasonStats.js';
+import { goalieLine } from '../src/matchup.js';
 
 const players = new Map();
 const FIN_MIN_XG = 3;
@@ -16,6 +17,11 @@ export function loadPlayer(id) {
 export function loadSeason(season) {
   if (!seasons.has(season)) seasons.set(season, getStatic(`seasons/${season}.json`).catch(() => null));
   return seasons.get(season);
+}
+
+function goalieRank(total, id) {
+  const g = goalieLine(total, id, leagueRate(total));
+  return g?.rank ? { rank: g.rank, of: g.of } : null;
 }
 
 export const currentSeason = () => seasonOf(new Date(Date.now() - 10 * 3600_000).toISOString().slice(0, 10));
@@ -33,6 +39,8 @@ export function ourStats(total, id) {
     momRank: row.p === 'G' ? null : rankOf(total, id, 'momPerGame', opts),
     // Finishing is noisy on few chances: rank only among skaters with a few expected goals.
     finRank: row.p === 'G' || avg?.gaa == null || (row.xg ?? 0) < FIN_MIN_XG ? null : rankOf(total, id, 'gaa', { ...opts, minXg: FIN_MIN_XG }),
+    // Goalies: goals saved above expected, ranked among goalies with 5+ starts (as on the Pregame view).
+    gsaxRank: row.p === 'G' && avg?.gsax != null ? goalieRank(total, id) : null,
     minGp: opts.minGp,
     games: total.games,
     complete: !!total.complete,
@@ -43,7 +51,11 @@ export function ourStats(total, id) {
 export const fmt = {
   toi: (sec) => (sec == null ? '-' : `${Math.floor(sec / 60)}:${String(Math.round(sec % 60)).padStart(2, '0')}`),
   dec: (n, d = 1) => (n == null || Number.isNaN(n) ? '-' : n.toFixed(d)),
-  signed: (n, d = 1) => (n == null || Number.isNaN(n) ? '-' : `${n > 0 ? '+' : n < 0 ? '−' : ''}${Math.abs(n).toFixed(d)}`),
+  signed: (n, d = 1) => {
+    if (n == null || Number.isNaN(n)) return '-';
+    const r = Number(n.toFixed(d)); // no sign on a value that rounds to zero ("−0.0")
+    return `${r > 0 ? '+' : r < 0 ? '−' : ''}${Math.abs(n).toFixed(d)}`;
+  },
   pct: (n, d = 1) => (n == null ? '-' : `${(n * 100).toFixed(d)}%`),
   sv: (n) => (n == null ? '-' : n.toFixed(3).replace(/^0/, '')),
   ord: (n) => {

@@ -242,6 +242,13 @@ export function finishingLine(goals, xg, sog, rate = 1) {
   return { shPct: sog ? goals / sog : null, xShPct: sog ? avg / sog : null, gaa: goals - avg, avgGoals: avg };
 }
 
+/** A goalie's season in plain numbers: expected goals against (scaled to the league), goals saved above expected. */
+export function goalieLineOf(row, rate = 1) {
+  const xga = row.xga * rate;
+  const gsax = xga - (row.ga ?? 0);
+  return { ga: row.ga ?? 0, xgaAvg: xga, gsax, gsaxPerGame: row.gp ? gsax / row.gp : null, starts: row.gs ?? 0 };
+}
+
 /** Per-game averages for one player's season row (null when the player has no games). rate: leagueRate(total). */
 export function perGame(row, rate = 1) {
   if (!row?.gp) return null;
@@ -266,6 +273,8 @@ export function perGame(row, rate = 1) {
     belowPct: skater && row.tg ? (row.bl ?? 0) / row.tg : null,
     // The same against an average NHL shooter that season (what the pages show).
     ...(skater ? finishingLine(row.xgg ?? 0, row.xg, row.sog ?? 0, rate) : { shPct: null, xShPct: null, gaa: null }),
+    // Goalies: goals saved above what an average NHL goalie would allow on the same shots (xGA x league rate).
+    ...(!skater && row.xga != null ? goalieLineOf(row, rate) : {}),
   };
 }
 
