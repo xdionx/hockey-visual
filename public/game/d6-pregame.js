@@ -2,7 +2,7 @@
 // (season-to-date team numbers, bars = league rank) and a scouting card per team (strengths and
 // weak spots, probable starter, lineup news, top skaters). game.pregame is filled in by game.js;
 // game.preview (records, special teams, last 10) comes from the NHL right rail via src/gameDetail.js.
-import { esc, logo, onColor } from './core.js';
+import { esc, logo, onColor, lineCompareHtml } from './core.js';
 // Same wording as notableRole in src/lineupAlert.js (kept here so this file loads without the src copy).
 const notableRole = (p) => `#${p.rank} ${p.pos === 'D' ? 'defenseman' : 'forward'}`;
 
@@ -60,6 +60,7 @@ function winCard(game, pg, c) {
   return `<div class="b-card pg-card"><h2>Win chance</h2>
     <div class="pg-bars">${bar('US', p.away, 'Our pre-game pick: season momentum share, probable starting goalies and back-to-backs. Right about 57% of the time on past seasons.')}${(pg.books ?? []).map((b) => bar(b.short, b.p, `${b.name}'s line with its margin removed`)).join('')}</div>
     <p class="pg-lead">We make the <b>${esc(game[fav].commonName)}</b> a ${pct(Math.max(p.away, p.home))} pick. ${rest}${pg.books?.length ? ' Book chances have the margin removed.' : ''}</p>
+    ${lineCompareHtml(pg.line, game)}
   </div>`;
 }
 

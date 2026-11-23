@@ -3,8 +3,11 @@
 // shortly before each puck drop and compare it with our own pre-game pick later. Pure functions.
 //
 // data/odds.json: { updated, games: { <gameId>: { date, start, away, home, books: { dk: { a, h, t }, fd: {...} },
-//   pick: { a, t }, result: 'away' | 'home' | null } } } where a/h are American moneylines (regulation + OT/SO,
-//   "MONEY_LINE_2_WAY"), a in pick is our away win chance, and t is when it was saved.
+//   pick: { a, gap, t }, result: 'away' | 'home' | null, margin, goals } } } where a/h are American moneylines
+//   (regulation + OT/SO, "MONEY_LINE_2_WAY"), a in pick is our away win chance and gap our expected goal gap
+//   (away minus home). Since Nov 23 each book also has pl (puck line: line = the home team's, e.g. -1.5, with a/h
+//   the away/home prices) and tl (total: line, o/u prices). margin and goals are the final away-minus-home
+//   goals and total goals, saved with the result.
 
 export const BOOKS = { DraftKings: 'dk', FanDuel: 'fd' };
 export const BOOK_NAMES = { dk: 'DraftKings', fd: 'FanDuel' };
@@ -27,26 +30,39 @@ export function noVigAway(a, h) {
 export function parsePartner(raw) {
   const book = BOOKS[raw?.bettingPartner?.name];
   if (!book) return [];
-  const ml = (team) => team?.odds?.find((o) => o.description === 'MONEY_LINE_2_WAY')?.value;
-  return (raw.games ?? []).filter((g) => g.gameType === 2).map((g) => ({
-    gameId: g.gameId, start: g.startTimeUTC, book, a: ml(g.awayTeam), h: ml(g.homeTeam),
-  })).filter((g) => g.a != null && g.h != null);
+  const find = (team, d) => team?.odds?.find((o) => o.description === d);
+  const ml = (team) => find(team, 'MONEY_LINE_2_WAY')?.value;
+  return (raw.games ?? []).filter((g) => g.gameType === 2).map((g) => {
+    const out = { gameId: g.gameId, start: g.startTimeUTC, book, a: ml(g.awayTeam), h: ml(g.homeTeam) };
+    // Puck line: the home team's line (-1.5 when it is the favorite) with each side's price.
+    const ph = find(g.homeTeam, 'PUCK_LINE');
+    const pa = find(g.awayTeam, 'PUCK_LINE');
+    const line = Number(ph?.qualifier);
+    if (ph && pa && Number.isFinite(line) && Math.abs(line) === 1.5) out.pl = { line, a: pa.value, h: ph.value };
+    // Total: the over is priced on the home team's entry, the under on the away team's ("O6.5" / "U6.5").
+    const over = find(g.homeTeam, 'OVER_UNDER');
+    const under = find(g.awayTeam, 'OVER_UNDER');
+    const tl = Number(String(over?.qualifier ?? '').replace(/^O/, ''));
+    if (over && under && Number.isFinite(tl) && tl > 0) out.tl = { line: tl, o: over.value, u: under.value };
+    return out;
+  }).filter((g) => g.a != null && g.h != null);
 }
 
 /**
  * Folds fresh snapshots into the saved odds. A game's lines and pick keep updating until puck drop and
- * freeze at the last snapshot before it (the closing line). `picks` is Map(gameId -> away win chance).
+ * freeze at the last snapshot before it (the closing line). `picks` is Map(gameId -> away win chance, or { away, gap }).
  */
 export function mergeOdds(saved, snapshots, picks, nowMs, dateOf = {}) {
   const games = { ...(saved?.games ?? {}) };
   for (const s of snapshots) {
     if (Date.parse(s.start) <= nowMs) continue; // started: keep the closing line already saved
     const g = games[s.gameId] ?? (games[s.gameId] = { date: dateOf[s.gameId] ?? s.start.slice(0, 10), start: s.start, books: {}, pick: null, result: null });
-    g.books[s.book] = { a: s.a, h: s.h, t: new Date(nowMs).toISOString() };
+    g.books[s.book] = { a: s.a, h: s.h, ...(s.pl ? { pl: s.pl } : {}), ...(s.tl ? { tl: s.tl } : {}), t: new Date(nowMs).toISOString() };
   }
-  for (const [id, a] of picks) {
+  for (const [id, p] of picks) {
     const g = games[id];
-    if (g && Date.parse(g.start) > nowMs) g.pick = { a: Math.round(a * 1000) / 1000, t: new Date(nowMs).toISOString() };
+    const a = typeof p === 'number' ? p : p.away;
+    if (g && Date.parse(g.start) > nowMs) g.pick = { a: Math.round(a * 1000) / 1000, ...(typeof p === 'object' && p.gap != null ? { gap: Math.round(p.gap * 100) / 100 } : {}), t: new Date(nowMs).toISOString() };
   }
   return { updated: new Date(nowMs).toISOString(), games };
 }

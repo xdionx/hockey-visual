@@ -1,5 +1,5 @@
 import { getData, getStatic, LIVE_REFRESH_MS, live, later, cancelLater } from './data.js';
-import { teamColors, strengthBadge, onColor } from './game/core.js';
+import { teamColors, strengthBadge, onColor, lineCompareHtml } from './game/core.js';
 import { teamAudio, radioOpen } from './horn.js'; // horn.js also watches for goals in games with a horn on, on every page
 import { getDelay, delayScores, delayButton, onDelayChange, delayable } from './delay.js';
 import { clockSpan, startClocks } from './clock.js';
@@ -10,6 +10,7 @@ import { seasonOf } from './src/seasonStats.js';
 import { predictGame } from './src/predict.js';
 import { notablePlayers, notableRole, missingTop } from './src/lineupAlert.js';
 import { noVigAway, edge, BOOK_NAMES } from './src/odds.js';
+import { lineView } from './src/spread.js';
 
 const $ = (s) => document.querySelector(s);
 const dateInput = $('#date');
@@ -230,6 +231,7 @@ function predictionLine(game, tc) {
   return `<div class="pred">
     <div class="pr-head"><span>Win chance</span>${e ? edgeTag(e) : ''}</div>
     <div class="pr-bars">${bars}</div>
+    ${lineCompareHtml(lineView(odds?.games?.[game.id]?.books, { a: p.away, gap: p.gap }), game)}
     ${alert}
     <details class="pred-why" data-pid="${game.id}"${openWhy.has(game.id) ? ' open' : ''}><summary>Why we pick it</summary><dl>${why}</dl>${books.length ? '<p>Book chances have the margin removed.</p>' : ''}</details>
   </div>`;
