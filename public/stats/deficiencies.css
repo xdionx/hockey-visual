@@ -1,5 +1,5 @@
 /* Momentum stats: the view tabs, and the Team deficiencies view (stats/deficiencies.js). */
-.ms-views { display: flex; gap: 4px; max-width: 1100px; margin: 12px auto 0; padding: 0 16px; }
+.ms-views { display: flex; flex-wrap: wrap; gap: 4px; max-width: 1100px; margin: 12px auto 0; padding: 0 16px; }
 .ms-views a { padding: 8px 16px; border: 1px solid #1f2937; border-radius: 6px; background: #0b1220; color: var(--mute); text-decoration: none; font: 700 15px "Barlow Condensed", sans-serif; letter-spacing: .06em; text-transform: uppercase; }
 .ms-views a:hover { border-color: #38bdf8; color: var(--ink); }
 .ms-views a[aria-current="page"] { background: #e11d48; border-color: #e11d48; color: #fff; }
@@ -54,8 +54,16 @@
 .td-how p { margin: 10px 0 0; color: #cbd5e1; font-size: 14px; }
 
 @media (max-width: 640px) {
-  .ms-views a { flex: 1; text-align: center; padding: 8px 6px; white-space: nowrap; font-size: 14px; }
+  .ms-views a { flex: 1 1 auto; text-align: center; padding: 8px 8px; white-space: nowrap; font-size: 14px; }
   .td-players { grid-template-columns: 1fr; }
   .td-areas { grid-template-columns: 1fr; }
   .td-area-v { font-size: 30px; }
+  body[data-view="teams"] .ms-hero h1, body[data-view="league"] .ms-hero h1 { font-size: 30px; }
 }
+
+/* League deficiencies list (stats/league.js) */
+.lg-list { grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); }
+.lg-row { border-left-color: var(--team); }
+.lg-rank { display: inline-block; min-width: 22px; margin-right: 6px; color: var(--mute); font: 700 14px "Barlow Condensed", sans-serif; }
+.lg-team { color: #93c5fd; text-decoration: none; font-weight: 700; }
+@media (max-width: 640px) { .lg-list { grid-template-columns: 1fr; } }

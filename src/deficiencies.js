@@ -212,6 +212,22 @@ export function deficiencies(total) {
   return { rate, n, minGp, pos: { F: { mom: pos.F.mom, below: pos.F.below }, D: { mom: pos.D.mom, below: pos.D.below } }, teams };
 }
 
+/**
+ * League deficiency list: every skater across the league who is costing their team, worst first.
+ * Same numbers and wording as a team card. { minGp, n (skaters judged), players: [{ ...skater, team, reasons }] }
+ */
+export function leaguePlayers(total, { minCost = 1.5 } = {}) {
+  if (!total?.players) return null;
+  const rate = leagueRate(total);
+  const minGp = Math.max(5, minGames(total));
+  const sbase = scoringBase(total);
+  const pos = leagueBase(total, rate, minGp, sbase);
+  const teams = [...new Set(Object.values(total.players).filter((p) => p.p !== 'G' && p.t).map((p) => p.t))];
+  const all = teams.flatMap((t) => skaterRows(total, t, rate, minGp, pos, sbase).map((p) => ({ ...p, team: t })));
+  const players = all.map((p) => ({ ...p, reasons: skaterReasons(p) })).filter((p) => p.cost <= -minCost && p.reasons.length).sort((a, b) => a.cost - b.cost);
+  return { minGp, n: all.length, players };
+}
+
 /** Home/road, the last 10 games and one-goal games: only returned when they stand out. */
 function situational(games, t) {
   const out = [];
