@@ -1,7 +1,7 @@
 // Design "Game Story": the Broadcast look with the Analytics and Scorecards data,
 // ordered to tell the game's story: what happened, how momentum swung, where the
 // shots came from, who drove it, then the full box score.
-import { esc, teamColors, allSkaters, allGoalies, elapsed, logo, statusText, strengthBadge, headshot, on, panelColor, fold } from './core.js';
+import { esc, teamColors, allSkaters, allGoalies, elapsed, logo, statusText, statusHtml, strengthBadge, headshot, on, panelColor, fold } from './core.js';
 import { hero, scoringCards, stars, statBars, shotLine } from './d2-broadcast.js';
 import { kpis, shotMap, heatTable, goalieTable, shotSummary, mountShotMap } from './d4-analytics.js';
 import { spotlight, scorecardControls, scorecardKey, mountScorecards, starsRow, mountStars } from './d5-scorecards.js';
@@ -126,7 +126,7 @@ export function header(n, id, title, sub = '') {
 export function miniScore(game, c) {
   const pre = game.status.state === 'pre';
   const team = (side) => `<span class="st-mini-t" style="--team:${c[side]}">${logo(game[side], 'st-mini-logo', true)}<b>${esc(game[side].abbrev)}</b><strong data-sog="${pre ? '' : `${game.linescore.shots?.[side] ?? 0} SOG`}">${pre ? '' : game.linescore.totals[side]}</strong>${shotLine(game, side)}</span>`;
-  return `<div class="st-mini" aria-hidden="true">${team('away')}<span class="st-mini-s ${game.status.state}">${esc(statusText(game))}${strengthBadge(game, c)}</span>${team('home')}</div>`;
+  return `<div class="st-mini" aria-hidden="true">${team('away')}<span class="st-mini-s ${game.status.state}">${statusHtml(game)}${strengthBadge(game, c)}</span>${team('home')}</div>`;
 }
 
 const KIND_LABEL = {
