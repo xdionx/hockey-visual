@@ -1,14 +1,20 @@
 // Design "Game Story": the Broadcast look with the Analytics and Scorecards data,
 // ordered to tell the game's story: what happened, how momentum swung, where the
 // shots came from, who drove it, then the full box score.
-import { esc, teamColors, allSkaters, allGoalies, elapsed, logo, statusText, strengthBadge, headshot, on, panelColor, fold } from './core.js';
-import { hero, scoringCards, stars, statBars, shotLine } from './d2-broadcast.js';
-import { kpis, shotMap, heatTable, goalieTable, shotSummary, mountShotMap } from './d4-analytics.js';
-import { spotlight, scorecardControls, scorecardKey, mountScorecards, starsRow, mountStars } from './d5-scorecards.js';
+import { esc, teamColors, allSkaters, allGoalies, elapsed, logo, statusText, strengthBadge, headshot, on, panelColor, fold, videoButton, byRating } from './core.js';
+import { hero, shotLine } from './d2-broadcast.js';
+import { shotSummary } from './d4-analytics.js';
+import { starsRow, mountStars } from './d5-scorecards.js';
 import { storyChapters, momentumTimeline } from './d6-chapters.js';
 import { storyBeats } from './d6-narrative.js';
 import { howWon } from './d6-won.js';
-import { pregameDek, pregameCards } from './d6-pregame.js';
+import { pregameDek } from './d6-pregame.js';
+
+/** The goal's highlight clip (opens in the page's video player), or an empty slot so rows line up. */
+export function clipButton(clip) {
+  if (!clip?.id) return '<span class="st-clip none" aria-hidden="true"></span>';
+  return videoButton(clip.id, clip.title, '<span aria-hidden="true">&#9654;</span>', 'st-clip', clip.href);
+}
 
 /** One Story beat: a label and short points; "How it unfolded" adds the period-by-period goal list. */
 function beatHtml(d, c) {
@@ -19,15 +25,17 @@ function beatHtml(d, c) {
   const tl = d.periods?.length ? `<div class="st-tl">${d.periods.map((p) => `
     <div class="st-tl-p">
       <div class="st-tl-h"><b>${esc(p.title)}</b><span>${esc(p.score)}</span>${p.note ? `<em>${esc(p.note)}</em>` : ''}</div>
-      ${p.quiet ? `<div class="st-tl-q">${esc(p.quiet)}</div>` : ''}${p.items.length ? p.items.map((e) => `<div class="st-tl-e ${e.flag}" style="--tc:${c[e.side] ?? '#94a3b8'}"><time>${esc(e.time)}</time><span class="st-tl-t">${esc(e.text)}</span>${e.score ? `<small>${esc(e.score)}</small>` : ''}</div>`).join('') : ''}
+      ${p.quiet ? `<div class="st-tl-q">${esc(p.quiet)}</div>` : ''}${p.items.length ? p.items.map((e) => `<div class="st-tl-e ${e.flag}" style="--tc:${c[e.side] ?? '#94a3b8'}"><time>${esc(e.time)}</time><span class="st-tl-t">${esc(e.text)}</span>${e.score ? `<small>${esc(e.score)}</small>` : ''}${e.goal ? clipButton(e.clip) : ''}</div>`).join('') : ''}
     </div>`).join('')}</div>` : '';
   return `<div class="st-beat-box"><b class="st-beat">${esc(d.label)}</b>${body}${pens}${tl}</div>`;
 }
 
 
-const SECTIONS = [
-  ['story', 'Story'], ['momentum', 'Momentum'], ['shots', 'Shots'], ['players', 'Players'], ['box', 'Box score'],
-];
+/** Where the rest lives now: the Story tells the game, the other views hold the detail. */
+function viewLinks() {
+  const v = [['broadcast', 2, 'Momentum', 'the minute-by-minute chart, swings and drivers'], ['analytics', 3, 'Game Stats', 'three stars, scoring plays, team stats, shot map and box score'], ['scorecards', 4, 'Scorecards', 'every player’s rating and what drove it']];
+  return `<nav class="st-views" aria-label="More views">${v.map(([id, n, name, what]) => `<a href="?design=${id}" data-design="${id}"><span class="n">${n}</span><b>${esc(name)}</b><small>${esc(what)}</small></a>`).join('')}</nav>`;
+}
 
 export function colors(game) {
   const c = teamColors(game, { dark: true });
@@ -68,7 +76,7 @@ export function storyline(game) {
   const dek = [];
   const shots = shotSummary(game);
   const att = shots.away.attempts + shots.home.attempts;
-  const players = [...allSkaters(game), ...allGoalies(game)].sort((x, y) => y.rating - x.rating || y.gameScore - x.gameScore);
+  const players = [...allSkaters(game), ...allGoalies(game)].sort(byRating);
   const best = players[0];
 
   if (state === 'live') {
@@ -352,14 +360,13 @@ export function lineScore(game, c) {
 export default {
   id: 'story',
   name: 'Game Story',
-  inspiration: 'Broadcast styling with the Analytics and Scorecards data, told in order: story, momentum, shots, players, box score',
+  inspiration: 'What happened and why: the story, period by period, and how it was won',
   classes: 'd-broadcast d-analytics d-scorecards',
   render(game) {
     const c = colors(game);
     const story = storyline(game);
     const sk = allSkaters(game);
-    const all = [...sk, ...allGoalies(game)].sort((a, b) => b.rating - a.rating || b.gameScore - a.gameScore);
-    const scale = Math.max(1.5, ...sk.map((p) => Object.values(p.gameScoreParts).reduce((s, v) => s + Math.max(0, v), 0))) * 1.05;
+    const all = [...sk, ...allGoalies(game)].sort(byRating);
     const started = game.status.state === 'live' || game.status.state === 'final';
     return `<div class="b-wrap st-wrap">
       ${hero(game, c, { strip: false, shots: true })}
@@ -367,7 +374,6 @@ export default {
         ${miniScore(game, c)}
         <div class="st-bar-body">
         ${started ? momentumStrip(game, c) : ''}
-        ${started ? `<nav class="st-nav" aria-label="Sections">${SECTIONS.map(([id, label], i) => `<a href="#st-${id}" data-sec="${id}"><span>${String(i + 1).padStart(2, '0')}</span>${esc(label)}</a>`).join('')}</nav>` : ''}
         </div>
       </div>
 
@@ -376,46 +382,15 @@ export default {
       <section class="st-sec" id="st-story">
         ${header(1, 'story', started ? 'The story' : 'Before the game')}
         <div class="st-lede"><h1>${esc(story.headline)}</h1>${story.dek.map((d) => beatHtml(d, c)).join('')}</div>
-        ${game.status.state === 'pre' ? pregameCards(game, c) : storyChapters(game, c)}
+        ${game.status.state === 'pre' ? '<p class="st-views-pre"><a href="?design=pregame" data-design="pregame"><span class="n">0</span>See the Pregame view</a> for our pick, the tale of the tape and each team&#8217;s scouting card.</p>' : storyChapters(game, c)}
         ${started ? howWon(game, c) : ''}
-        ${started ? `<div class="b-cols st-cols"><div>${scoringCards(game, c)}</div><div>${stars(game)}${statBars(game, c)}</div></div>` : ''}
       </section>
-
-      ${started ? `
-      <section class="st-sec" id="st-momentum">
-        ${header(2, 'momentum', 'Momentum', 'Who was pushing the play, minute by minute. Above the line is the home team, below is the away team.')}
-        ${momentumChart(game, c)}
-        ${periodWins(game, c)}
-        <div class="b-cols st-cols"><div>${momentumTimeline(game, c)}</div><div>${drivers(game, c)}</div></div>
-        ${kpis(game, c)}
-      </section>
-
-      <section class="st-sec" id="st-shots">
-        ${header(3, 'shots', 'Where the shots came from', 'Switch between every attempt and the zone map, which counts attempts and goals by area of the offensive zone.')}
-        ${shotMap(game, c)}
-      </section>
-
-      <section class="st-sec" id="st-players">
-        ${header(4, 'players', 'Player scorecards', 'Each player’s rating and what drove it.')}
-        ${game.status.state === 'final' ? '' : spotlight(game, c, all, scale)}
-        ${scorecardControls(game)}
-        <div class="s-grid" id="s-grid" data-js></div>
-        ${scorecardKey()}
-      </section>
-
-      <section class="st-sec" id="st-box">
-        ${header(5, 'box', 'Box score')}
-        ${lineScore(game, c)}
-        ${heatTable(game, c)}
-        ${goalieTable(game, c)}
-      </section>` : ''}
+      ${started ? viewLinks() : ''}
     </div>`;
   },
   mount(root, game) {
     const c = colors(game);
     mountMomentumTips(root, game, c);
-    if (root.querySelector('#a-shots')) mountShotMap(root, game, c);
-    if (root.querySelector('#s-grid')) mountScorecards(root, game, c);
     mountStars(root);
 
     // Highlight the section in view.

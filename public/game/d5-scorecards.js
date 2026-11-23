@@ -2,7 +2,7 @@
 // A modern take on HockeyStats-style player game cards; the start of the per-player scorecard.
 import { hero } from './d2-broadcast.js';
 import { colors, header as secHeader } from './d6-story.js';
-import { faceoffLine, esc, logo, teamColors, statusText, prettyDate, allSkaters, allGoalies, pct, signed, rinkMarkup, shotMark, headshot, ratingColor, GS_PARTS, on, morphInner, goalieXg, fold, penKind, elapsed } from './core.js';
+import { faceoffLine, esc, logo, teamColors, statusText, prettyDate, allSkaters, allGoalies, pct, signed, rinkMarkup, shotMark, headshot, ratingColor, GS_PARTS, on, morphInner, goalieXg, fold, penKind, elapsed, byRating, tieBreak } from './core.js';
 
 export const PART_COLORS = { scoring: '#6366f1', momentum: '#22c55e', shooting: '#0ea5e9', onIce: '#14b8a6', defense: '#a3a3a3', discipline: '#f59e0b', faceoffs: '#ec4899' };
 
@@ -158,7 +158,7 @@ export function goalieCard(g, c) {
   </article>`;
 }
 
-function spot(game, c, best, scale, rank) {
+function spot(game, c, best, scale, rank, players = []) {
   const parts = GS_PARTS.map(([k, label]) => {
     const v = best.gameScoreParts?.[k];
     if (v == null) return '';
@@ -170,12 +170,13 @@ function spot(game, c, best, scale, rank) {
       ${best.position === 'G' ? `<div class="s-parts"><div class="s-part"><span>Saves</span><b>${best.saves}/${best.shotsAgainst}</b></div><div class="s-part"><span>SV%</span><b>${pct(best.savePct)}</b></div>${best.gsax != null ? `<div class="s-part" title="Our own estimate from shot distance, angle and type"><span>GSAx</span><b>${best.gsax > 0 ? '+' : ''}${best.gsax.toFixed(1)}</b></div><div class="s-part" title="Actual save % minus expected save %"><span>SV% vs exp</span><b>${best.savePctAboveExpected > 0 ? '+' : ''}${(best.savePctAboveExpected * 100).toFixed(1)}%</b></div>` : ''}</div>` : `<div class="s-parts">${parts}</div>`}
     </div>
     ${best.position === 'G' ? '' : `<div class="s-spot-bar">${breakdownBar(best, scale)}</div>`}
+    ${tieLine(best, players, rank - 1)}
   </section>`;
 }
 
 /** The top three players of the game, best first. */
 export function spotlight(game, c, players, scale) {
-  return players.slice(0, 3).map((p, i) => spot(game, c, p, scale, i + 1)).join('');
+  return players.slice(0, 3).map((p, i) => spot(game, c, p, scale, i + 1, players)).join('');
 }
 
 // Rows the viewer opened (by player id). Kept outside the render so live refreshes don't close them.
@@ -213,7 +214,7 @@ export function grid(game, c, state) {
   if (state.pos === 'D') list = list.filter((p) => p.position === 'D');
   if (state.pos === 'G') list = list.filter((p) => p.position === 'G');
   const key = { rating: (p) => p.rating, points: (p) => (p.points ?? -1) * 100 + p.rating, toi: (p) => p.toiSeconds }[state.sort];
-  list.sort((a, b) => key(b) - key(a));
+  list.sort((a, b) => key(b) - key(a) || byRating(a, b));
   const scale = Math.max(1.5, ...sk.map((p) => Object.values(p.gameScoreParts).reduce((a, v) => a + Math.max(0, v), 0)), ...sk.map((p) => -Object.values(p.gameScoreParts).reduce((a, v) => a + Math.min(0, v), 0))) * 1.05;
   if (!list.length) return '<p class="s-muted">No players match.</p>';
   // One ranked column per team, so each side's best players come to the top.
@@ -237,6 +238,7 @@ export function scorecardControls(game) {
 export function scorecardKey() {
   return fold('How ratings and scores are calculated', `<section class="s-key">
         <div><b>Rating</b> starts at 6.0 for a quiet game and moves 1.5 per point of game score. It is not capped: past 9.0 (or below 4.0) each extra point counts only 0.4, so a great night can read over 10 and a terrible one under 3, but it takes a lot to get there. ${['#dc2626', '#ea580c', '#ca8a04', '#65a30d', '#16a34a', '#2563eb'].map((x) => `<i style="background:${x}"></i>`).join('')}</div>
+        <div><b>Ties</b>: ratings show one decimal, so two players often share one. The order then goes to the higher game score (not rounded), then points, goals and momentum, and the card says which one decided it.</div>
         <div><b>Game score</b> adds up what a player did: ${GS_PARTS.map(([k, l]) => `<span><i style="background:${PART_COLORS[k]}"></i>${esc(l)}</span>`).join('')}. Goalies: +0.1 per save, -0.75 per goal against.</div>
         <div><b>Goals that matter</b> earn a bonus on top of their normal value: +0.25 for a goal that ties the game or puts the team ahead, and +0.35 for the go-ahead goal that turns out to be the game winner (that one counts once, not twice). Assists get 40% (primary) or 20% (secondary) of it. A player who scores several tying or go-ahead goals gets the bonus every time. These goals also count 1.25x in momentum, and the opening goal 1.5x.</div>
         <div><b>Momentum (MOM)</b> credits each player for the plays that pushed momentum their team's way: shots on goal (3x from the home plate area), goals and assists, blocks and drawn penalties, minus penalties taken. Faceoffs, hits, takeaways and giveaways stay in the box score but don't count toward momentum: over 6 seasons they added nothing to predicting wins, and rinks record them very differently. A penalty taken costs the player the momentum the other team gained from it, including the whole power play and 1.5 more if it scored. A penalty drawn earns the player that momentum: 1.0, the power play pressure, and 0.75 more if it scored. Penalties also move game score by a flat amount, +0.15 drawn and -0.15 taken, whether or not the power play scores (that part is mostly luck; momentum covers it). A <b>swing play</b> came while the team was behind on momentum and counts 1.5x. <b>Finishing</b> is a skater's goals on a goalie minus what an average NHL shooter would score from the same shots (same distance, angle and shot type): +0.50 means half a goal more than average. <b>Goalies</b> get expected save % (xSV%) from where, and how, each shot came: close, central and tipped shots are likelier goals. <b>GSAx</b> is goals saved above expected (positive means the goalie stopped more than an average goalie would have) and feeds the goalie's game score. These expected-goals numbers are our own estimate from shot distance, angle and type, not an official NHL stat. The <b>momentum bar</b> under game score splits MOM into what the player gained (green) and lost (red), with the biggest reasons for each.</div>
@@ -280,7 +282,7 @@ export default {
   render(game) {
     const c = colors(game);
     const sk = allSkaters(game);
-    const all = [...sk, ...allGoalies(game)].sort((a, b) => b.rating - a.rating || b.gameScore - a.gameScore);
+    const all = [...sk, ...allGoalies(game)].sort(byRating);
     const scale = Math.max(1.5, ...sk.map((p) => Object.values(p.gameScoreParts).reduce((t, v) => t + Math.max(0, v), 0))) * 1.05;
     const started = game.status.state === 'live' || game.status.state === 'final';
     return `<div class="b-wrap st-wrap">
@@ -336,11 +338,24 @@ function starBar(p, scale) {
     <div class="ss-leg">${parts.concat(neg).map(([k, l]) => `<span><i style="background:${PART_COLORS[k]}"></i>${esc(l)}<b>${sgn(p.gameScoreParts[k], 1)}</b></span>`).join('')}</div>`;
 }
 
-function starCard(game, c, p, i) {
+/** "Tied at 9.4 with Kucherov, ahead on game score (+2.79 to +2.49)" when a neighbor shares the rating. */
+function tieLine(p, players, i) {
+  const notes = [];
+  const above = players[i - 1];
+  const below = players[i + 1];
+  const up = tieBreak(above, p);
+  if (up) notes.push(`Tied at ${p.rating.toFixed(1)} with ${esc(above.lastName ?? above.fullName)}, behind on ${up.label}${up.p ? ` (${up.q} to ${up.p})` : ''}`);
+  const down = tieBreak(p, below);
+  if (down) notes.push(`Tied at ${p.rating.toFixed(1)} with ${esc(below.lastName ?? below.fullName)}, ahead on ${down.label}${down.p ? ` (${down.p} to ${down.q})` : ''}`);
+  return notes.length ? `<p class="ss-tie" title="Ties on rating go to the higher game score (unrounded), then points, goals and momentum.">${notes.join('. ')}</p>` : '';
+}
+
+function starCard(game, c, p, i, players = []) {
   const [tier, kicker] = MEDAL[i];
   return `<article class="ss-card ${tier}" style="--team:${c[p.side]}">${kicker ? `<span class="ss-medal">${kicker}</span>` : ''}
     <div class="ss-top">${headshot(p, 'ss-mug')}<div class="ss-who"><strong>${esc(p.fullName)}</strong><span>#${p.number ?? ''} · ${esc(p.position)} · ${esc(game[p.side].name)}</span></div>
       <div class="ss-rate" style="--r:${ratingColor(p.rating)}">${p.rating.toFixed(1)}<small>GAME SCORE ${sgn(p.gameScore, 1)}</small></div></div>
+    ${tieLine(p, players, i)}
     <div class="ss-tiles">${starTiles(p).map(([v, l]) => statTile(v, l)).join('')}</div>
     ${starBar(p)}
     <button type="button" class="ss-more" data-star="${i}" aria-expanded="false">▾ Full scorecard</button>
@@ -382,7 +397,7 @@ function starPanel(game, c, p, i) {
 export function starsRow(game, c, players) {
   const top = players.slice(0, 3);
   if (top.length < 3) return '';
-  return `<section class="ss-row" id="st-stars" aria-label="Top performers of the game"><div class="ss-cards">${top.map((p, i) => starCard(game, c, p, i)).join('')}</div>${top.map((p, i) => starPanel(game, c, p, i)).join('')}</section>`;
+  return `<section class="ss-row" id="st-stars" aria-label="Top performers of the game"><div class="ss-cards">${top.map((p, i) => starCard(game, c, p, i, players)).join('')}</div>${top.map((p, i) => starPanel(game, c, p, i)).join('')}</section>`;
 }
 
 export function mountStars(root) {
