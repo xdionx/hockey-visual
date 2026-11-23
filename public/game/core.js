@@ -619,23 +619,25 @@ const fmtOdds = (n) => (n > 0 ? `+${n}` : n < 0 ? `−${-n}` : String(n));
 export function lineCompareHtml(view, game) {
   if (!view) return '';
   const ab = (s) => esc(game[s].abbrev);
-  const other = (s) => (s === 'away' ? 'home' : 'away');
   const short = view.book.toUpperCase();
-  const by = (g) => `${ab(g >= 0 ? view.fav : other(view.fav))} by ${Math.abs(g).toFixed(1)}`;
-  const pl = view.pl ? `${ab(view.pl.fav)} −1.5 (${fmtOdds(view.pl.favPrice)})` : null;
-  const bookRow = [pl, `${ab(view.fav)} moneyline ${fmtOdds(view.fav === 'away' ? view.ml.a : view.ml.h)} (${Math.round(view.pFav * 100)}%)`, view.total ? `total ${view.total}` : null].filter(Boolean).join(' · ');
-  const ours = view.ours;
-  const coverTxt = view.market.cover != null
-    ? ` · covers ${ab(ours.layer)} −1.5 <b>${Math.round(ours.cover * 100)}%</b> <small>(${short} ${Math.round(view.market.cover * 100)}%)</small>`
-    : '';
-  const ourRow = `<b>${ab(view.ourFav)} ${Math.round((view.ourFav === view.fav ? ours.pFav : 1 - ours.pFav) * 100)}%</b> · ${by(ours.gapFav)} goals${coverTxt}`;
-  const diff = view.market.cover != null ? ours.cover - view.market.cover : 0;
-  const note = view.agree
-    ? `We agree: ${ab(view.fav)} wins.${Math.abs(diff) >= 0.05 ? ` On the puck line we are ${diff > 0 ? 'higher' : 'lower'} than ${short} on ${ab(ours.layer)} −1.5.` : ''}`
-    : `We disagree: ${short} favors ${ab(view.fav)}, we pick ${ab(view.ourFav)}.`;
-  const title = `${view.name}'s closing prices with their margin removed, against our model. Margins are expected goals; the book's margin is what its moneyline implies through our own win-chance curve (about ${Math.abs(view.market.gapFav).toFixed(1)} goals here). The puck line favorite must win by 2+.`;
+  const pc = (v) => `${Math.round(v * 100)}%`;
+  const goals = (g) => `${g < 0 ? '−' : ''}${Math.abs(g).toFixed(1)}`;
+  const o = view.ours;
+  const hasCover = view.market.cover != null;
+  // Every number is for the team the book makes the favorite, so the two rows read straight across.
+  const cell = (v, cls = '') => `<span class="ln-c${cls}">${v}</span>`;
+  const better = hasCover && o.layer === view.fav ? o.cover - view.market.cover : 0;
+  const tape = [
+    view.pl ? `${ab(view.pl.fav)} −1.5 (${fmtOdds(view.pl.favPrice)})` : null,
+    `ML ${fmtOdds(view.fav === 'away' ? view.ml.a : view.ml.h)}`,
+    view.total ? `O/U ${view.total}` : null,
+  ].filter(Boolean).join(' · ');
+  const title = `${view.name}'s closing prices with its margin removed, against our model, all for ${game[view.fav].abbrev}. The book's margin is what its moneyline implies through our own win-chance curve. Cover: the chance ${game[view.fav].abbrev} wins by 2+ goals (the puck line).`;
   return `<div class="ln${view.agree ? ' agree' : ' differ'}" title="${esc(title)}">
-    <div class="ln-row"><em>${esc(short)}</em><span>${bookRow}</span></div>
-    <div class="ln-row"><em>US</em><span>${ourRow}</span></div>
-    <p class="ln-note">${view.agree ? '✓' : '✗'} ${note}</p></div>`;
+    <div class="ln-g">
+      <span class="ln-h ln-fav">${ab(view.fav)}</span>${cell('Win', ' ln-hd')}${cell('Margin', ' ln-hd')}${hasCover ? cell('Cover −1.5', ' ln-hd') : ''}
+      <span class="ln-h">${esc(short)}</span>${cell(pc(view.pFav))}${cell(`≈${goals(view.market.gapFav)}`)}${hasCover ? cell(pc(view.market.cover)) : ''}
+      <span class="ln-h">US</span>${cell(pc(o.pFav), ' ln-us')}${cell(goals(o.gapFav), ' ln-us')}${hasCover ? cell(pc(o.layer === view.fav ? o.cover : 1 - o.cover), ' ln-us') : ''}
+    </div>
+    <p class="ln-tape"><span class="ln-flag">${view.agree ? '✓ Agree' : `✗ We pick ${ab(view.ourFav)}`}</span>${esc(short)}: ${tape}</p></div>`;
 }
