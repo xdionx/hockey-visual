@@ -12,10 +12,10 @@ const SHRINK = 20; // games of average (zero) momentum added to every player's r
 const MIN_GP = 5;
 
 /** A team's top skaters by shrunk momentum per game: [{ id, name, rank }]. */
-export function topPlayers(total, prev, team, n = TOP_N) {
+export function topPlayers(total, prev, team, n = TOP_N, keep = () => true) {
   const out = [];
   for (const [id, p] of Object.entries(total?.players ?? {})) {
-    if (p.t !== team || p.p === 'G' || (p.gp ?? 0) < MIN_GP) continue;
+    if (p.t !== team || p.p === 'G' || (p.gp ?? 0) < MIN_GP || !keep(p)) continue;
     const q = prev?.players?.[id];
     const gp = p.gp + (q && q.p !== 'G' ? q.gp ?? 0 : 0);
     const mom = (p.mom ?? 0) + (q && q.p !== 'G' ? q.mom ?? 0 : 0);
@@ -24,11 +24,27 @@ export function topPlayers(total, prev, team, n = TOP_N) {
   return out.sort((a, b) => b.rate - a.rate).slice(0, n).map((x, i) => ({ id: x.id, name: x.name, rank: i + 1 }));
 }
 
+/**
+ * The players whose absence is worth a note: a team's top 3 forwards and top 2 defensemen by momentum.
+ * [{ id, name, pos: 'F' | 'D', rank }], rank within the position.
+ */
+export const NOTABLE = { F: 3, D: 2 };
+export function notablePlayers(total, prev, team) {
+  const f = topPlayers(total, prev, team, NOTABLE.F, (p) => p.p !== 'D').map((x) => ({ ...x, pos: 'F' }));
+  const d = topPlayers(total, prev, team, NOTABLE.D, (p) => p.p === 'D').map((x) => ({ ...x, pos: 'D' }));
+  return [...f, ...d];
+}
+
+/** "#2 forward", "#1 defenseman". */
+export const notableRole = (p) => `#${p.rank} ${p.pos === 'D' ? 'defenseman' : 'forward'}`;
+
 const norm = (s) => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z]/g, '');
 
 /** Which of the top players are scratched (scratches are names, scratchIds ids when the feed has them). */
 export function missingTop(top, scratches = [], scratchIds = []) {
   const names = new Set(scratches.map(norm));
-  const ids = new Set(scratchIds.map(Number));
-  return top.filter((p) => ids.has(p.id) || names.has(norm(p.name)));
+  const ids = new Set((scratchIds ?? []).filter(Boolean).map(Number));
+  // Ids when the feed has them: names alone can't tell Vancouver's two Elias Petterssons apart.
+  if (ids.size) return top.filter((p) => ids.has(p.id));
+  return top.filter((p) => names.has(norm(p.name)));
 }

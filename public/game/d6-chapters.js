@@ -3,6 +3,7 @@
 import { esc, allSkaters, elapsed, headshot, logo, penKind } from './core.js';
 import { shotSummary } from './d4-analytics.js';
 import { decisivePenalties } from './d6-penalties.js';
+import { clipButton } from './d6-story.js';
 
 const sideOf = (game, abbrev) => (abbrev === game.away.abbrev ? 'away' : 'home');
 const other = (s) => (s === 'away' ? 'home' : 'away');
@@ -63,7 +64,7 @@ function chapters(game, c, events, changes) {
       const effect = i === 3 && g.period === 'OT' ? 'Wins it' : EFFECT[g.effect];
       const assists = g.assists.length ? `<small>from ${esc(list(g.assists.map((x) => last(x.name))))}</small>` : '<small>unassisted</small>';
       return `<li><span class="st-ch-t">${esc(g.time)}</span>${tag(g.side)}<span class="st-ch-who"><b>${esc(g.scorer.fullName)}</b>${kind}${assists}</span>
-        <span class="st-ch-fx ${g.effect}">${effect}<b>${g.after.away}-${g.after.home}</b></span></li>`;
+        <span class="st-ch-fx ${g.effect}">${effect}<b>${g.after.away}-${g.after.home}</b></span>${clipButton(g.highlightId ? { id: g.highlightId, href: g.highlight, title: `${g.team} · ${g.scorer.fullName} · ${g.time}` } : null)}</li>`;
     });
     // A change right at an intermission (starter's time is a whole number of periods) belongs to the period before.
     for (const ch of changes.filter((x) => (x.t % 1200 === 0 ? x.t - 1 : x.t) >= start && (x.t % 1200 === 0 ? x.t - 1 : x.t) < end)) {

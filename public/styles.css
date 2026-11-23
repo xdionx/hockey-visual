@@ -333,8 +333,6 @@ main { padding-left: 20px; padding-right: 20px; }
 .edges p { margin: 6px 0 0; font: 500 11px/1.4 Inter, sans-serif; color: #aab4c5; }
 .cd .pr-bars .sx:nth-child(2) .bar { opacity: 1; }
 .lu-alert { margin: 0; padding: 4px 8px; border-left: 3px solid #ffb020; border-radius: 4px; background: rgba(255, 176, 32, .1); color: #ffcf70; font: 600 12px/1.35 Inter, sans-serif; }
-.lu-alert small { margin-left: 6px; font-weight: 500; font-size: 10px; color: #c9a45a; white-space: nowrap; }
-@media (max-width: 480px) { .lu-alert small { display: block; margin: 1px 0 0; white-space: normal; } }
 .pred-why .muted { color: #6f7a8d; }
 .pred-why .lu-row { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 /* Collapsed goal strip: a play button (same size as the expanded tiles') on the right of each chip (whole chip still opens the clip) */
@@ -365,3 +363,9 @@ a.gc:hover .gc-play, a.gc:focus-visible .gc-play { transform: scale(1.08); filte
   .cd .tb:has(.team-audio) img { width: 42px; height: 42px; }
 }
 @media (prefers-reduced-motion: reduce) { .listen-btn.ico.on { animation: none; } }
+
+/* Running score on each goal: "BUF 1-0 TBL", scoring team in bold */
+.gc .gc-run { color: #e2e8f0; font-weight: 600; letter-spacing: .02em; }
+.g-run strong { color: #fff; font-weight: 800; }
+.gtype { display: inline-block; margin-right: 6px; padding: 0 6px; border-radius: 999px; font: 700 9px/15px Inter, sans-serif; letter-spacing: .06em; text-transform: uppercase; background: #334155; color: #cbd5e1; }
+.gtype.po { background: #854d0e; color: #fde68a; }
