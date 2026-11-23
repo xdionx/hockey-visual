@@ -24,6 +24,15 @@
 .pq-body { padding: 14px; }
 .pq-loading { min-height: 220px; background: linear-gradient(90deg, transparent, rgba(255,255,255,.04), transparent) 0 0 / 200% 100%; animation: pq-shine 1.2s linear infinite; }
 @keyframes pq-shine { to { background-position: -200% 0; } }
+/* Regular season / Playoffs switch (quick view, full card, stats page) */
+.pc-type { display: inline-flex; gap: 3px; padding: 3px; background: #0b1220; border: 1px solid #1f2937; border-radius: 6px; }
+.pc-type button { border: 0; background: none; padding: 6px 14px; border-radius: 4px; cursor: pointer; font: 700 14px "Barlow Condensed", sans-serif; letter-spacing: .06em; text-transform: uppercase; color: #8b95a7; }
+.pc-type button:hover { color: #f1f5f9; }
+.pc-type button[aria-pressed="true"] { background: #e11d48; color: #fff; }
+.pc-type button:focus-visible { outline: 2px solid #38bdf8; outline-offset: 1px; }
+.pc-type-main { margin-top: 16px; }
+.pc-type-quick { display: flex; margin-bottom: 12px; }
+.pc-type-quick button { flex: 1; padding: 6px 8px; white-space: nowrap; }
 .pq-label { font: 700 13px "Barlow Condensed", sans-serif; letter-spacing: .1em; text-transform: uppercase; color: var(--pq-mute); margin-bottom: 8px; }
 .pq-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
 .pq-t { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; padding: 10px 4px 8px; background: var(--pq-card); border: 1px solid var(--pq-line); border-radius: 4px; text-align: center; min-width: 0; }

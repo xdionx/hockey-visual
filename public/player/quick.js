@@ -1,6 +1,6 @@
-// Quick view: a lightbox with the player's current regular season at a glance.
+// Quick view: a lightbox with the player's current regular season (or latest playoffs) at a glance.
 // GP, G, A, P, PIM, TOI/GP from the NHL; SAT/GP and momentum/GP from our own season totals.
-import { loadPlayer, loadSeason, ourStats, currentSeason, fmt, positionName } from './store.js';
+import { loadPlayer, loadSeason, ourStats, currentSeason, fmt, positionName, typeToggle, getStatsType, setStatsType, typeQuery, GAME_TYPES } from './store.js';
 import { teamColor, esc } from '../game/core.js';
 import { ICONS } from './link.js';
 
@@ -14,7 +14,12 @@ function ensureDialog() {
   dialog.setAttribute('aria-label', 'Player quick view');
   document.body.append(dialog);
   dialog.addEventListener('click', (e) => {
-    if (e.target === dialog || e.target.closest('[data-pq-close]')) dialog.close();
+    if (e.target === dialog || e.target.closest('[data-pq-close]')) { dialog.close(); return; }
+    const b = e.target.closest('[data-stats-type]');
+    if (b && b.getAttribute('aria-pressed') !== 'true' && dialog.dataset.id) {
+      setStatsType(b.dataset.statsType);
+      openQuickView(dialog.dataset.id);
+    }
   });
   return dialog;
 }
@@ -35,17 +40,19 @@ export function rankBit(r) {
   return `${fmt.ord(r.rank)} of ${r.of}<i class="pq-bar"><b style="width:${pct.toFixed(0)}%"></b></i>`;
 }
 
-function body(id, p, ours, season) {
+function body(id, p, ours, season, type) {
+  const playoffs = type === 'playoffs';
   const name = p?.fullName ?? ours?.row?.n ?? 'Player';
   const team = p?.team ?? ours?.row?.t ?? '';
   const color = teamColor(team);
   const goalie = p ? p.goalie : ours?.row?.p === 'G';
-  const now = p?.now;
-  const label = `${fmt.season(season)} regular season`;
+  const now = playoffs ? p?.playoffs?.find((r) => r.season === season) : p?.now;
+  const label = playoffs ? (season ? `${fmt.season(season)} playoffs${season === p?.currentSeason ? '' : ' (latest)'}` : 'Playoffs') : `${fmt.season(season)} regular season`;
+  const full = `player.html?id=${encodeURIComponent(id)}${typeQuery(type)}`;
   let tiles;
   if (goalie) {
     tiles = [
-      tile('GP', now?.gp ?? ours?.gp ?? 0), tile('W', now?.wins ?? '-'), tile('L', now?.losses ?? '-'), tile('OTL', now?.otLosses ?? '-'),
+      tile('GP', now?.gp ?? ours?.gp ?? 0), tile('W', now?.wins ?? '-'), tile('L', now?.losses ?? '-'), ...(playoffs ? [] : [tile('OTL', now?.otLosses ?? '-')]),
       tile('SV%', fmt.sv(now?.savePct)), tile('GAA', fmt.dec(now?.gaa, 2)), tile('SO', now?.shutouts ?? '-'), tile('TOI/GP', fmt.toi(now?.toiPerGame)),
       ...(ours?.gsax != null ? [
         tile('GSAx', fmt.signed(ours.gsax, 1), rankBit(ours.gsaxRank), 'pq-ours'),
@@ -63,22 +70,24 @@ function body(id, p, ours, season) {
     ];
   }
   const sub = [p?.number != null ? `#${p.number}` : null, positionName(p?.position ?? ours?.row?.p), p?.teamName ?? team].filter(Boolean).join(' · ');
-  const note = goalie ? (ours?.gsax != null ? `GSAx (goals saved above expected) is goals kept out beyond what an average NHL goalie would allow on the same shots, from our own play-by-play model across ${ours.gp} games this season. Ranks are among goalies with 5+ starts.` : '') : ours
-    ? `SAT, MOM and Goals vs avg (goals scored minus what an average shooter would score from the same shots) come from our own play-by-play model, across ${ours.gp} of ${ours.games} finished games this season. Ranks are among skaters with ${ours.minGp}+ games.`
-    : 'No SAT or momentum yet: this player hasn\'t played a finished game this season.';
+  const span = playoffs ? 'these playoffs' : 'this season';
+  const note = playoffs && !now && !ours ? `${esc(name)} hasn't played an NHL playoff game yet.` : goalie ? (ours?.gsax != null ? `GSAx (goals saved above expected) is goals kept out beyond what an average NHL goalie would allow on the same shots, from our own play-by-play model across ${ours.gp} games ${span}. Ranks are among goalies with 5+ starts.` : '') : ours
+    ? `SAT, MOM and Goals vs avg (goals scored minus what an average shooter would score from the same shots) come from our own play-by-play model, across ${ours.gp} of ${ours.games} finished games ${span}. Ranks are among skaters with ${ours.minGp}+ games.`
+    : `No SAT or momentum yet: this player hasn't played a finished game ${span}.`;
   return `
     <div class="pq-head" style="--team:${color}">
       ${mug(p ?? { fullName: name })}
       <div class="pq-who"><h2>${esc(name)}</h2><span>${esc(sub)}</span></div>
-      <a class="pq-icon" href="player.html?id=${encodeURIComponent(id)}" target="_blank" rel="noopener" title="Open full player card in a new tab" aria-label="Open full player card in a new tab">${ICONS.pop}</a>
+      <a class="pq-icon" href="${full}" target="_blank" rel="noopener" title="Open full player card in a new tab" aria-label="Open full player card in a new tab">${ICONS.pop}</a>
       <button class="pq-icon" type="button" data-pq-close aria-label="Close">&times;</button>
     </div>
     <div class="pq-body">
+      ${typeToggle(type, 'pc-type-quick')}
       <div class="pq-label">${esc(label)}</div>
-      <div class="pq-grid">${tiles.join('')}</div>
+      ${playoffs && !now && !ours ? '' : `<div class="pq-grid">${tiles.join('')}</div>`}
       ${!p ? '<p class="pq-note">NHL season stats couldn\'t load right now.</p>' : ''}
       ${note ? `<p class="pq-note">${note}</p>` : ''}
-      <a class="pq-full" href="player.html?id=${encodeURIComponent(id)}" target="_blank" rel="noopener">Full player card ${ICONS.pop}</a>
+      <a class="pq-full" href="${full}" target="_blank" rel="noopener">Full player card ${ICONS.pop}</a>
     </div>`;
 }
 
@@ -87,9 +96,12 @@ export async function openQuickView(id) {
   const mine = ++token;
   d.innerHTML = `<div class="pq-head"><span class="pq-mug pq-mug-fb"></span><div class="pq-who"><h2>Loading…</h2></div><button class="pq-icon" type="button" data-pq-close aria-label="Close">&times;</button></div><div class="pq-body pq-loading"></div>`;
   if (!d.open) d.showModal();
+  d.dataset.id = id;
+  const type = getStatsType();
   const p = await loadPlayer(id);
-  const season = p?.currentSeason ?? currentSeason();
-  const total = await loadSeason(season);
+  // Playoffs: this season's once they start, else the player's latest playoff run.
+  const season = type === 'playoffs' ? p?.playoffs?.[0]?.season ?? null : p?.currentSeason ?? currentSeason();
+  const total = season ? await loadSeason(season, GAME_TYPES[type]) : null;
   if (mine !== token || !d.open) return;
-  d.innerHTML = body(id, p, ourStats(total, id), season);
+  d.innerHTML = body(id, p, ourStats(total, id), season, type);
 }
