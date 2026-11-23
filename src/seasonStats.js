@@ -72,6 +72,15 @@ export function gameFromDetail(detail, lines = linesFromDetail(detail)) {
 }
 const starterOf = (goalies) => (goalies ?? []).find((g) => g.starter)?.id ?? (goalies ?? []).find((g) => g.played)?.id ?? null;
 
+/** NHL game types we keep totals for (preseason, 1, never counts). */
+export const REGULAR = 2;
+export const PLAYOFFS = 3;
+
+/** A season file's name: regular season "<season>.json", playoffs "<season>-p.json". */
+export function seasonFile(season, gameType = REGULAR) {
+  return `${season}${gameType === PLAYOFFS ? '-p' : ''}.json`;
+}
+
 /** "20262027" -> "2026-27" */
 export function seasonLabel(season) {
   const s = String(season);

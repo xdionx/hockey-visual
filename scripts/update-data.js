@@ -11,7 +11,7 @@
 // started. Finished games already saved are skipped.
 //
 // Then rolls the current season's finished regular-season games up into
-// <outDir>/seasons/<season>.json (SAT and momentum per player, see src/seasonStats.js). Each game's
+// <outDir>/seasons/<season>.json (playoff games into <season>-p.json) (SAT and momentum per player, see src/seasonStats.js). Each game's
 // player lines are computed from its play-by-play with today's model and kept in
 // <outDir>/lines/<gameId>.json, tagged with SEASON_VERSION: when the model changes, every game is
 // recomputed, so a season never mixes old and new momentum weights.
@@ -22,7 +22,7 @@ import { getScoreboard, getGameDetailRaw } from '../src/nhlApi.js';
 import { normalizeGameDetail } from '../src/gameDetail.js';
 import { normalizeScoreboard } from '../src/normalize.js';
 import { shotAttempts } from '../src/sat.js';
-import { emptySeason, addGame, fromPbp, linesFromDetail, seasonOf, SEASON_VERSION } from '../src/seasonStats.js';
+import { emptySeason, addGame, fromPbp, linesFromDetail, seasonOf, seasonFile, SEASON_VERSION } from '../src/seasonStats.js';
 import { getPlayByPlay } from '../src/nhlApi.js';
 import { parsePartner, mergeOdds } from '../src/odds.js';
 import { predictGame } from '../src/predict.js';
@@ -98,7 +98,7 @@ for (let date = from; date <= today; date = shift(date, 1)) {
       const detail = normalizeGameDetail(raw);
       boxFetched++;
       if (raw.pbp) await writeIfChanged(satFile, shotAttempts(raw.pbp));
-      if (raw.pbp && detail.status.state === 'final' && !detail.status.settling && detail.gameType === 2) await writeLines(game.id, raw.pbp);
+      if (raw.pbp && detail.status.state === 'final' && !detail.status.settling && (detail.gameType === 2 || detail.gameType === 3)) await writeLines(game.id, raw.pbp);
       if (await writeIfChanged(file, detail)) changed++;
     } catch (err) {
       boxFailed++;
@@ -107,13 +107,15 @@ for (let date = from; date <= today; date = shift(date, 1)) {
   }
 }
 
-// Current season totals from every finished regular-season game's player lines.
+// Current season totals from every finished regular-season game's player lines, and the playoffs
+// in their own file (<season>-p.json). Preseason games never count.
 const season = seasonOf(today);
-const total = emptySeason(season);
+const totals = { 2: emptySeason(season, 2), 3: emptySeason(season, 3) };
 let linesFetched = 0;
 for (const f of (await readdir(join(outDir, 'games'))).filter((x) => x.endsWith('.json')).sort()) {
   const g = JSON.parse(await readFile(join(outDir, 'games', f), 'utf8').catch(() => 'null'));
-  if (!g || g.season !== season || g.gameType !== 2 || g.status?.state !== 'final' || g.status.settling) continue; // settling: wait for the official FINAL stats
+  const total = totals[g?.gameType];
+  if (!g || !total || g.season !== season || g.status?.state !== 'final' || g.status.settling) continue; // settling: wait for the official FINAL stats
   let saved = JSON.parse(await readFile(join(outDir, 'lines', `${g.id}.json`), 'utf8').catch(() => 'null'));
   if (saved?.v !== SEASON_VERSION) {
     await new Promise((r) => setTimeout(r, 300));
@@ -130,14 +132,18 @@ for (const f of (await readdir(join(outDir, 'games'))).filter((x) => x.endsWith(
   addGame(total, saved.lines.map((l) => ({ ...l, toi: toi.get(l.id) ?? null })), saved.game ?? null);
 }
 await mkdir(join(outDir, 'seasons'), { recursive: true });
-const seasonFile = join(outDir, 'seasons', `${season}.json`);
-const before = JSON.parse(await readFile(seasonFile, 'utf8').catch(() => 'null'));
-if (before?.games !== total.games || JSON.stringify(before?.players) !== JSON.stringify(total.players) || JSON.stringify(before?.g) !== JSON.stringify(total.g)) {
-  total.updated = new Date().toISOString();
-  total.complete = false;
-  await writeFile(seasonFile, `${JSON.stringify(total)}\n`);
-  changed++;
+for (const total of Object.values(totals)) {
+  if (total.gameType === 3 && !total.games) continue; // no playoff games yet this season
+  const file = join(outDir, 'seasons', seasonFile(season, total.gameType));
+  const before = JSON.parse(await readFile(file, 'utf8').catch(() => 'null'));
+  if (before?.games !== total.games || JSON.stringify(before?.players) !== JSON.stringify(total.players) || JSON.stringify(before?.g) !== JSON.stringify(total.g)) {
+    total.updated = new Date().toISOString();
+    total.complete = false;
+    await writeFile(file, `${JSON.stringify(total)}\n`);
+    changed++;
+  }
 }
+const total = totals[2];
 
 // Sportsbook lines (DraftKings US, FanDuel Canada) and our pre-game pick, kept for the "us vs the market" card.
 // Lines and picks keep updating until puck drop, then freeze as the closing line. Results are filled in once final.
