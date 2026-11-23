@@ -2,8 +2,9 @@ import '../horn.js'; // goal horns for games with a horn on, on every page
 // Momentum stats: how the momentum model does, season by season. stats.html?season=<20252026>
 //
 // Everything comes from the season files (data/seasons/<season>.json, see src/seasonStats.js):
-// per-player totals for the leaderboard and one row per game for the model checks.
-import { loadSeason, currentSeason, fmt } from '../player/store.js';
+// per-player totals for the leaderboard and one row per game for the model checks. The Playoffs
+// toggle (&type=playoffs) swaps in the playoff files (<season>-p.json).
+import { loadSeason, currentSeason, fmt, typeToggle, getStatsType, setStatsType, GAME_TYPES } from '../player/store.js';
 import { installPlayerLinks, playerLink } from '../player/link.js';
 import { esc, makeSortable, teamColor } from '../game/core.js';
 import { leaderboard, minGames, FIRST_FULL_SEASON } from '../src/seasonStats.js';
@@ -49,12 +50,16 @@ function stateOf(season, total) {
   return total.complete ? 'complete' : 'partial';
 }
 
-function chips(list, selected) {
+function chips(list, selected, type) {
+  const playoffs = type === 'playoffs';
   return `<nav class="ms-seasons" aria-label="Season">${list.map(({ season, state }) => {
     const label = fmt.season(season);
-    if (state === 'missing') return `<span class="ms-chip ms-off" title="${label} is still being built from the NHL play-by-play">${label}</span>`;
+    if (state === 'missing') {
+      const why = playoffs && season === currentSeason() ? `No playoff games yet in ${label}` : `${label}${playoffs ? ' playoffs are' : ' is'} still being built from the NHL play-by-play`;
+      return `<span class="ms-chip ms-off" title="${why}">${label}</span>`;
+    }
     const tip = state === 'partial' ? ' title="Still being built: numbers so far"' : state === 'current' ? ' title="Season in progress"' : '';
-    return `<a class="ms-chip ${state === 'partial' ? 'ms-part' : ''}" href="?season=${season}"${season === selected ? ' aria-current="true"' : ''}${tip}>${label}${state === 'partial' ? '<i>*</i>' : ''}</a>`;
+    return `<a class="ms-chip ${state === 'partial' ? 'ms-part' : ''}" href="?season=${season}${playoffs ? '&type=playoffs' : ''}"${season === selected ? ' aria-current="true"' : ''}${tip}>${label}${state === 'partial' ? '<i>*</i>' : ''}</a>`;
   }).join('')}</nav>`;
 }
 
@@ -69,7 +74,7 @@ function winTile(key, w, hl = false) {
   </div>`;
 }
 
-function modelCard(m, season, state) {
+function modelCard(m, season, state, playoffs = false) {
   if (!m.games) {
     return card('Does momentum win games?', '', '<p class="pq-note">This season file was saved before game-by-game rows were added. It fills in on the next data refresh.</p>');
   }
@@ -81,14 +86,14 @@ function modelCard(m, season, state) {
     <div class="ms-wins">${winTile('ng', m.wins.ng, true)}${winTile('sat', m.wins.sat)}${winTile('mom', m.wins.mom)}${winTile('home', m.wins.home)}</div>
     <p class="pq-note">Expect the per-game numbers without goals to sit near 50%: a team that falls behind pushes harder for the rest of the game (analysts call it score effects), so it often wins the shot and momentum battle while losing the game. The standings and prediction checks below look past that.</p>
     ${missingNg ? `<p class="pq-note">${missingNg} games saved before "goals left out" existed are skipped in that number until they are refreshed.</p>` : ''}
-    <h3 class="pc-sub">Does it explain the standings? <small>correlation (r) between a team's share and its points %, 1 = perfect</small></h3>
+    <h3 class="pc-sub">${playoffs ? 'Does it explain who went deep?' : 'Does it explain the standings?'} <small>correlation (r) between a team's share and its ${playoffs ? 'playoff points %' : 'points %'}, 1 = perfect</small></h3>
     <div class="pq-grid pc-grid ms-corr">
       ${corr('Momentum, no goals', m.fit.ng, 'share of team momentum')}
       ${corr('SAT', m.fit.sat, 'share of shot attempts')}
       ${corr('Momentum, all', m.fit.mom, 'includes goals')}
       ${pred ? `${corr('Predicts: MOM', pred.ng, '1st half share → 2nd half pts %')}${corr('Predicts: SAT', pred.sat, '1st half share → 2nd half pts %')}${corr('Predicts: goals', pred.gf, '1st half GF% → 2nd half pts %')}` : ''}
     </div>
-    <p class="pq-note">${pred ? 'The "Predicts" numbers split the season in half: a stat that measures real skill should still line up with results in games it hasn\'t seen. Goals for % is the luck-heavy comparison.' : 'The first-half/second-half prediction test appears once every team has played 20 games.'}</p>`);
+    <p class="pq-note">${playoffs ? 'Playoff runs are too short for the first-half/second-half prediction test.' : pred ? 'The "Predicts" numbers split the season in half: a stat that measures real skill should still line up with results in games it hasn\'t seen. Goals for % is the luck-heavy comparison.' : 'The first-half/second-half prediction test appears once every team has played 20 games.'}</p>`);
 }
 
 /** Grouped bars: win % by share of the game, momentum (no goals) beside SAT. */
@@ -269,6 +274,30 @@ function finishingCard(total, m, view, pos, showAll, team) {
     <p class="pq-note">Shot quality is our own estimate from shot location and type, scaled so the league as a whole comes out exactly average each season. Finishing is a real skill but a streaky one: about a third of a hot or cold year carries into the next.</p>`, 'ms-fin-card');
 }
 
+// Scoring: goals and assists together. Goals vs avg (Finishing) only credits shooting, so a player who sets up
+// teammates looks cold there; this is its own stat: Goals vs avg plus assists above an average player at the position.
+function scoringCard(total, pos, showAll, team) {
+  const minGp = minGames(total);
+  const league = leaderboard(total, 'scoringVsAvg', { pos, minGp, minXg: FIN_MIN_XG });
+  const body = !league.length
+    ? '<p class="pq-note">No assist numbers in this season file yet. They fill in on the next data refresh.</p>'
+    : (() => {
+      const board = byTeam(league, team);
+      const shown = showAll ? board : board.slice(0, 50);
+      const rows = shown.map((r) => `<tr><td data-v="${r.rank}">${r.rank}</td><td class="l">${playerLink(r.id, r.n)}</td><td class="l">${esc(r.t)}</td><td class="l">${esc(r.p)}</td><td>${r.gp}</td>
+        <td>${r.goals}</td><td>${r.assists}</td>${gaaCell(r.gaa, 1)}${gaaCell(r.playVsAvg, 1)}${gaaCell(r.scoringVsAvg, 1, true)}</tr>`).join('');
+      return `${filterBar(total, 'sco', pos, team)}
+    <div class="pc-scroll"><table class="pc-table sortable ms-players"><thead><tr><th data-sort>#</th><th class="l" data-sort>Player</th><th class="l" data-sort>Team</th><th class="l">Pos</th><th data-sort>GP</th>
+      <th data-sort title="Goals, all kinds">Goals</th><th data-sort title="Primary and secondary assists">Assists</th><th class="pc-o" data-sort title="Goals minus what an average NHL shooter would score from the same shots (see Finishing)">Goals vs avg</th><th class="pc-o" data-sort title="Assists above what an average forward or defenseman gets in the same number of games, each worth 3/4 of a goal">Playmaking</th><th class="pc-o" data-sort data-dir="desc" title="Goals vs avg plus playmaking">Scoring vs avg</th></tr></thead>
+      <tbody>${rows}</tbody></table></div>
+    ${board.length > shown.length ? `<button type="button" class="ms-more" data-scomore>Show all ${board.length}</button>` : ''}
+    <p class="pq-note">${team ? `${board.length} ${esc(team)} of ${league.length}` : board.length} skaters with ${minGp}+ games and enough good chances to judge.${team ? ' # is the rank across the whole league.' : ''}</p>`;
+    })();
+  return card('Scoring', 'goals and assists together', `
+    <p class="ms-lede">Finishing only looks at goals, so a player who sets up teammates can look cold there. <b>Playmaking</b> counts the assists above what an average forward or defenseman gets in the same games, each worth about 3/4 of a goal (tested on six seasons: that is what a goal and an assist are worth for predicting later points). <b>Scoring vs avg</b> is Goals vs avg plus playmaking: +5 means about five goals' worth more production than an average player at the position. It's its own stat, separate from Finishing and from momentum.</p>
+    ${body}`, 'ms-sco-card');
+}
+
 /** League view across every season we have: win % per season (line chart) plus a table. */
 function trendsCard(list) {
   const have = list.filter((s) => s.model?.games).reverse(); // oldest first
@@ -372,29 +401,35 @@ function labCard(lab, view) {
 let state = null;
 
 function render() {
-  const { list, season, pos, showAll } = state;
+  const { list, season, pos, showAll, type } = state;
+  const playoffs = type === 'playoffs';
   const sel = list.find((s) => s.season === season);
   const total = sel?.total;
-  const head = `<section class="ms-hero"><span class="pc-kicker">Our model${total?.v ? ` v${total.v}` : ''} · regular season</span><h1>Momentum <b>stats</b></h1>
-    <p>How the momentum model rates players and teams, and how well it lines up with winning, season by season.</p>${chips(list, season)}</section>`;
+  const head = `<section class="ms-hero"><span class="pc-kicker">Our model${total?.v ? ` v${total.v}` : ''} · ${playoffs ? 'playoffs' : 'regular season'}</span><h1>Momentum <b>stats</b></h1>
+    <p>How the momentum model rates players and teams, and how well it lines up with winning, ${playoffs ? 'playoff run by playoff run' : 'season by season'}.</p>${typeToggle(type, 'ms-type')}${chips(list, season, type)}</section>`;
+  // The sportsbook and model-version cards are about the regular season only.
+  const regularOnly = playoffs ? '' : `${marketCard(state.odds)}${labCard(state.lab, state.labView)}`;
   if (!total) {
-    main.innerHTML = `${head}<section class="pc-card"><p class="pq-note">${fmt.season(season)} hasn't been built yet. Seasons are rebuilt from the NHL play-by-play a few at a time; pick another season above.</p></section>${trendsCard(list)}${marketCard(state.odds)}${labCard(state.lab, state.labView)}`;
+    const why = playoffs
+      ? (list.some((s) => s.total) ? `No ${fmt.season(season)} playoff games in our data yet.` : 'No playoff seasons built yet. Playoffs are rebuilt from the NHL play-by-play a few seasons at a time.')
+      : `${fmt.season(season)} hasn't been built yet. Seasons are rebuilt from the NHL play-by-play a few at a time; pick another season above.`;
+    main.innerHTML = `${head}<section class="pc-card"><p class="pq-note">${why}</p></section>${list.some((s) => s.total) ? trendsCard(list) : ''}${regularOnly}`;
     return;
   }
   const m = sel.model;
   const banner = sel.state === 'partial'
-    ? `<p class="ms-banner">${fmt.season(season)} is still being built: <b>${total.games}</b> of about 1,300 games so far. The numbers will move as the rest arrive.</p>`
-    : sel.state === 'current' ? `<p class="ms-banner ms-now">Season in progress: <b>${total.games}</b> finished games.</p>` : '';
+    ? `<p class="ms-banner">${fmt.season(season)}${playoffs ? ' playoffs are' : ' is'} still being built: <b>${total.games}</b> of about ${playoffs ? '85' : '1,300'} games so far. The numbers will move as the rest arrive.</p>`
+    : sel.state === 'current' ? `<p class="ms-banner ms-now">${playoffs ? 'Playoffs' : 'Season'} in progress: <b>${total.games}</b> finished games.</p>` : '';
   main.innerHTML = `${head}${banner}
     <div class="pc-cols">
-      ${modelCard(m, season, sel.state)}
+      ${modelCard(m, season, sel.state, playoffs)}
       ${m.games ? card('Win % by share of the game', 'does a bigger edge mean more wins?', `${binsChart(m.bins)}<p class="pq-note">Every game counts twice, once from each side. A model that works climbs from left to right; a steeper climb means it separates winners from losers better.</p>${binsTable(m.bins)}`) : ''}
       ${teamsCard(m)}
       ${playersCard(total, pos, showAll, state.team)}
       ${finishingCard(total, m, state.finView, state.finPos, state.finAll, state.finTeam)}
+      ${scoringCard(total, state.scoPos, state.scoAll, state.scoTeam)}
       ${trendsCard(list)}
-      ${marketCard(state.odds)}
-      ${labCard(state.lab, state.labView)}
+      ${regularOnly}
     </div>`;
   makeSortable(main);
 }
@@ -407,23 +442,50 @@ function swapCard(cls, html) {
   makeSortable(main.querySelector(cls));
 }
 const redrawPlayers = () => swapCard('.ms-players-card', playersCard(selected().total, state.pos, state.showAll, state.team));
+const redrawSco = () => swapCard('.ms-sco-card', scoringCard(selected().total, state.scoPos, state.scoAll, state.scoTeam));
 const redrawFin = () => { const sel = selected(); swapCard('.ms-fin-card', finishingCard(sel.total, sel.model, state.finView, state.finPos, state.finAll, state.finTeam)); };
 
 /** Keep season and team filters in the URL so a filtered view can be shared or reloaded. */
 function syncUrl() {
   const q = new URLSearchParams({ season: state.season });
+  if (state.type === 'playoffs') q.set('type', 'playoffs');
   if (state.team) q.set('team', state.team);
   if (state.finTeam) q.set('finteam', state.finTeam);
+  if (state.scoTeam) q.set('scoteam', state.scoTeam);
   history.replaceState(null, '', `?${q}`);
 }
 
 main.addEventListener('change', (e) => {
   const t = e.target;
   if (t.matches('[data-team]')) { state.team = t.value || null; state.showAll = false; syncUrl(); redrawPlayers(); main.querySelector('[data-team]')?.focus(); }
+  else if (t.matches('[data-scoteam]')) { state.scoTeam = t.value || null; state.scoAll = false; syncUrl(); redrawSco(); main.querySelector('[data-scoteam]')?.focus(); }
   else if (t.matches('[data-finteam]')) { state.finTeam = t.value || null; state.finAll = false; syncUrl(); redrawFin(); main.querySelector('[data-finteam]')?.focus(); }
 });
 
-main.addEventListener('click', (e) => {
+main.addEventListener('click', async (e) => {
+  const tb = e.target.closest('[data-stats-type]');
+  if (tb) {
+    if (tb.getAttribute('aria-pressed') === 'true') return;
+    setStatsType(tb.dataset.statsType);
+    const type = getStatsType();
+    main.querySelectorAll('[data-stats-type]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.statsType === type)));
+    const list = await listOf(type);
+    if (getStatsType() !== type) return; // toggled again while loading
+    state.type = type;
+    state.list = list;
+    // Stay on the same season when it has data for the other half, else the default one.
+    if (!list.find((x) => x.season === state.season)?.total) state.season = defaultSeason(list, type);
+    state.showAll = false;
+    state.finAll = false;
+    state.scoAll = false;
+    const teams = teamsOf(selected()?.total);
+    if (!teams.includes(state.team)) state.team = null;
+    if (!teams.includes(state.finTeam)) state.finTeam = null;
+    if (!teams.includes(state.scoTeam)) state.scoTeam = null;
+    syncUrl();
+    render();
+    return;
+  }
   const x = e.target.closest('[data-x]');
   if (x) {
     const sel = state.list.find((s) => s.season === state.season);
@@ -448,6 +510,13 @@ main.addEventListener('click', (e) => {
     redrawFin();
     return;
   }
+  const sv = e.target.closest('[data-scopos], [data-scomore]');
+  if (sv) {
+    if (sv.dataset.scopos != null) { state.scoPos = sv.dataset.scopos || null; state.scoAll = false; }
+    if (sv.dataset.scomore != null) state.scoAll = true;
+    redrawSco();
+    return;
+  }
   const p = e.target.closest('[data-pos]');
   if (p) { state.pos = p.dataset.pos || null; state.showAll = false; redrawPlayers(); return; }
   if (e.target.closest('[data-more]')) { state.showAll = true; redrawPlayers(); return; }
@@ -458,30 +527,47 @@ main.addEventListener('click', (e) => {
     state.season = s;
     state.showAll = false;
     state.finAll = false;
+    state.scoAll = false;
     const teams = teamsOf(selected()?.total);
     if (!teams.includes(state.team)) state.team = null;
     if (!teams.includes(state.finTeam)) state.finTeam = null;
+    if (!teams.includes(state.scoTeam)) state.scoTeam = null;
     syncUrl();
     render();
     scrollTo({ top: 0 });
   }
 });
 
+// One entry per season for the regular season or the playoffs (loaded once each).
+const lists = {};
+function listOf(type) {
+  lists[type] ??= (async () => {
+    const seasons = allSeasons();
+    const totals = await Promise.all(seasons.map((s) => loadSeason(s, GAME_TYPES[type])));
+    return seasons.map((season, i) => {
+      const total = totals[i];
+      return { season, total, state: stateOf(season, total), model: total ? seasonModel(total) : null };
+    });
+  })();
+  return lists[type];
+}
+
+/** The current season once it has a few weeks of games (or a round of playoffs), else the newest finished one. */
+function defaultSeason(list, type) {
+  const enough = type === 'playoffs' ? 40 : 150;
+  return (list.find((s) => s.state === 'current' && s.total.games >= enough) ?? list.find((s) => s.state === 'complete') ?? list.find((s) => s.total))?.season ?? list[0].season;
+}
+
 async function start() {
-  const seasons = allSeasons();
-  const [totals, lab, odds] = await Promise.all([Promise.all(seasons.map((s) => loadSeason(s))), fetch('model-lab.json').then((r) => (r.ok ? r.json() : null)).catch(() => null), getStatic('odds.json').catch(() => null)]);
-  const list = seasons.map((season, i) => {
-    const total = totals[i];
-    return { season, total, state: stateOf(season, total), model: total ? seasonModel(total) : null };
-  });
+  const type = getStatsType();
+  const [list, lab, odds] = await Promise.all([listOf(type), fetch('model-lab.json').then((r) => (r.ok ? r.json() : null)).catch(() => null), getStatic('odds.json').catch(() => null)]);
   const asked = Number(params.get('season'));
-  // Default: the current season once it has a few weeks of games, else the newest finished one.
-  const fallback = list.find((s) => s.state === 'current' && s.total.games >= 150) ?? list.find((s) => s.state === 'complete') ?? list.find((s) => s.total);
-  state = { list, lab, odds, labView: 'all', season: list.some((s) => s.season === asked) ? asked : fallback?.season ?? seasons[0], pos: null, showAll: false, finView: 'players', finPos: null, finAll: false };
+  state = { type, list, lab, odds, labView: 'all', season: list.some((s) => s.season === asked) ? asked : defaultSeason(list, type), pos: null, showAll: false, finView: 'players', finPos: null, finAll: false, scoPos: null, scoAll: false };
   const teams = teamsOf(selected()?.total);
   const want = (k) => { const t = (params.get(k) || '').toUpperCase(); return teams.includes(t) ? t : null; };
   state.team = want('team');
   state.finTeam = want('finteam');
+  state.scoTeam = want('scoteam');
   render();
 }
 

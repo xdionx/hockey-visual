@@ -101,6 +101,11 @@ function mergeSeason(rows, goalie) {
   return out;
 }
 
+/** Several seasons added up into one line (e.g. career playoffs), or null when there are none. */
+export function combineSeasons(rows, goalie) {
+  return rows.length ? mergeSeason(rows, goalie) : null;
+}
+
 function groupSeasons(rows, goalie) {
   const by = new Map();
   for (const r of rows) by.set(r.season, [...(by.get(r.season) ?? []), r]);

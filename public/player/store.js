@@ -1,7 +1,7 @@
 // Loads player profiles (live data Worker) and season totals (static files the GitHub Action saves),
 // with small in-memory caches so opening the same card twice is instant.
 import { getData, getStatic } from '../data.js';
-import { perGame, rankOf, seasonOf, minGames, leagueRate } from '../src/seasonStats.js';
+import { perGame, scoringBase, rankOf, seasonOf, seasonFile, minGames, leagueRate, REGULAR, PLAYOFFS } from '../src/seasonStats.js';
 import { goalieLine } from '../src/matchup.js';
 
 const players = new Map();
@@ -13,10 +13,27 @@ export function loadPlayer(id) {
   return players.get(id);
 }
 
-/** A season's totals file, or null when it hasn't been built yet. */
-export function loadSeason(season) {
-  if (!seasons.has(season)) seasons.set(season, getStatic(`seasons/${season}.json`).catch(() => null));
-  return seasons.get(season);
+/** A season's totals file (regular season or playoffs), or null when it hasn't been built yet. */
+export function loadSeason(season, gameType = REGULAR) {
+  const name = seasonFile(season, gameType);
+  if (!seasons.has(name)) seasons.set(name, getStatic(`seasons/${name}`).catch(() => null));
+  return seasons.get(name);
+}
+
+/**
+ * Regular season or playoffs, for the toggles on the player cards and the stats page. Every page starts
+ * on the regular season (or ?type=playoffs); the choice is shared on the page, so a quick view opened
+ * from the playoff stats opens on the playoffs too, and links to the full card carry it along.
+ */
+export const GAME_TYPES = { regular: REGULAR, playoffs: PLAYOFFS };
+let statsType = new URLSearchParams(globalThis.location?.search ?? '').get('type') === 'playoffs' ? 'playoffs' : 'regular';
+export const getStatsType = () => statsType;
+export function setStatsType(type) { statsType = type === 'playoffs' ? 'playoffs' : 'regular'; }
+export const typeQuery = (type = statsType) => (type === 'playoffs' ? '&type=playoffs' : '');
+/** The Regular season / Playoffs switch (buttons carry data-stats-type). */
+export function typeToggle(type, cls = '') {
+  const b = (k, label) => `<button type="button" data-stats-type="${k}" aria-pressed="${k === type}">${label}</button>`;
+  return `<div class="pc-type ${cls}" role="group" aria-label="Regular season or playoffs">${b('regular', 'Regular season')}${b('playoffs', 'Playoffs')}</div>`;
 }
 
 function goalieRank(total, id) {
@@ -30,7 +47,7 @@ export const currentSeason = () => seasonOf(new Date(Date.now() - 10 * 3600_000)
 export function ourStats(total, id) {
   const row = total?.players?.[String(id)];
   if (!row) return null;
-  const avg = perGame(row, leagueRate(total));
+  const avg = perGame(row, leagueRate(total), scoringBase(total));
   const opts = { minGp: minGames(total) };
   return {
     row,
@@ -40,6 +57,7 @@ export function ourStats(total, id) {
     // Finishing is noisy on few chances: rank only among skaters with a few expected goals.
     finRank: row.p === 'G' || avg?.gaa == null || (row.xg ?? 0) < FIN_MIN_XG ? null : rankOf(total, id, 'gaa', { ...opts, minXg: FIN_MIN_XG }),
     // Goalies: goals saved above expected, ranked among goalies with 5+ starts (as on the Pregame view).
+    scoreRank: row.p === 'G' || avg?.scoringVsAvg == null || (row.xg ?? 0) < FIN_MIN_XG ? null : rankOf(total, id, 'scoringVsAvg', { ...opts, minXg: FIN_MIN_XG }),
     gsaxRank: row.p === 'G' && avg?.gsax != null ? goalieRank(total, id) : null,
     minGp: opts.minGp,
     games: total.games,
