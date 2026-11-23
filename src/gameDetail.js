@@ -105,6 +105,46 @@ function finishingStats(shots, pbp) {
   ];
 }
 
+/**
+ * Team stats split by period (regulation and OT, no shootout), from play-by-play: shots, attempts, xG, faceoffs,
+ * hits, blocks, giveaways, takeaways and penalty minutes. Each period is { label, away: {...}, home: {...} }.
+ */
+export function periodStats(pbp, shots, roster = rosterMap(pbp)) {
+  if (!pbp?.plays?.length) return null;
+  const awayId = pbp.awayTeam?.id;
+  const blank = () => ({ sog: 0, sat: 0, xg: 0, fow: 0, hits: 0, blocks: 0, give: 0, take: 0, pim: 0 });
+  const by = new Map();
+  const get = (label) => {
+    if (!by.has(label)) by.set(label, { label, away: blank(), home: blank() });
+    return by.get(label);
+  };
+  for (const s of shots ?? []) {
+    const p = get(s.period);
+    p[s.team].sat++;
+    if (s.kind === 'sog' || s.kind === 'goal') {
+      p[s.team].sog++;
+      if (s.goalieId) p[s.team].xg += shotXg(s) ?? 0;
+    }
+  }
+  const KEY = { faceoff: 'fow', hit: 'hits', 'blocked-shot': 'blocks', giveaway: 'give', takeaway: 'take' };
+  for (const e of pbp.plays) {
+    if (e.periodDescriptor?.periodType === 'SO') continue;
+    const k = KEY[e.typeDescKey];
+    const d = e.details ?? {};
+    // A blocked shot belongs to the blocker's team; the play's owner team is the shooter's.
+    const team = e.typeDescKey === 'blocked-shot' ? roster.get(d.blockingPlayerId)?.teamId : d.eventOwnerTeamId;
+    if (team == null) continue;
+    const side = team === awayId ? 'away' : 'home';
+    if (k) get(periodLabel(e.periodDescriptor))[side][k]++;
+    if (e.typeDescKey === 'penalty') get(periodLabel(e.periodDescriptor))[side].pim += d.duration ?? 0;
+  }
+  const order = (l) => (l === 'OT' ? 4 : /OT$/.test(l) ? 3 + Number.parseInt(l, 10) : Number(l));
+  return [...by.values()].filter((p) => p.label !== 'SO').sort((a, b) => order(a.label) - order(b.label)).map((p) => {
+    for (const side of ['away', 'home']) p[side].xg = round(p[side].xg, 2);
+    return p;
+  });
+}
+
 function teamStats(rightRail) {
   const out = [];
   for (const s of rightRail?.teamGameStats ?? []) {
@@ -580,6 +620,7 @@ export function normalizeGameDetail({ box, landing = null, rightRail = null, pbp
     home: team(box.homeTeam, info.homeTeam),
     linescore: linescore(box, rightRail),
     teamStats: [...teamStats(rightRail), ...finishingStats(shots, pbp), ...momentumStats(momentum)],
+    periodStats: periodStats(pbp, shots, roster),
     scoring: scoring(landing),
     shootout: shootout(landing),
     penalties: penalties(landing),
