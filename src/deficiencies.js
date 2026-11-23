@@ -79,7 +79,11 @@ function leagueBase(total, rate, minGp, sbase) {
 
 // A skater's scoring in goals vs average: finishing plus playmaking (assists) once the season file has assists,
 // finishing alone before that.
-const scoreOf = (pg) => pg.scoringVsAvg ?? pg.gaa;
+// Finishing is mostly luck over a few dozen shots (scripts/scoring-lab: half of a finishing number is skill only
+// once a player has about 22 expected goals), so only that share of the gap counts; assists are counted in full.
+export const FIN_TRUST_XG = 22;
+export const finTrust = (pg) => (pg.avgGoals == null ? 1 : pg.avgGoals / (pg.avgGoals + FIN_TRUST_XG));
+const scoreOf = (pg) => (pg.gaa == null ? 0 : finTrust(pg) * pg.gaa) + (pg.playVsAvg ?? 0);
 
 function skaterRows(total, team, rate, minGp, pos, sbase) {
   const out = [];
@@ -95,8 +99,9 @@ function skaterRows(total, team, rate, minGp, pos, sbase) {
       mnPg: pg.momNegPerGame, mnPct: pctBelow(P.mns, pg.momNegPerGame), // low pct = gives away more than most
       mnMore: P.mns.length ? P.mns.filter((x) => x > pg.momNegPerGame).length / P.mns.length : null,
       goals: row.xgg ?? null, avgGoals: pg.avgGoals ?? null, gaa: pg.gaa, shPct: pg.shPct, xShPct: pg.xShPct,
-      allGoals: pg.goals, assists: pg.assists, playVsAvg: pg.playVsAvg, scoringVsAvg: pg.scoringVsAvg,
+      allGoals: pg.goals, assists: pg.assists, playVsAvg: pg.playVsAvg, scoringVsAvg: pg.scoringVsAvg, trust: finTrust(pg), counted: scoreOf(pg),
       belowPct: pg.belowPct, posBelow: P.below,
+      oi: row.oto ? { sec: row.oto, cf: row.ocf, ca: row.oca, gf: row.ogf, ga: row.oga } : null,
       momCost: momGoals * row.gp, finCost: finGoals * row.gp, cost: (momGoals + finGoals) * row.gp,
     });
   }
@@ -120,10 +125,11 @@ export function skaterReasons(p) {
   }
   if (p.finCost <= -1 && p.goals != null && p.avgGoals != null) {
     const kind = isD(p.pos) ? 'defenseman' : 'forward';
-    const finish = `${p.goals} goal${p.goals === 1 ? '' : 's'} on shots an average shooter would turn into ${p.avgGoals.toFixed(1)} (shooting ${pctTxt(p.shPct)} where ${pctTxt(p.xShPct)} is normal)`;
+    const hot = p.gaa >= 0;
+    const finish = `${p.goals} goal${p.goals === 1 ? '' : 's'} on shots an average shooter would turn into ${p.avgGoals.toFixed(1)} (shooting ${pctTxt(p.shPct)} where ${pctTxt(p.xShPct)} is normal${hot ? ', so the goals are fine' : ''})`;
     out.push({ k: 'fin', cost: p.finCost, text: p.scoringVsAvg == null
-      ? `Finishing: ${finish}.`
-      : `Scoring: ${finish}, and ${p.assists} assist${p.assists === 1 ? '' : 's'}, ${p.playVsAvg >= 0 ? 'which only partly makes up for it' : `fewer than a typical ${kind} gets in ${p.gp} games`}. Goals and assists together come to ${sign(p.scoringVsAvg)} goals against an average ${kind}.` });
+      ? `Finishing: ${finish}. Mostly luck this early, so only ${Math.round(p.trust * 100)}% of the gap is counted.`
+      : `Scoring: ${finish}, and ${p.assists} assist${p.assists === 1 ? '' : 's'}, ${p.playVsAvg >= 0 ? 'which only partly makes up for it' : `fewer than a typical ${kind} gets in ${p.gp} games`}. Goals and assists together come to ${sign(p.scoringVsAvg)} goals against an average ${kind}. Finishing is mostly luck this early, so only ${Math.round(p.trust * 100)}% of the finishing difference is counted: ${sign(p.counted)} goals.` });
   }
   if (p.belowPct != null && p.posBelow != null && p.belowPct >= Math.max(0.28, p.posBelow + 0.1)) {
     out.push({ k: 'below', cost: 0, text: `Well below a typical ${isD(p.pos) ? 'defenseman' : 'forward'}'s game in ${pctTxt(p.belowPct, 0)} of games (most ${posName}: ${pctTxt(p.posBelow, 0)}).` });
@@ -132,6 +138,38 @@ export function skaterReasons(p) {
     out.push({ k: 'toi', cost: 0, text: `Big minutes make it count: ${toi(p.toiPg)} a night, ${ord(p.toiRank)} among the team's ${posName}.` });
   }
   return out;
+}
+
+// "The team does worse with him on the ice": on-ice shot-attempt share against the team's other skaters at the
+// position (forwards / defensemen), with enough minutes, for players who are also below a typical player on
+// their own numbers. Shot attempts are the steady part (odd vs even games r .76 for defensemen); goals on ice are noisy.
+export const ONICE_MIN_SEC = 150 * 60;
+export const ONICE_GAP = 0.10; // share of attempts, 10 points: depth lines normally trail the top lines by a few points
+export const ONICE_TOI = { F: 11.5 * 60, D: 14 * 60 }; // regulars only: top nine forwards, top two or three pairs
+export const ONICE_MAX = 3;
+export function onIceRows(players) {
+  const share = (r) => r.oi.cf / (r.oi.cf + r.oi.ca);
+  const per60 = (r) => ((r.oi.gf - r.oi.ga) * 3600) / r.oi.sec;
+  const out = [];
+  for (const r of players) {
+    if (!r.oi || r.oi.sec < ONICE_MIN_SEC || (r.toiPg ?? 0) < ONICE_TOI[isD(r.pos) ? 'D' : 'F']) continue;
+    const mates = players.filter((m) => m.id !== r.id && m.oi && isD(m.pos) === isD(r.pos) && m.oi.sec >= 20 * 60);
+    const w = mates.reduce((a, m) => a + m.oi.sec, 0);
+    if (!w) continue;
+    const mateShare = mates.reduce((a, m) => a + share(m) * m.oi.sec, 0) / w;
+    const mateGd = mates.reduce((a, m) => a + per60(m) * m.oi.sec, 0) / w;
+    out.push({ id: r.id, name: r.name, pos: r.pos, gp: r.gp, min: r.oi.sec / 60, share: share(r), mateShare, gap: share(r) - mateShare,
+      gd60: per60(r), mateGd60: mateGd, gdGap: per60(r) - mateGd, cost: r.cost });
+  }
+  return out.sort((a, b) => a.gap - b.gap);
+}
+
+/** Plain sentence for an on-ice row. */
+export function onIceText(r) {
+  const kind = isD(r.pos) ? 'defensemen' : 'forwards';
+  const pts = Math.round(-r.gap * 100);
+  const gd = r.gdGap <= -0.5 ? ` Goals: ${sign(r.gdGap)} per 60 minutes against the others (noisier than shots).` : '';
+  return `With him on the ice the team gets ${pctTxt(r.share, 0)} of the shot attempts, ${pts} point${pts === 1 ? '' : 's'} fewer than with its other ${kind} (${pctTxt(r.mateShare, 0)}), over ${Math.round(r.min)} minutes.${gd}`;
 }
 
 /** Goalies who started for the team, worst goals saved above expected first. */
@@ -204,7 +242,10 @@ export function deficiencies(total) {
     const dragging = players.map((p) => ({ ...p, reasons: skaterReasons(p) }))
       .filter((p) => p.cost <= -1.5 && p.reasons.length)
       .sort((a, b) => a.cost - b.cost);
+    const onIce = onIceRows(players.map((p) => ({ ...p })))
+      .filter((r) => r.gap <= -ONICE_GAP && r.cost < 0).slice(0, ONICE_MAX);
     return {
+      onIce,
       abbrev: t.abbrev, gp: t.gp, w: t.w, l: t.l, otl: t.otl, ptsPct: t.ptsPct, ptsRank: rk.ptsPct(t.ptsPct), gdPerGame: t.gdPerGame,
       areas, trouble, strengths, checks, players: dragging, goalies: goalieRows(total, t.abbrev, rate),
     };

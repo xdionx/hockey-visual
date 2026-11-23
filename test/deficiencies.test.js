@@ -44,3 +44,14 @@ test('skater reasons explain momentum and finishing in plain words', () => {
 test('ordinals', () => {
   assert.deepEqual([1, 2, 3, 4, 11, 12, 13, 21, 22, 32].map(ord), ['1st', '2nd', '3rd', '4th', '11th', '12th', '13th', '21st', '22nd', '32nd']);
 });
+
+test('on-ice list: flags a regular whose team shot share drops with him, not a normal-share player', async () => {
+  const { onIceRows } = await import('../src/deficiencies.js');
+  const mk = (id, cf, ca, extra = {}) => ({ id, name: `P${id}`, pos: 'D', gp: 15, toiPg: 18 * 60, cost: -2, oi: { sec: 200 * 60, cf, ca, gf: 5, ga: 5 }, ...extra });
+  const rows = onIceRows([mk(1, 40, 60), mk(2, 55, 45), mk(3, 56, 44), mk(4, 54, 46)]);
+  assert.equal(rows[0].id, 1);
+  assert.ok(rows[0].gap < -0.1);
+  assert.ok(rows.find((r) => r.id === 2).gap > -0.1);
+  // Too few minutes: left out.
+  assert.equal(onIceRows([mk(1, 40, 60, { oi: { sec: 60 * 60, cf: 40, ca: 60, gf: 1, ga: 2 } }), mk(2, 55, 45)]).find((r) => r.id === 1), undefined);
+});
