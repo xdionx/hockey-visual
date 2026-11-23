@@ -293,8 +293,9 @@ export function rinkMarkup() {
       <path class="crease" d="M 89 -4 L 85 -4 A 4 4 0 0 0 85 4 L 89 4 Z"/>
       <rect class="net" x="-92" y="-3" width="3" height="6"/>
       <rect class="net" x="89" y="-3" width="3" height="6"/>
-      <path class="plate" d="M -89 -4 L -69 -22 L -54 -22 L -54 22 L -69 22 L -89 4"/>
-      <path class="plate" d="M 89 -4 L 69 -22 L 54 -22 L 54 22 L 69 22 L 89 4"/>
+      <path class="plate" d="M -89 -4 L -69 -19 L -54 -19 L -54 19 L -69 19 L -89 4"/>
+      <path class="plate" d="M 89 -4 L 69 -19 L 54 -19 L 54 19 L 69 19 L 89 4"/>
+      <path class="plate-split" d="M -79 -11.5 L -79 11.5 M 79 -11.5 L 79 11.5"/>
     </g>
     <rect class="boards" x="-100" y="-42.5" width="200" height="85" rx="28" ry="28"/>`;
 }
@@ -400,14 +401,14 @@ export const GS_PARTS = [
 /**
  * Offensive-zone areas (see shotZone in src/gameDetail.js) for the home team's attacking end:
  * [key, label, polygon points [x, y] in rink feet (y > 0 = left side), label anchor [x, y], tall].
- * Home plate (posts -> faceoff dots -> top of the circles), one side zone on each flank of it down
+ * Home plate (posts -> 19 ft out -> top of the circles), one side zone on each flank of it down
  * to the goal line, the blue line to the top of the circles split left/right, and behind the net.
  */
 const rect = (x1, x2, y1, y2) => [[x1, y1], [x2, y1], [x2, y2], [x1, y2]];
 export const ZONES = [
-  ['home-plate', 'Home plate', [[89, -4], [69, -22], [54, -22], [54, 22], [69, 22], [89, 4]], [68.5, 0], true],
-  ['side-left', 'Left side', [[54, 22], [69, 22], [89, 4], [89, 42.5], [54, 42.5]], [68, 32], true],
-  ['side-right', 'Right side', [[54, -22], [69, -22], [89, -4], [89, -42.5], [54, -42.5]], [68, -32], true],
+  ['home-plate', 'Home plate', [[89, -4], [69, -19], [54, -19], [54, 19], [69, 19], [89, 4]], [68.5, 0], true],
+  ['side-left', 'Left side', [[54, 19], [69, 19], [89, 4], [89, 42.5], [54, 42.5]], [68, 32], true],
+  ['side-right', 'Right side', [[54, -19], [69, -19], [89, -4], [89, -42.5], [54, -42.5]], [68, -32], true],
   ['point-left', 'Left point', rect(25, 54, 0, 42.5), [39.5, 21], true],
   ['point-right', 'Right point', rect(25, 54, -42.5, 0), [39.5, -21], true],
   ['behind-net', 'Behind the net', rect(89, 100, -42.5, 42.5), [94.5, 0], false],
@@ -418,7 +419,7 @@ export function inHomePlate(x, y) {
   const ax = Math.abs(x);
   const ay = Math.abs(y);
   if (ax > 89 || ax < 54) return false;
-  return ax >= 69 ? ay <= 4 + ((89 - ax) * 18) / 20 : ay <= 22;
+  return ax >= 69 ? ay <= 4 + ((89 - ax) * 15) / 20 : ay <= 19;
 }
 
 /** Same rules as shotZone in src/gameDetail.js; lets older saved games use the current zones. */
