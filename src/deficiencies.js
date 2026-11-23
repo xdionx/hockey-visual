@@ -7,7 +7,7 @@
 //   finishing   goals on a goalie minus what average NHL shooters would score from the same shots
 //   goaltending what average NHL goalies would allow on the shots faced minus goals actually allowed
 // Plus a few situational checks (home/road, the last 10 games, one-goal games) and the players behind it.
-import { gameObj, leagueRate, minGames, perGame } from './seasonStats.js';
+import { gameObj, leagueRate, minGames, perGame, scoringBase } from './seasonStats.js';
 import { teamTable } from './momentumModel.js';
 import { IMPACT } from './impact.js';
 
@@ -59,12 +59,12 @@ function teamGames(list) {
 }
 
 /** League numbers every team is compared with: per-position averages for skaters, per-team-game for teams. */
-function leagueBase(total, rate, minGp) {
+function leagueBase(total, rate, minGp, sbase) {
   const sk = { F: [], D: [] };
   for (const [id, row] of Object.entries(total.players ?? {})) {
     if (row.p === 'G' || row.gp < minGp) continue;
-    const pg = perGame(row, rate);
-    sk[isD(row.p) ? 'D' : 'F'].push({ id, gp: row.gp, mom: pg.momPerGame, mn: pg.momNegPerGame, fin: row.xg != null ? pg.gaa / row.gp : null, below: pg.belowPct });
+    const pg = perGame(row, rate, sbase);
+    sk[isD(row.p) ? 'D' : 'F'].push({ id, gp: row.gp, mom: pg.momPerGame, mn: pg.momNegPerGame, fin: row.xg != null ? scoreOf(pg) / row.gp : null, below: pg.belowPct });
   }
   const pos = {};
   for (const k of ['F', 'D']) {
@@ -77,20 +77,25 @@ function leagueBase(total, rate, minGp) {
   return pos;
 }
 
-function skaterRows(total, team, rate, minGp, pos) {
+// A skater's scoring in goals vs average: finishing plus playmaking (assists) once the season file has assists,
+// finishing alone before that.
+const scoreOf = (pg) => pg.scoringVsAvg ?? pg.gaa;
+
+function skaterRows(total, team, rate, minGp, pos, sbase) {
   const out = [];
   for (const [id, row] of Object.entries(total.players ?? {})) {
     if (row.t !== team || row.p === 'G' || row.gp < minGp) continue;
-    const pg = perGame(row, rate);
+    const pg = perGame(row, rate, sbase);
     const P = pos[isD(row.p) ? 'D' : 'F'];
     const momGoals = (pg.momPerGame - P.mom) * IMPACT.momGoals;
-    const finGoals = row.xg != null ? pg.gaa / row.gp - P.fin : 0;
+    const finGoals = row.xg != null ? scoreOf(pg) / row.gp - P.fin : 0;
     out.push({
       id: Number(id), name: row.n, pos: row.p, gp: row.gp, toiPg: pg.toiPerGame,
       momPg: pg.momPerGame, posMom: P.mom, momPct: pctBelow(P.moms, pg.momPerGame),
       mnPg: pg.momNegPerGame, mnPct: pctBelow(P.mns, pg.momNegPerGame), // low pct = gives away more than most
       mnMore: P.mns.length ? P.mns.filter((x) => x > pg.momNegPerGame).length / P.mns.length : null,
       goals: row.xgg ?? null, avgGoals: pg.avgGoals ?? null, gaa: pg.gaa, shPct: pg.shPct, xShPct: pg.xShPct,
+      allGoals: pg.goals, assists: pg.assists, playVsAvg: pg.playVsAvg, scoringVsAvg: pg.scoringVsAvg,
       belowPct: pg.belowPct, posBelow: P.below,
       momCost: momGoals * row.gp, finCost: finGoals * row.gp, cost: (momGoals + finGoals) * row.gp,
     });
@@ -114,7 +119,11 @@ export function skaterReasons(p) {
     out.push({ k: 'mn', cost: p.momCost, text: `Gives momentum away: ${sign(p.mnPg)} a game from penalties, giveaways and lost draws, more than ${Math.min(99, Math.round(p.mnMore * 100))}% of ${posName}.` });
   }
   if (p.finCost <= -1 && p.goals != null && p.avgGoals != null) {
-    out.push({ k: 'fin', cost: p.finCost, text: `Finishing: ${p.goals} goal${p.goals === 1 ? '' : 's'} on shots an average shooter would turn into ${p.avgGoals.toFixed(1)} (shooting ${pctTxt(p.shPct)} where ${pctTxt(p.xShPct)} is normal).` });
+    const kind = isD(p.pos) ? 'defenseman' : 'forward';
+    const finish = `${p.goals} goal${p.goals === 1 ? '' : 's'} on shots an average shooter would turn into ${p.avgGoals.toFixed(1)} (shooting ${pctTxt(p.shPct)} where ${pctTxt(p.xShPct)} is normal)`;
+    out.push({ k: 'fin', cost: p.finCost, text: p.scoringVsAvg == null
+      ? `Finishing: ${finish}.`
+      : `Scoring: ${finish}, and ${p.assists} assist${p.assists === 1 ? '' : 's'}, ${p.playVsAvg >= 0 ? 'which only partly makes up for it' : `fewer than a typical ${kind} gets in ${p.gp} games`}. Goals and assists together come to ${sign(p.scoringVsAvg)} goals against an average ${kind}.` });
   }
   if (p.belowPct != null && p.posBelow != null && p.belowPct >= Math.max(0.28, p.posBelow + 0.1)) {
     out.push({ k: 'below', cost: 0, text: `Well below a typical ${isD(p.pos) ? 'defenseman' : 'forward'}'s game in ${pctTxt(p.belowPct, 0)} of games (most ${posName}: ${pctTxt(p.posBelow, 0)}).` });
@@ -146,7 +155,8 @@ export function deficiencies(total) {
   if (!list.length) return null;
   const rate = leagueRate(total);
   const minGp = Math.max(5, minGames(total));
-  const pos = leagueBase(total, rate, minGp);
+  const sbase = scoringBase(total);
+  const pos = leagueBase(total, rate, minGp, sbase);
   const byTeam = teamGames(list);
   const base = teamTable(list).map((t) => {
     const fin = t.finGp ? { finishing: (t.ggF - t.xgF * rate) / t.finGp, goaltending: (t.xgA * rate - t.ggA) / t.finGp } : { finishing: null, goaltending: null };
@@ -188,7 +198,7 @@ export function deficiencies(total) {
 
     const games = byTeam.get(t.abbrev) ?? [];
     const checks = situational(games, t);
-    const players = skaterRows(total, t.abbrev, rate, minGp, pos);
+    const players = skaterRows(total, t.abbrev, rate, minGp, pos, sbase);
     const trouble = AREAS.map(([k]) => areas[k]).filter((a) => a.trouble).sort((a, b) => a.value - b.value);
     const strengths = AREAS.map(([k]) => areas[k]).filter((a) => a.strength).sort((a, b) => b.value - a.value);
     const dragging = players.map((p) => ({ ...p, reasons: skaterReasons(p) }))

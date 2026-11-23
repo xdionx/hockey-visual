@@ -240,18 +240,21 @@ function gaaCell(v, d = 1, strong = false) {
 
 function finPlayers(total, pos, showAll, team) {
   const minGp = minGames(total);
-  const league = leaderboard(total, 'gaa', { pos, minGp, minXg: FIN_MIN_XG });
+  // Once the season file has assists, rank by Scoring vs avg (goals vs avg plus playmaking); before that, by Goals vs avg.
+  const key = total.players && Object.values(total.players).some((p) => p.a1 != null) ? 'scoringVsAvg' : 'gaa';
+  const league = leaderboard(total, key, { pos, minGp, minXg: FIN_MIN_XG });
   if (!league.length) return NO_FIN;
+  const sc = key === 'scoringVsAvg';
   const board = byTeam(league, team);
   const shown = showAll ? board : board.slice(0, 50);
   const rows = shown.map((r) => `<tr><td data-v="${r.rank}">${r.rank}</td><td class="l">${playerLink(r.id, r.n)}</td><td class="l">${esc(r.t)}</td><td class="l">${esc(r.p)}</td><td>${r.gp}</td>
-    <td>${r.sog}</td><td data-v="${r.xgg ?? 0}">${r.xgg ?? 0}</td><td data-v="${r.shPct ?? ''}">${pct(r.shPct)}</td><td data-v="${r.xShPct ?? ''}">${pct(r.xShPct)}</td>${gaaCell(r.gaa, 1, true)}</tr>`).join('');
+    <td>${r.sog}</td><td data-v="${r.xgg ?? 0}">${r.xgg ?? 0}</td><td data-v="${r.shPct ?? ''}">${pct(r.shPct)}</td><td data-v="${r.xShPct ?? ''}">${pct(r.xShPct)}</td>${gaaCell(r.gaa, 1, !sc)}${sc ? `<td>${r.assists}</td>${gaaCell(r.playVsAvg, 1)}${gaaCell(r.scoringVsAvg, 1, true)}` : ''}</tr>`).join('');
   return `${filterBar(total, 'fin', pos, team)}
     <div class="pc-scroll"><table class="pc-table sortable ms-players"><thead><tr><th data-sort>#</th><th class="l" data-sort>Player</th><th class="l" data-sort>Team</th><th class="l">Pos</th><th data-sort>GP</th>
-      <th data-sort title="Shots on goal">Shots</th><th data-sort title="Goals scored with a goalie in net (empty-net goals left out)">Goals</th><th data-sort title="Share of shots on goal that went in">Shooting %</th><th data-sort title="What an average NHL shooter would shoot from the same shots (same distance, angle and shot type) this season">Avg shooter %</th><th class="pc-o" data-sort data-dir="desc" title="Goals scored minus what an average NHL shooter would score from the same shots">Goals vs avg</th></tr></thead>
+      <th data-sort title="Shots on goal">Shots</th><th data-sort title="Goals scored with a goalie in net (empty-net goals left out)">Goals</th><th data-sort title="Share of shots on goal that went in">Shooting %</th><th data-sort title="What an average NHL shooter would shoot from the same shots (same distance, angle and shot type) this season">Avg shooter %</th><th class="pc-o" data-sort data-dir="desc" title="Goals scored minus what an average NHL shooter would score from the same shots">Goals vs avg</th>${sc ? `<th data-sort title="Primary and secondary assists">Assists</th><th class="pc-o" data-sort title="Assists above what an average forward or defenseman gets in the same number of games, each worth 3/4 of a goal">Playmaking</th><th class="pc-o" data-sort data-dir="desc" title="Goals vs avg plus playmaking: scoring from both goals and assists, against an average player at the position">Scoring vs avg</th>` : ''}</tr></thead>
       <tbody>${rows}</tbody></table></div>
     ${board.length > shown.length ? `<button type="button" class="ms-more" data-finmore>Show all ${board.length}</button>` : ''}
-    <p class="pq-note">${team ? `${board.length} ${esc(team)} of ${league.length}` : board.length} skaters with ${minGp}+ games and enough good chances to judge (about 3 goals' worth).${team ? ' # is the rank across the whole league.' : ''}</p>`;
+    <p class="pq-note">${team ? `${board.length} ${esc(team)} of ${league.length}` : board.length} skaters with ${minGp}+ games and enough good chances to judge (about 3 goals' worth).${sc ? ' Goals vs avg only credits scoring goals, so a player who sets up teammates can look cold. <b>Playmaking</b> counts the assists above an average player at the position (each worth 3/4 of a goal) and <b>Scoring vs avg</b> adds it to Goals vs avg; the table is ranked by it.' : ''}${team ? ' # is the rank across the whole league.' : ''}</p>`;
 }
 
 function finTeams(m) {
