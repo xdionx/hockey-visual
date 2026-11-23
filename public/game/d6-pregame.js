@@ -3,6 +3,8 @@
 // weak spots, probable starter, lineup news, top skaters). game.pregame is filled in by game.js;
 // game.preview (records, special teams, last 10) comes from the NHL right rail via src/gameDetail.js.
 import { esc, logo } from './core.js';
+// Same wording as notableRole in src/lineupAlert.js (kept here so this file loads without the src copy).
+const notableRole = (p) => `#${p.rank} ${p.pos === 'D' ? 'defenseman' : 'forward'}`;
 
 const time = (iso) => new Date(iso).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit', timeZoneName: 'short' });
 const lastName = (n) => String(n ?? '').split(' ').slice(1).join(' ') || n;
@@ -166,7 +168,7 @@ function scoutCard(game, pg, c, side) {
       <dt>Scratched</dt><dd>${posted ? esc(t.scratches.join(', ')) : '<span class="muted">Posts about 10 minutes before puck drop</span>'}</dd>
       ${game.players?.[side]?.goalies?.length ? `<dt>Goalies dressed</dt><dd>${game.players[side].goalies.map((g) => esc(g.fullName ?? g.name)).join(', ')}</dd>` : ''}
     </dl>
-    ${out.length ? `<p class="pg-alert">⚠ Without ${out.map((x) => `<b>${esc(lastName(x.name))}</b> (their #${x.rank} skater by momentum)`).join(' and ')}</p>` : ''}`;
+    ${posted ? `<p class="pg-alert${out.length ? '' : ' none'}" title="A team's top 3 forwards and top 2 defensemen by momentum this season"><b>Notable scratches:</b> ${out.length ? out.map((x) => `<b>${esc(lastName(x.name))}</b> (${esc(notableRole(x))})`).join(', ') : 'none'}</p>` : ''}`;
 
   const sk = T?.skaters ?? [];
   const table = sk.length ? `<div class="a-scroll"><table class="pg-sk">

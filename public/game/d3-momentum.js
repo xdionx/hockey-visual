@@ -2,7 +2,7 @@
 import { hero } from './d2-broadcast.js';
 import { kpis, flowChart } from './d4-analytics.js';
 import { momentumTimeline } from './d6-chapters.js';
-import { colors, header, miniScore, momentumChart, momentumStrip, drivers, killers, periodWins, mountMomentumTips } from './d6-story.js';
+import { colors, header, miniScore, momentumChart, momentumStrip, drivers, periodWins, mountMomentumTips } from './d6-story.js';
 
 export default {
   id: 'broadcast', // keeps saved tab preferences working
@@ -22,7 +22,7 @@ export default {
       </section>
       <section class="st-sec">
         ${header(2, 'swings', 'What moved it', 'The shifts in the game and the players behind them.')}
-        <div class="b-cols st-cols"><div>${momentumTimeline(game, c)}</div><div>${drivers(game, c)}${killers(game, c)}</div></div>
+        <div class="b-cols st-cols"><div>${momentumTimeline(game, c)}</div><div>${drivers(game, c)}</div></div>
       </section>
       <section class="st-sec">
         ${header(3, 'attempts', 'Pressure by the numbers', 'Shot attempts through the game, with the key indicators.')}

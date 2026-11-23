@@ -1,6 +1,6 @@
 // Design 4 "Analytics": shot map, shot-attempt flow and heat-mapped player stats.
 // Inspired by HockeyStats and NHL EDGE style analytics pages.
-import { hero, statBars } from './d2-broadcast.js';
+import { hero, statBars, scoringCards, stars } from './d2-broadcast.js';
 import { colors, header as secHeader, lineScore } from './d6-story.js';
 import { ZONES, faceoffLine, esc, logo, teamColors, statusText, statusHtml, prettyDate, allSkaters, allGoalies, pct, signed, rinkMarkup, shotMark, elapsed, headshot, on, morphInner, goalieXg, fold } from './core.js';
 
@@ -352,10 +352,16 @@ export function mountShotMap(root, game, c) {
   draw();
 }
 
+/** Sections in order, numbered 01, 02... skipping any with nothing to show (no three stars until it's final). */
+function numbered(list) {
+  let n = 0;
+  return list.filter(([, , html]) => html).map(([id, title, html, sub]) => `<section class="st-sec" id="st-${id}">${secHeader(++n, id, title, sub)}${html}</section>`).join('');
+}
+
 export default {
   id: 'analytics',
   name: 'Game Stats',
-  inspiration: 'Team stats, shot map and the skater and goalie box score',
+  inspiration: 'Three stars, scoring plays, team stats, shot map and the skater and goalie box score',
   classes: 'd-story d-broadcast d-analytics d-scorecards',
   render(game) {
     const c = colors(game);
@@ -363,9 +369,13 @@ export default {
     return `<div class="b-wrap st-wrap">
       ${hero(game, c, { strip: false, shots: true })}
       ${started ? `
-      <section class="st-sec">${secHeader(1, 'team', 'Team stats')}${statBars(game, c)}</section>
-      <section class="st-sec">${secHeader(2, 'shots', 'Shot map', 'Switch between every attempt and the zone map.')}${shotMap(game, c)}</section>
-      <section class="st-sec">${secHeader(3, 'box', 'Box score')}${lineScore(game, c)}${heatTable(game, c)}${goalieTable(game, c)}</section>` : '<p class="st-empty">Stats appear once the game starts.</p>'}
+      ${numbered([
+        ['stars', 'Three stars', stars(game)],
+        ['scoring', 'Scoring plays', scoringCards(game, c)],
+        ['team', 'Team stats', statBars(game, c, { periods: true })],
+        ['shots', 'Shot map', shotMap(game, c), 'Switch between every attempt and the zone map.'],
+        ['box', 'Box score', `${lineScore(game, c)}${heatTable(game, c)}${goalieTable(game, c)}`],
+      ])}` : '<p class="st-empty">Stats appear once the game starts.</p>'}
     </div>`;
   },
   mount(root, game) {

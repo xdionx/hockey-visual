@@ -1,6 +1,6 @@
 // The written story of a game: how it unfolded, who controlled play over longer stretches (not just
 // shot attempts), who made the difference (goalies included) and what special teams did.
-import { allSkaters, allGoalies, elapsed, penKind } from './core.js';
+import { allSkaters, allGoalies, elapsed, penKind, byRating } from './core.js';
 import { decisiveItems, decisivePenalties } from './d6-penalties.js';
 import { shotSummary } from './d4-analytics.js';
 
@@ -89,6 +89,7 @@ function unfolded(game, final) {
     return {
       at: elapsed(g.period, g.time), time: g.time, period: g.period, side: g.side, flag, goal: true,
       text: `${who} (${g.team}) ${did}${how}${g === gwg && !otWinner ? ', the game-winner' : ''}`,
+      clip: g.highlightId ? { id: g.highlightId, href: g.highlight, title: `${g.team} · ${g.scorer.fullName} · ${g.time} ${g.periodName ?? ''}`.trim() } : null,
       score: `${ab('away')} ${g.after.away} – ${g.after.home} ${ab('home')}`,
     };
   });
@@ -228,7 +229,7 @@ function control(game, final) {
 /** The people who made the difference, goalies included. */
 function difference(game, final) {
   const skaters = allSkaters(game).filter((p) => p.rating != null);
-  const best = skaters.sort((x, y) => y.rating - x.rating || y.gameScore - x.gameScore)[0];
+  const best = skaters.sort(byRating)[0];
   const out = [];
   if (best) {
     const line = [best.goals && `${best.goals} G`, best.assists && `${best.assists} A`, `${best.sog} SOG`].filter(Boolean).join(', ');
