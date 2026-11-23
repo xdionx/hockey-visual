@@ -5,7 +5,7 @@ import '../horn.js'; // goal horns for games with a horn on, on every page
 import { loadSeason, currentSeason, fmt } from '../player/store.js';
 import { installPlayerLinks, playerLink } from '../player/link.js';
 import { esc, makeSortable, teamColor } from '../game/core.js';
-import { deficiencies, headline, AREAS, ord } from '../src/deficiencies.js';
+import { deficiencies, headline, onIceText, AREAS, ord } from '../src/deficiencies.js';
 
 installPlayerLinks();
 const main = document.querySelector('#stats');
@@ -96,6 +96,9 @@ function teamCard(r, team) {
     ${checks ? `<h3 class="pc-sub">Other warning signs</h3><ul class="td-checks">${checks}</ul>` : ''}
     <h3 class="pc-sub">Underperforming so far <small>goals below a typical player at the position this season; short-term, not a verdict on the player</small></h3>
     ${players.length ? `<ul class="td-players">${players.map(playerRow).join('')}</ul>` : '<p class="pq-note">No skater with enough games is this far below a typical player yet.</p>'}
+    ${team.onIce?.length ? `<h3 class="pc-sub">The team does worse with them on the ice <small>and they are below a typical player on their own numbers</small></h3>
+    <ul class="td-players">${team.onIce.map((r) => `<li class="td-player"><div class="td-player-h"><span class="td-pn">${playerLink(r.id, r.name)} <small>${esc(r.pos)} · ${r.gp} GP</small></span><span class="td-cost" title="Share of shot attempts with him on the ice minus the team's other players at his position">${fmt.signed(r.gap * 100, 0)} pts</span></div><ul class="td-why"><li>${onIceText(r)}</li></ul></li>`).join('')}</ul>
+    <p class="pq-note">Shot attempts come from shift charts, this season only. Usage matters (who he plays against, where shifts start, who he plays with), so treat this as a reason to watch the player, not a verdict. Needs 150+ minutes.</p>` : ''}
     <p class="pq-note">Player goals add momentum (0.023 goals per point, as in "How it was won") and scoring (finishing plus assists), each against the average forward or defenseman. Skaters need ${r.minGp}+ games; a traded player counts for their latest team.</p>
   </section>`;
 }

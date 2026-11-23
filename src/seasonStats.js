@@ -225,6 +225,15 @@ export function addGame(total, lines, game = null) {
         if (tier === 1) p.ab = (p.ab ?? 0) + 1;
         if (tier === -1) p.bl = (p.bl ?? 0) + 1;
       }
+      // On-ice shot attempts and goals (weighted attempts, from the shift charts): ocf/oca for and against, ogf/oga goals,
+      // oto seconds on ice in the games that had shift data. Only games with shifts count, so this stays aligned.
+      if (l.oi && l.toi) {
+        p.ocf = Math.round(((p.ocf ?? 0) + l.oi.cf) * 100) / 100;
+        p.oca = Math.round(((p.oca ?? 0) + l.oi.ca) * 100) / 100;
+        p.ogf = (p.ogf ?? 0) + l.oi.gf;
+        p.oga = (p.oga ?? 0) + l.oi.ga;
+        p.oto = (p.oto ?? 0) + l.toi;
+      }
       if (l.a1 != null) {
         p.g = (p.g ?? 0) + (l.g ?? 0);
         p.a1 = (p.a1 ?? 0) + l.a1;

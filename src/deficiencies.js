@@ -101,6 +101,7 @@ function skaterRows(total, team, rate, minGp, pos, sbase) {
       goals: row.xgg ?? null, avgGoals: pg.avgGoals ?? null, gaa: pg.gaa, shPct: pg.shPct, xShPct: pg.xShPct,
       allGoals: pg.goals, assists: pg.assists, playVsAvg: pg.playVsAvg, scoringVsAvg: pg.scoringVsAvg, trust: finTrust(pg), counted: scoreOf(pg),
       belowPct: pg.belowPct, posBelow: P.below,
+      oi: row.oto ? { sec: row.oto, cf: row.ocf, ca: row.oca, gf: row.ogf, ga: row.oga } : null,
       momCost: momGoals * row.gp, finCost: finGoals * row.gp, cost: (momGoals + finGoals) * row.gp,
     });
   }
@@ -137,6 +138,38 @@ export function skaterReasons(p) {
     out.push({ k: 'toi', cost: 0, text: `Big minutes make it count: ${toi(p.toiPg)} a night, ${ord(p.toiRank)} among the team's ${posName}.` });
   }
   return out;
+}
+
+// "The team does worse with him on the ice": on-ice shot-attempt share against the team's other skaters at the
+// position (forwards / defensemen), with enough minutes, for players who are also below a typical player on
+// their own numbers. Shot attempts are the steady part (odd vs even games r .76 for defensemen); goals on ice are noisy.
+export const ONICE_MIN_SEC = 150 * 60;
+export const ONICE_GAP = 0.10; // share of attempts, 10 points: depth lines normally trail the top lines by a few points
+export const ONICE_TOI = { F: 11.5 * 60, D: 14 * 60 }; // regulars only: top nine forwards, top two or three pairs
+export const ONICE_MAX = 3;
+export function onIceRows(players) {
+  const share = (r) => r.oi.cf / (r.oi.cf + r.oi.ca);
+  const per60 = (r) => ((r.oi.gf - r.oi.ga) * 3600) / r.oi.sec;
+  const out = [];
+  for (const r of players) {
+    if (!r.oi || r.oi.sec < ONICE_MIN_SEC || (r.toiPg ?? 0) < ONICE_TOI[isD(r.pos) ? 'D' : 'F']) continue;
+    const mates = players.filter((m) => m.id !== r.id && m.oi && isD(m.pos) === isD(r.pos) && m.oi.sec >= 20 * 60);
+    const w = mates.reduce((a, m) => a + m.oi.sec, 0);
+    if (!w) continue;
+    const mateShare = mates.reduce((a, m) => a + share(m) * m.oi.sec, 0) / w;
+    const mateGd = mates.reduce((a, m) => a + per60(m) * m.oi.sec, 0) / w;
+    out.push({ id: r.id, name: r.name, pos: r.pos, gp: r.gp, min: r.oi.sec / 60, share: share(r), mateShare, gap: share(r) - mateShare,
+      gd60: per60(r), mateGd60: mateGd, gdGap: per60(r) - mateGd, cost: r.cost });
+  }
+  return out.sort((a, b) => a.gap - b.gap);
+}
+
+/** Plain sentence for an on-ice row. */
+export function onIceText(r) {
+  const kind = isD(r.pos) ? 'defensemen' : 'forwards';
+  const pts = Math.round(-r.gap * 100);
+  const gd = r.gdGap <= -0.5 ? ` Goals: ${sign(r.gdGap)} per 60 minutes against the others (noisier than shots).` : '';
+  return `With him on the ice the team gets ${pctTxt(r.share, 0)} of the shot attempts, ${pts} point${pts === 1 ? '' : 's'} fewer than with its other ${kind} (${pctTxt(r.mateShare, 0)}), over ${Math.round(r.min)} minutes.${gd}`;
 }
 
 /** Goalies who started for the team, worst goals saved above expected first. */
@@ -209,7 +242,10 @@ export function deficiencies(total) {
     const dragging = players.map((p) => ({ ...p, reasons: skaterReasons(p) }))
       .filter((p) => p.cost <= -1.5 && p.reasons.length)
       .sort((a, b) => a.cost - b.cost);
+    const onIce = onIceRows(players.map((p) => ({ ...p })))
+      .filter((r) => r.gap <= -ONICE_GAP && r.cost < 0).slice(0, ONICE_MAX);
     return {
+      onIce,
       abbrev: t.abbrev, gp: t.gp, w: t.w, l: t.l, otl: t.otl, ptsPct: t.ptsPct, ptsRank: rk.ptsPct(t.ptsPct), gdPerGame: t.gdPerGame,
       areas, trouble, strengths, checks, players: dragging, goalies: goalieRows(total, t.abbrev, rate),
     };
