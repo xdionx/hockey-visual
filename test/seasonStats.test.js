@@ -78,3 +78,15 @@ test('game rows match from the box score and the play-by-play', async () => {
   const total = addGame(emptySeason(20262027), fromPbp(raw.pbp).lines, fromPbp(raw.pbp).game);
   assert.equal(total.g.length, 1);
 });
+
+test('goalieLineOf: goals saved above expected against an average goalie', async () => {
+  const { goalieLineOf, perGame } = await import('../src/seasonStats.js');
+  const g = goalieLineOf({ gp: 10, ga: 30, xga: 25, gs: 9 }, 1.2);
+  assert.equal(g.xgaAvg, 30);
+  assert.equal(g.gsax, 0);
+  assert.equal(g.starts, 9);
+  const pg = perGame({ p: 'G', gp: 4, ga: 8, xga: 10, gs: 4 }, 1);
+  assert.equal(pg.gsax, 2);
+  assert.equal(pg.gsaxPerGame, 0.5);
+  assert.equal(perGame({ p: 'C', gp: 1, sat: 2, sog: 1, mom: 0 }).gsax, undefined);
+});
