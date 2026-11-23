@@ -20,13 +20,13 @@ export function hero(game, c, { strip = true, shots = false } = {}) {
   if (!strip) {
     return `<section class="b-hero">
     ${panel('away')}
-    <div class="b-mid"><span class="b-state ${game.status.state}">${statusHtml(game)}</span>${strengthBadge(game, c)}<span class="b-date">${esc(prettyDate(game.gameDate))}</span><span class="b-venue">${esc(game.venue)}</span></div>
+    <div class="b-mid"><span class="b-state ${game.status.state}">${statusHtml(game)}</span>${strengthBadge(game, c)}<span class="b-date">${esc(prettyDate(game.gameDate))}</span>${game.gameType === 1 || game.gameType === 3 ? `<span class="b-type" title="${game.gameType === 1 ? 'Not counted in our season stats' : 'Kept apart from our regular-season stats'}">${game.gameType === 1 ? 'Preseason' : 'Playoffs'}</span>` : ''}<span class="b-venue">${esc(game.venue)}</span></div>
     ${panel('home')}
   </section>`;
   }
   return `<section class="b-hero">
     ${panel('away')}
-    <div class="b-mid"><span class="b-state ${game.status.state}">${statusHtml(game)}</span>${strengthBadge(game, c)}<span class="b-date">${esc(prettyDate(game.gameDate))}</span><span class="b-venue">${esc(game.venue)}</span></div>
+    <div class="b-mid"><span class="b-state ${game.status.state}">${statusHtml(game)}</span>${strengthBadge(game, c)}<span class="b-date">${esc(prettyDate(game.gameDate))}</span>${game.gameType === 1 || game.gameType === 3 ? `<span class="b-type" title="${game.gameType === 1 ? 'Not counted in our season stats' : 'Kept apart from our regular-season stats'}">${game.gameType === 1 ? 'Preseason' : 'Playoffs'}</span>` : ''}<span class="b-venue">${esc(game.venue)}</span></div>
     ${panel('home')}
   </section>
   <div class="b-strip">${ls.periods.map((p) => `<div class="b-per"><span>${esc(p.label)}</span><b>${p.away ?? '-'}</b><b>${p.home ?? '-'}</b></div>`).join('')}
@@ -92,7 +92,75 @@ export function stars(game) {
   </div></section>`;
 }
 
-export function statBars(game, c) {
+/** Each period's numbers for both teams, from the play-by-play split (older saved games have fewer rows). */
+export function periodRows(game) {
+  const periods = game.linescore.periods.filter((p) => p.label !== 'SO' && (p.away != null || p.shotsAway != null));
+  if (!periods.length) return null;
+  const by = new Map((game.periodStats ?? []).map((p) => [p.label, p]));
+  const rate = game.finishRate ?? 1;
+  const pps = game.momentum?.powerPlays ?? [];
+  const idxOf = (t) => Math.min(periods.length - 1, Math.floor(t / 1200));
+  const cols = periods.map((p, i) => {
+    const ps = by.get(p.label);
+    const sat = { away: 0, home: 0 };
+    for (const s of game.shots ?? []) if (s.period === p.label) sat[s.team]++;
+    const pim = { away: 0, home: 0 };
+    for (const x of game.penalties ?? []) if (String(x.period) === p.label) pim[x.team === game.away.abbrev ? 'away' : 'home'] += x.minutes ?? 0;
+    const pp = { away: [0, 0], home: [0, 0] };
+    for (const x of pps) if (idxOf(x.start) === i) { pp[x.team][1]++; if (x.result === 'goal') pp[x.team][0]++; }
+    const m = game.momentum?.periods?.[i];
+    const fo = ps ? ps.away.fow + ps.home.fow : 0;
+    return {
+      label: p.label,
+      goals: [p.away ?? 0, p.home ?? 0],
+      sog: [p.shotsAway ?? ps?.away.sog ?? 0, p.shotsHome ?? ps?.home.sog ?? 0],
+      sat: ps ? [ps.away.sat, ps.home.sat] : [sat.away, sat.home],
+      xg: ps ? [ps.away.xg * rate, ps.home.xg * rate] : null,
+      mom: m ? [m.away, m.home] : null,
+      pp: pps.length ? [pp.away, pp.home] : null,
+      pim: ps ? [ps.away.pim, ps.home.pim] : [pim.away, pim.home],
+      fo: ps && fo ? [(100 * ps.away.fow) / fo, (100 * ps.home.fow) / fo] : null,
+      hits: ps ? [ps.away.hits, ps.home.hits] : null,
+      blocks: ps ? [ps.away.blocks, ps.home.blocks] : null,
+      give: ps ? [ps.away.give, ps.home.give] : null,
+      take: ps ? [ps.away.take, ps.home.take] : null,
+    };
+  });
+  const ROWS = [
+    ['goals', 'Goals'], ['sog', 'Shots on goal'], ['sat', 'Shot attempts'], ['xg', 'Expected goals', (v) => v.toFixed(1)],
+    ['mom', 'Momentum created', (v) => `${Math.round(v)}%`], ['pp', 'Power play', (v) => `${v[0]}/${v[1]}`, (v) => v[0]],
+    ['fo', 'Faceoff %', (v) => `${Math.round(v)}%`], ['pim', 'Penalty minutes'], ['hits', 'Hits'], ['blocks', 'Blocked shots'],
+    ['give', 'Giveaways'], ['take', 'Takeaways'],
+  ];
+  const rows = ROWS.filter(([k]) => cols.some((col) => col[k])).map(([k, label, fmt = String, num = (v) => v]) => ({
+    key: k, label, cells: cols.map((col) => (col[k] ? { away: fmt(col[k][0]), home: fmt(col[k][1]), a: num(col[k][0]), h: num(col[k][1]) } : null)),
+  }));
+  return { cols: cols.map((col) => col.label), rows };
+}
+
+/** The per-period split as a table: one column per period, each cell the two teams side by side with a thin bar. */
+function periodTable(game, c) {
+  const t = periodRows(game);
+  if (!t) return '';
+  const name = (l) => (l === 'OT' ? 'OT' : /OT$/.test(l) ? l : `${['1st', '2nd', '3rd'][Number(l) - 1] ?? l}`);
+  // Lower is better for these, so the "winner" tint goes to the smaller number.
+  const LOWER = new Set(['pim', 'give']);
+  const cell = (x, key) => {
+    if (!x) return '<td class="b-pt-na">–</td>';
+    const sum = Math.abs(x.a) + Math.abs(x.h);
+    const share = sum ? (100 * Math.abs(x.a)) / sum : 50;
+    const lead = x.a === x.h ? '' : (x.a > x.h) !== LOWER.has(key) ? 'away' : 'home';
+    return `<td><span class="b-pt-v"><b class="${lead === 'away' ? 'lead' : ''}" style="--team:${c.away}">${esc(x.away)}</b><i>–</i><b class="${lead === 'home' ? 'lead' : ''}" style="--team:${c.home}">${esc(x.home)}</b></span>
+      <span class="b-pt-bar"><i style="width:${share}%;background:${c.away}"></i><i style="width:${100 - share}%;background:${c.home}"></i></span></td>`;
+  };
+  const table = `<div class="a-scroll"><table class="b-pt">
+    <thead><tr><th class="l"><span style="color:${c.away}">${esc(game.away.abbrev)}</span> – <span style="color:${c.home}">${esc(game.home.abbrev)}</span></th>${t.cols.map((l) => `<th>${esc(name(l))}</th>`).join('')}</tr></thead>
+    <tbody>${t.rows.map((r) => `<tr><th class="l" scope="row">${esc(r.label)}</th>${r.cells.map((x) => cell(x, r.key)).join('')}</tr>`).join('')}</tbody>
+  </table></div>${game.periodStats ? '' : '<p class="st-note">Hits, faceoffs, blocks and giveaways by period aren&#8217;t saved for this game.</p>'}`;
+  return `<details class="fold b-pd"><summary>Period by period</summary><div class="fold-body">${table}</div></details>`;
+}
+
+export function statBars(game, c, { periods = false } = {}) {
   if (!game.teamStats.length) return '';
   return `<section class="b-card"><h2>Team stats</h2>
     <div class="b-legend"><span style="--team:${c.away}">${esc(game.away.abbrev)}</span><span style="--team:${c.home}">${esc(game.home.abbrev)}</span></div>
@@ -102,6 +170,7 @@ export function statBars(game, c) {
       return `<div class="b-stat"><div class="b-stat-row"><b>${esc(s.away)}</b><span>${esc(s.label)}</span><b>${esc(s.home)}</b></div>
         <div class="b-bar"><i style="width:${a}%;background:${c.away}"></i><i style="width:${100 - a}%;background:${c.home}"></i></div></div>`;
     }).join('')}
+    ${periods ? periodTable(game, c) : ''}
   </section>`;
 }
 

@@ -8,7 +8,7 @@ import { playerIndex, linkPlayers, installPlayerLinks } from './player/link.js';
 import { loadSeason } from './player/store.js';
 import { seasonOf } from './src/seasonStats.js';
 import { predictGame } from './src/predict.js';
-import { topPlayers, missingTop, PTS_PER_PLAYER } from './src/lineupAlert.js';
+import { notablePlayers, notableRole, missingTop } from './src/lineupAlert.js';
 import { noVigAway, edge, BOOK_NAMES } from './src/odds.js';
 
 const $ = (s) => document.querySelector(s);
@@ -137,8 +137,8 @@ async function loadPredictions(data) {
   return out.size > 0;
 }
 
-// Lineup alert: once a team posts its scratches (5-10 minutes before puck drop), flag any of its top 3
-// skaters by momentum who aren't dressed. The pick stays the same; see src/lineupAlert.js.
+// Notable scratches: once a team posts its scratches (5-10 minutes before puck drop), flag any of its top 3
+// forwards or top 2 defensemen by momentum who aren't dressed. The pick stays the same; see src/lineupAlert.js.
 const seasonsFor = new Map(); // date -> { total, prev }
 const lineups = new Map(); // gameId -> { away: { posted, out }, home: {...}, at }
 const LINEUP_WINDOW_MS = 90 * 60_000; // start checking this long before puck drop
@@ -163,7 +163,7 @@ async function loadLineups(data) {
       const side = (k) => {
         const t = d[k] ?? {};
         const posted = (t.scratches?.length ?? 0) > 0 || g.status.state === 'live';
-        const top = topPlayers(s.total, s.prev, g[k].abbrev);
+        const top = notablePlayers(s.total, s.prev, g[k].abbrev);
         return { posted, top, out: posted ? missingTop(top, t.scratches, t.scratchIds) : [] };
       };
       const l = { away: side('away'), home: side('home'), at: Date.now() };
@@ -192,6 +192,8 @@ function edgeOf(game) {
 const edgeTag = (e) => `<span class="edge" title="We give ${esc(e.team)} a ${Math.round(e.ours * 100)}% chance; the books (margin removed) give ${Math.round(e.market * 100)}%. Markets are usually sharp, so treat this as a point to look at, not a bet.">Edge: ${esc(e.team)} +${e.pts}</span>`;
 
 const lastName = (n) => String(n ?? '').split(' ').slice(1).join(' ') || n;
+/** Last names, or full names where two share one (Elias and Marcus Pettersson). */
+const shortNames = (list) => list.map((p) => esc(list.filter((q) => lastName(q.name) === lastName(p.name)).length > 1 ? p.name : lastName(p.name)));
 /** "Our pick" bar: each team's win chance, with what went into it underneath. */
 function predictionLine(game, tc) {
   if (game.status.state === 'final') return '';
@@ -216,12 +218,12 @@ function predictionLine(game, tc) {
   const lineupText = (side) => {
     const x = lu?.[side];
     if (!x?.posted) return '<span class="muted">Posts ~10 min before puck drop</span>';
-    return `<span class="lu-row">${x.out.length ? `Without ${x.out.map((p) => `<b title="${esc(p.name)}">${esc(lastName(p.name))}</b> #${p.rank}`).join(', ')}` : 'Top 3 all dressed'}</span>`;
+    return `<span class="lu-row">${x.out.length ? x.out.map((p) => `<b title="${esc(p.name)}">${shortNames(x.out)[x.out.indexOf(p)]}</b> ${esc(notableRole(p))}`).join(', ') : 'None'}</span>`;
   };
   const outs = ['away', 'home'].filter((side) => lu?.[side]?.out.length);
-  const alert = outs.length ? `<p class="lu-alert" title="Teams missing one of their top 3 skaters by momentum won about ${PTS_PER_PLAYER} points less often than our pick said (2024-27 games). The pick above doesn't include it.">⚠ ${outs.map((side) => `${esc(game[side].abbrev)} without ${lu[side].out.map((p) => esc(lastName(p.name))).join(' and ')}`).join(' · ')} <small>−${PTS_PER_PLAYER} pts win chance per player, not in the pick</small></p>` : '';
+  const alert = outs.length ? `<p class="lu-alert" title="Out of the lineup: one of the team's top 3 forwards or top 2 defensemen by momentum. Our pick above doesn't account for who's out.">⚠ ${outs.map((side) => `${esc(game[side].abbrev)} without ${shortNames(lu[side].out).join(' and ')}`).join(' · ')}</p>` : '';
   const why = [
-    row('Lineup<small>top 3 skaters by momentum</small>', lines(lineupText)),
+    row('Notable scratches<small>top 3 forwards, top 2 defense by momentum</small>', lines(lineupText)),
     row('Momentum<small>share of play this season</small>', lines((side) => `<b>${Math.round(share[side] * 100)}%</b>`)),
     goalie.away.name && goalie.home.name ? row('Goalies<small>probable starter, goals saved above expected</small>', lines((side) => `${gname(side)} <b>${fmtGsax(goalie[side].gsax).replace(/[()]/g, '')}</b>`)) : '',
     row('Rest', lines((side) => (b2b[side] ? 'Played yesterday' : 'Rested'))),
@@ -264,6 +266,14 @@ const nthLabel = (n) => (n === 3 ? 'Hat trick' : `${n}${{ 2: 'nd', 4: 'th', 5: '
 const STRENGTH = { PPG: 'PP', SHG: 'SH', EN: 'EN' };
 const strengthTags = (g) => g.tags.map((t) => STRENGTH[t]).filter(Boolean);
 
+/** The game's score right after this goal, "BUF 1-0 TBL", with the scoring team in bold. */
+function runningScore(game, g) {
+  if (g.period === 'SO' || !g.score) return '';
+  const side = sideOf(game, g.team);
+  const ab = (s) => (s === side ? `<strong>${esc(game[s].abbrev)}</strong>` : esc(game[s].abbrev));
+  return `<span class="g-run">${ab('away')} ${g.score.away}-${g.score.home} ${ab('home')}</span>`;
+}
+
 /** A goal chip for the scrolling strip: scorer, when, assists; opens the clip. */
 function goalChip(game, g, tc) {
   const attrs = goalAttrs(game, g);
@@ -273,7 +283,7 @@ function goalChip(game, g, tc) {
   const when = so ? 'SO' : `${ordPeriod(g.period)} ${g.time}`;
   const assists = so ? 'Shootout' : g.assists.length ? g.assists.map(assistText).join(', ') : 'Unassisted';
   const tag = attrs ? 'a' : 'div';
-  return `<${tag} class="gc${attrs ? ' has-play' : ''}"${attrs ? ` ${attrs}` : ''} style="--team:${color}"><span class="gc-txt"><b>${esc(g.scorer.lastName || g.scorer.name)}${g.scorer.goalsToDate != null ? ` <span class="cnt">(${g.scorer.goalsToDate})</span>` : ''}</b><small>${esc(when)}${strengthTags(g).map((t) => ` <em class="st">${t}</em>`).join('')}${nth ? ` <em class="nth">${nthLabel(nth)}</em>` : ''}</small><small>${assists}</small></span>${attrs ? `<span class="gc-play">${playIcon}</span>` : ''}</${tag}>`;
+  return `<${tag} class="gc${attrs ? ' has-play' : ''}"${attrs ? ` ${attrs}` : ''} style="--team:${color}"><span class="gc-txt"><b>${esc(g.scorer.lastName || g.scorer.name)}${g.scorer.goalsToDate != null ? ` <span class="cnt">(${g.scorer.goalsToDate})</span>` : ''}</b>${runningScore(game, g) ? `<small class="gc-run">${runningScore(game, g)}</small>` : ''}<small>${esc(when)}${strengthTags(g).map((t) => ` <em class="st">${t}</em>`).join('')}${nth ? ` <em class="nth">${nthLabel(nth)}</em>` : ''}</small><small>${assists}</small></span>${attrs ? `<span class="gc-play">${playIcon}</span>` : ''}</${tag}>`;
 }
 
 /** A goal tile: who, assists, the running score and a play button. */
@@ -285,7 +295,7 @@ function goalTile(game, g, tc) {
   const count = g.scorer.goalsToDate != null ? ` <small>(${g.scorer.goalsToDate})</small>` : '';
   const nth = nthInGame(game, g);
   const tags = (nth ? [nthLabel(nth)] : []).concat(strengthTags(g), g.tags.filter((t) => !STRENGTH[t])).map((t) => `<i class="tag">${esc(t)}</i>`).join('');
-  const meta = so ? 'Deciding shootout goal' : `${esc(game.away.abbrev)} ${g.score.away} – ${esc(game.home.abbrev)} ${g.score.home} · ${esc(ordPeriod(g.period))} ${esc(g.time)}`;
+  const meta = so ? 'Deciding shootout goal' : `${runningScore(game, g)} · ${esc(ordPeriod(g.period))} ${esc(g.time)}`;
   const mug = g.scorer.mugshot ? `<img src="${esc(g.scorer.mugshot)}" alt="" loading="lazy" onerror="this.remove()">` : '';
   return `<${attrs ? 'a' : 'div'} class="gt"${attrs ? ` ${attrs}` : ''} style="--team:${tc[side]};--on:${onColor(tc[side])}">
     <span class="gt-mug">${mug}<b>${esc(initials(g))}</b></span>
@@ -348,6 +358,13 @@ function delayTag(game) {
   return `<span class="dly" title="Data delay for video/audio is on for this game">⏱ ${w ? `syncing, ${Math.ceil(w / 1000)}s` : `${delayLabel(s)} behind live`}</span>`;
 }
 
+/** Preseason and playoff games get a tag; they never count toward our season stats (regular season only). */
+const GAME_TYPES = { 1: ['pre', 'Preseason'], 3: ['po', 'Playoffs'] };
+function typeTag(game) {
+  const t = GAME_TYPES[game.gameType];
+  return t ? `<span class="gtype ${t[0]}" title="${t[0] === 'pre' ? 'Preseason: not counted in our season stats' : 'Playoffs: kept apart from our regular-season stats'}">${t[1]}</span>` : '';
+}
+
 function gameHtml(game) {
   const tc = teamColors(game, { dark: true });
   // Before puck drop the box score page is a preview (pick, goalies, lineups); it needs the live data service.
@@ -364,7 +381,7 @@ function gameHtml(game) {
     game.video?.condensed ? videoLink(game.video.condensed, game.video.condensedId, `${game.away.abbrev} @ ${game.home.abbrev} · Condensed game`, 'Condensed') : '',
   ].join('');
   return `<article class="game cd ph-${phase(game)}" data-id="${game.id}" style="--away:${tc.away};--home:${tc.home}">
-    <div class="status ${game.status.state}"><span class="label">${clockSpan(game, statusText(game), seenFor.get(game.id))}${strengthBadge(game, tc)}</span><span class="venue">${delayTag(game)}${esc(game.venue)}</span></div>
+    <div class="status ${game.status.state}"><span class="label">${clockSpan(game, statusText(game), seenFor.get(game.id))}${strengthBadge(game, tc)}</span><span class="venue">${typeTag(game)}${delayTag(game)}${esc(game.venue)}</span></div>
     <div class="tbs">${teamBlock(game, 'away', tc, true)}${teamBlock(game, 'home', tc, true)}</div>
     ${statLines(game, tc)}
     ${predictionLine(game, tc)}
