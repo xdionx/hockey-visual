@@ -1117,3 +1117,13 @@ main { padding: 0 0 48px; }
   .ss-row .ss-card:nth-child(2) { order: 3; } .ss-row .ss-panel[data-panel="1"] { order: 4; }
   .ss-row .ss-card:nth-child(3) { order: 5; } .ss-row .ss-panel[data-panel="2"] { order: 6; }
 }
+
+.ln { display: grid; gap: 3px; padding: 8px 10px; border-radius: 8px; background: rgba(255,255,255,.04); font: 500 12px/1.4 Inter, sans-serif; color: #d6dde8; }
+.ln-row { display: flex; gap: 8px; align-items: baseline; }
+.ln-row em { flex: none; width: 24px; font: 600 10px Inter, sans-serif; font-style: normal; letter-spacing: .1em; color: #8d98ab; }
+.ln-row b { color: #fff; }
+.ln small { color: #8d98ab; }
+.ln-note { margin: 2px 0 0; font: 600 11px/1.4 Inter, sans-serif; }
+.ln.agree .ln-note { color: #4ade80; }
+.ln.differ .ln-note { color: #fbbf24; }
+.pg-card .ln { margin-top: 12px; }

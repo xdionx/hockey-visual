@@ -10,6 +10,7 @@ import { esc, makeSortable, teamColor } from '../game/core.js';
 import { leaderboard, minGames, FIRST_FULL_SEASON } from '../src/seasonStats.js';
 import { seasonModel } from '../src/momentumModel.js';
 import { compare, BOOK_NAMES, EDGE_MIN } from '../src/odds.js';
+import { spreadReport, COVER_EDGE } from '../src/spread.js';
 import { getStatic } from '../data.js';
 
 installPlayerLinks();
@@ -334,6 +335,27 @@ function trendsCard(list) {
       <tbody>${rows}</tbody></table></div>`);
 }
 
+// Our pick against the puck line (the NHL's 1.5-goal spread), from the closing lines of finished games.
+function spreadSection(r) {
+  const p1 = (v) => `${(v * 100).toFixed(0)}%`;
+  const head = '<h3 class="ml-sub">Against the puck line</h3>';
+  if (!r.withPl) return `${head}<p class="pq-note">Puck lines and totals have been saved with each game since Nov 23, 2026. Games finish through the day and results appear here; with fewer than a few hundred games the numbers below are noise, so treat them as a running log, not a verdict.</p>${r.margin ? marginRow(r.margin) : ''}`;
+  const c = r.cover;
+  const u = r.bets.units;
+  return `${head}
+    <div class="pc-scroll"><table class="pc-table"><thead><tr><th class="l">Check (${r.withPl} games with a puck line)</th><th>Us</th><th>${BOOK_NAMES.dk}</th></tr></thead><tbody>
+      <tr><td class="l" title="Brier score for the chance the 1.5-goal favorite wins by 2+ (lower is better)">Puck line favorite covers: Brier</td><td>${c.brierUs.toFixed(3)}</td><td>${c.brierBook.toFixed(3)}</td></tr>
+      <tr><td class="l" title="Average chance each source gave the favorite covering, against how often it did">Favorite covers: expected vs actual</td><td>${p1(c.ourExpected)} vs ${p1(c.actual)}</td><td>${p1(c.bookExpected)} vs ${p1(c.actual)}</td></tr>
+      ${r.picked ? `<tr><td class="l" title="The team we pick to win, against the puck line the book gave that team. Underdogs get +1.5, so about 7 in 10 cover.">Our picked team covered its line</td><td>${r.picked.covered} of ${r.picked.n}</td><td>lines expected ${r.picked.expected.toFixed(0)}</td></tr>` : ''}
+      <tr><td class="l" title="Games where our cover chance differs from the book's by ${Math.round(COVER_EDGE * 100)}+ points: we take the side we rate higher, 1 unit each at the book's price">Bets where we differ by ${Math.round(COVER_EDGE * 100)}+ pts</td><td>${r.bets.n ? `${r.bets.won}-${r.bets.n - r.bets.won}, ${u >= 0 ? '+' : '−'}${Math.abs(u).toFixed(1)} units` : 'none yet'}</td><td>-</td></tr>
+    </tbody></table></div>
+    ${r.margin ? marginRow(r.margin) : ''}
+    <p class="pq-note">Closing lines only. Our cover chance comes from our expected goal gap and the book's total, spread out with a Poisson model that is widened to match how often games are decided by 2+ goals; it is an estimate, not a fitted puck-line model. Bets are an exercise in judging our edge, not advice, and a sample this small cannot show a real edge either way.</p>`;
+}
+function marginRow(m) {
+  return `<p class="pq-note"><b>Margin miss</b> over ${m.n} finished games (average goals off the final margin): ours <b>${m.us.toFixed(2)}</b>, the book's moneyline <b>${m.book.toFixed(2)}</b>, guessing a tie <b>${m.zero.toFixed(2)}</b>. Lower is better.</p>`;
+}
+
 // Our pre-game pick against DraftKings and FanDuel (data/odds.json, saved by the data script before each puck drop).
 function marketCard(odds) {
   const c = odds ? compare(odds) : null;
@@ -355,6 +377,7 @@ function marketCard(odds) {
     ${tbl(`${row('Our pick', base.us, 'ml-live')}${row(BOOK_NAMES.dk, base.dk)}${row(BOOK_NAMES.fd, base.fd)}${base.market ? row('Both books averaged', base.market) : ''}`)}
     <p class="pq-note">${c.same ? `Scored on the ${c.both} games every source covers, so the rows compare directly.` : 'Each source is scored on every game it has.'} Hockey is close to a coin flip: markets are usually right about 58-60% of the time, so a gap of a point or two needs hundreds of games to mean anything.</p>
     ${c.flagged.n ? `<p class="pq-note"><b>Flagged games</b> (we and the books differ by ${Math.round(EDGE_MIN * 100)}+ points): the side we liked more won <b>${c.flagged.ours}</b> of ${c.flagged.n}, the side the market liked more won <b>${c.flagged.market}</b>.${c.flagged.n < 100 ? ' Too few games so far to say who is right.' : ''}</p>` : ''}
+    ${spreadSection(spreadReport(odds))}
     ${gaps ? `<details class="ms-fold"><summary>Biggest disagreements</summary><div class="pc-scroll"><table class="pc-table"><thead><tr><th class="l">Game</th><th>Our away %</th><th>Market away %</th><th>Result</th></tr></thead><tbody>${gaps}</tbody></table></div></details>` : ''}`);
 }
 

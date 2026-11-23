@@ -13,6 +13,7 @@ import { predictGame } from '../src/predict.js';
 import { notablePlayers, missingTop } from '../src/lineupAlert.js';
 import { teamTable, goalieLine, teamGoalies, teamSkaters } from '../src/matchup.js';
 import { noVigAway, BOOK_NAMES } from '../src/odds.js';
+import { lineView } from '../src/spread.js';
 import { startSim } from './sim.js';
 import momentum from './d3-momentum.js';
 import analytics from './d4-analytics.js';
@@ -164,7 +165,8 @@ function loadPick(g) {
     const played = new Set((yesterday?.games ?? []).filter((x) => x.status.state !== 'postponed').flatMap((x) => [x.away.abbrev, x.home.abbrev]));
     const pick = predictGame({ total: seasonTotal, prev, away: g.away.abbrev, home: g.home.abbrev, n: Number(String(g.id).slice(-4)), b2b: { away: played.has(g.away.abbrev), home: played.has(g.home.abbrev) } });
     const books = Object.entries(odds?.games?.[g.id]?.books ?? {}).map(([k, b]) => ({ name: BOOK_NAMES[k], short: k.toUpperCase(), p: noVigAway(b.a, b.h) })).filter((x) => x.name && x.p != null);
-    return { pick, books, prev };
+    const line = pick ? lineView(odds?.games?.[g.id]?.books, { a: pick.away, gap: pick.gap }) : null;
+    return { pick, books, line, prev };
   })().catch(() => null);
   return pickP;
 }
@@ -200,6 +202,7 @@ function withPregame(g, info) {
   g.pregame = {
     pick: info?.pick ?? null,
     books: info?.books ?? [],
+    line: info?.line ?? null,
     lineup: seasonTotal ? { away: side('away'), home: side('home') } : null,
     teams: table ? { away: team('away'), home: team('home'), of: table.teams } : null,
   };

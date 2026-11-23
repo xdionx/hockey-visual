@@ -74,3 +74,4 @@
   .ms-wins { grid-template-columns: 1fr 1fr; }
 }
 .ms-type { margin: 2px 0 12px; }
+.ml-sub { margin: 18px 0 8px; font: 700 12px Inter, sans-serif; letter-spacing: .1em; text-transform: uppercase; color: #8d98ab; }

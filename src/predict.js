@@ -9,7 +9,7 @@ import { gameObj } from './seasonStats.js';
 // Expected goal gap (away minus home) = 18.257 x share gap + 1.467 x goalie gap - 0.472 x back-to-back gap - 0.152,
 // then a win chance from a logistic fit on the same games (a = -0.011, b = 0.665).
 export const W = { share: 18.257, goalie: 1.467, b2b: -0.472, home: -0.152 };
-const LOGIT = { a: -0.011, b: 0.665 };
+export const LOGIT = { a: -0.011, b: 0.665 };
 const GOALIE_SHRINK = 40; // expected goals of average goaltending added to every goalie's record
 export const MIN_GAMES = 5;
 

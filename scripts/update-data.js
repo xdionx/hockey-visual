@@ -169,8 +169,9 @@ try {
     dateOf[g.id] = g.gameDate;
     if (g.gameType !== 2 || Date.parse(g.startTimeUTC) <= nowMs) continue;
     const p = predictGame({ total, prev, away: g.away.abbrev, home: g.home.abbrev, n: Number(String(g.id).slice(-4)), b2b: { away: played.has(g.away.abbrev), home: played.has(g.home.abbrev) } });
-    if (p) picks.set(g.id, p.away);
+    if (p) picks.set(g.id, p);
   }
+  const before = JSON.stringify({ ...saved, updated: 0 }); // mergeOdds edits the saved game objects in place, so compare with a copy
   const odds = mergeOdds(saved, snaps, picks, nowMs, dateOf);
   // Results for saved games that have finished (scores files are refreshed for the last two days).
   const finals = new Map();
@@ -178,11 +179,17 @@ try {
     if (!finals.has(g.date)) finals.set(g.date, JSON.parse(await readFile(join(outDir, 'scores', `${g.date}.json`), 'utf8').catch(() => 'null')));
   }
   for (const [id, g] of Object.entries(odds.games)) {
-    if (g.result) continue;
+    if (g.result && g.margin != null) continue;
+    if (!finals.has(g.date)) finals.set(g.date, JSON.parse(await readFile(join(outDir, 'scores', `${g.date}.json`), 'utf8').catch(() => 'null')));
     const f = finals.get(g.date)?.games?.find((x) => String(x.id) === id);
-    if (f?.status.state === 'final') g.result = f.linescore.totals.away > f.linescore.totals.home ? 'away' : 'home';
+    if (f?.status.state === 'final') {
+      const { away, home } = f.linescore.totals; // the shootout goal counts, so a shootout game is a one-goal margin
+      g.result = away > home ? 'away' : 'home';
+      g.margin = away - home;
+      g.goals = away + home;
+    }
   }
-  const same = saved && JSON.stringify({ ...odds, updated: 0 }) === JSON.stringify({ ...saved, updated: 0 });
+  const same = saved && JSON.stringify({ ...odds, updated: 0 }) === before;
   if (!same) { await writeFile(oddsFile, `${JSON.stringify(odds)}\n`); changed++; }
 } catch (err) {
   console.warn(`Odds step failed: ${err.message}`);
