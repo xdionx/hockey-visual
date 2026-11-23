@@ -2,7 +2,7 @@
 // A modern take on HockeyStats-style player game cards; the start of the per-player scorecard.
 import { hero } from './d2-broadcast.js';
 import { colors, header as secHeader } from './d6-story.js';
-import { faceoffLine, esc, logo, teamColors, statusText, statusHtml, prettyDate, allSkaters, allGoalies, pct, signed, rinkMarkup, shotMark, headshot, ratingColor, GS_PARTS, on, morphInner, goalieXg, fold, penKind, elapsed, byRating, tieBreak } from './core.js';
+import { faceoffLine, esc, logo, teamColors, statusText, statusHtml, prettyDate, allSkaters, allGoalies, pct, signed, rinkMarkup, shotMark, headshot, ratingColor, GS_PARTS, on, morphInner, goalieXg, fold, penKind, elapsed, byRating, tieBreak, decisionLabel } from './core.js';
 
 export const PART_COLORS = { scoring: '#6366f1', momentum: '#22c55e', shooting: '#0ea5e9', onIce: '#14b8a6', defense: '#a3a3a3', discipline: '#f59e0b', faceoffs: '#ec4899' };
 
@@ -142,11 +142,11 @@ export function skaterCard(game, p, c, scale) {
   </article>`;
 }
 
-export function goalieCard(g, c) {
+export function goalieCard(g, c, game) {
   const sv = g.shotsAgainst ? g.saves / g.shotsAgainst : 0;
   return `<article class="s-card goalie" style="--team:${c[g.side]}">
     <div class="s-top">${headshot(g, 's-mug')}
-      <div class="s-who"><strong>${esc(g.fullName)}</strong><span>#${g.number ?? ''} · G · ${esc(g.team)}${g.decision ? ` · ${esc(g.decision)}` : ''}</span></div>
+      <div class="s-who"><strong>${esc(g.fullName)}</strong><span>#${g.number ?? ''} · G · ${esc(g.team)}${g.decision ? ` · ${esc(decisionLabel(game, g.decision))}` : ''}</span></div>
       ${ratingBadge(g.rating)}
     </div>
     <div class="s-line"><span><b>${g.saves}</b>SV</span><span><b>${g.goalsAgainst}</b>GA</span><span><b>${pct(g.savePct)}</b>SV%</span><span><b>${esc(g.toi)}</b>TOI</span></div>
@@ -189,8 +189,8 @@ function playerRow(game, p, c, scale, rank) {
   const stats = g
     ? [[p.saves, 'SV'], [p.goalsAgainst, 'GA'], [pct(p.savePct), 'SV%'], [esc(p.toi), 'TOI']]
     : [[p.goals, 'G'], [p.assists, 'A'], [p.sog, 'SOG'], ...(p.xg != null ? [[(p.avgGoals ?? p.xg).toFixed(1), 'xG']] : []), [signed(p.plusMinus), '+/-'], [fo ? fo.won + '/' + fo.total : '', 'FO'], [esc(p.toi), 'TOI']];
-  const sub = `#${p.number ?? ''} · ${esc(p.position)}${g && p.decision ? ` · ${esc(p.decision)}` : ''}`;
-  const detail = g ? goalieCard(p, c) : skaterCard(game, p, c, scale);
+  const sub = `#${p.number ?? ''} · ${esc(p.position)}${g && p.decision ? ` · ${esc(decisionLabel(game, p.decision))}` : ''}`;
+  const detail = g ? goalieCard(p, c, game) : skaterCard(game, p, c, scale);
   return `<details class="pr${g ? ' goalie' : ''}" data-pid="${p.id}" style="--team:${c[p.side]}"${openRows.has(p.id) ? ' open' : ''}>
     <summary>
       <span class="pr-rank">${rank}</span>
@@ -373,7 +373,7 @@ function starPanel(game, c, p, i) {
         <div class="ss-line"><i style="background:#f43f5e"></i><span>${p.goalsAgainst} goal${p.goalsAgainst === 1 ? '' : 's'} against × 0.75</span><b style="color:#f43f5e">${sgn(gp.against)}</b></div>${total}</div>
       <div class="ss-col"><h4>The night in plain terms</h4>
         <p>Faced <b>${p.shotsAgainst} shots</b> and stopped <b>${p.saves}</b> (${pct(p.savePct)}).${p.xga != null ? ` Those shots were worth <b>${p.xga.toFixed(1)} goals</b> on average, so allowing ${p.goalsAgainst} is <b>${Math.abs(p.gsax).toFixed(1)} ${p.gsax >= 0 ? 'better' : 'worse'} than expected</b>.` : ''}</p>
-        <div class="ss-kv"><span>Even strength</span><b>${esc(p.evenStrength ?? '—')}</b><span>Power play</span><b>${esc(p.powerPlay ?? '—')}</b><span>Shorthanded</span><b>${esc(p.shorthanded ?? '—')}</b>${p.decision ? `<span>Decision</span><b>${esc(p.decision)}</b>` : ''}</div></div>
+        <div class="ss-kv"><span>Even strength</span><b>${esc(p.evenStrength ?? '—')}</b><span>Power play</span><b>${esc(p.powerPlay ?? '—')}</b><span>Shorthanded</span><b>${esc(p.shorthanded ?? '—')}</b>${p.decision ? `<span>Decision</span><b>${esc(decisionLabel(game, p.decision))}</b>` : ''}</div></div>
       <div class="ss-col"><h4>Against expectation</h4>
         ${p.xga != null ? bars('Goals against vs expected', p.goalsAgainst, p.xga, '#f43f5e', '#64748b', String(p.goalsAgainst), p.xga.toFixed(1)) : ''}
         ${xsv != null && p.shotsAgainst ? bars('Save % vs expected', p.saves / p.shotsAgainst, xsv, '#22c55e', '#64748b', pct(p.saves / p.shotsAgainst), pct(xsv)) : ''}

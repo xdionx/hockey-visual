@@ -187,7 +187,7 @@ function teamsCard(m) {
     </div>
     <div class="ms-scatter">${scatter(m.teams, 'ngShare')}</div>
     <p class="pq-note">Each dot is a team. The closer the dots hug the line, the better that number explains who is winning.</p>
-    <div class="pc-scroll"><table class="pc-table sortable"><thead><tr><th class="l" data-sort>Team</th><th data-sort>GP</th><th class="l">W-L-OTL</th><th data-sort data-dir="desc">Pts %</th><th data-sort title="Goal differential per game">GD/GP</th>
+    <div class="pc-scroll"><table class="pc-table sortable"><thead><tr><th class="l" data-sort>Team</th><th data-sort>GP</th><th class="l" title="Wins, losses, and overtime plus shootout losses (OTL and SOL both earn a point, as in NHL standings)">W-L-OTL</th><th data-sort data-dir="desc">Pts %</th><th data-sort title="Goal differential per game">GD/GP</th>
       <th class="pc-o" data-sort title="Share of the momentum both teams built, goals left out">MOM% no goals</th><th class="pc-o" data-sort title="Share of all momentum, goals included">MOM%</th><th data-sort title="Share of shot attempts (Corsi for %)">SAT%</th><th class="pc-o" data-sort title="Momentum built minus momentum given up, per game">MOM +/− /GP</th><th data-sort title="Finishing: goals scored minus what average NHL shooters would score from the same shots. Not part of momentum.">Goals vs avg</th></tr></thead>
       <tbody>${rows}</tbody></table></div>`, 'ms-teams');
 }

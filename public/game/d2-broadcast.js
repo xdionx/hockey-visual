@@ -1,6 +1,6 @@
 // Design 2 "Broadcast": a dark, bold, on-air graphics look.
 // Inspired by TSN and NHL broadcast score bugs: team-color panels, condensed type, big numbers.
-import { esc, logo, teamColors, statusText, statusHtml, prettyDate, skaters, goaliesOf, pct, signed, videoButton, visualizerButton, elapsed, headshot, strengthBadge } from './core.js';
+import { esc, logo, teamColors, statusText, statusHtml, prettyDate, skaters, goaliesOf, pct, signed, videoButton, visualizerButton, elapsed, headshot, strengthBadge, decisionLabel } from './core.js';
 
 /** Shots on goal and shot attempts for one team, for next to the score. */
 export function shotLine(game, side) {
@@ -184,7 +184,7 @@ export function roster(game, side, c) {
     </table></div>
     <div class="b-scroll"><table class="b-table">
       <thead><tr><th class="l">Goalie</th><th>Dec</th><th>SA</th><th>SV</th><th>GA</th><th>SV%</th><th>TOI</th></tr></thead>
-      <tbody>${g.map((x) => `<tr><td class="l"><span class="b-num">${x.number ?? ''}</span>${esc(x.fullName)}</td><td>${esc(x.decision ?? '')}</td><td>${x.shotsAgainst}</td><td>${x.saves}</td><td>${x.goalsAgainst}</td><td class="b">${pct(x.savePct)}</td><td>${esc(x.toi)}</td></tr>`).join('')}</tbody>
+      <tbody>${g.map((x) => `<tr><td class="l"><span class="b-num">${x.number ?? ''}</span>${esc(x.fullName)}</td><td>${esc(decisionLabel(game, x.decision) ?? '')}</td><td>${x.shotsAgainst}</td><td>${x.saves}</td><td>${x.goalsAgainst}</td><td class="b">${pct(x.savePct)}</td><td>${esc(x.toi)}</td></tr>`).join('')}</tbody>
     </table></div>
   </div>`;
 }

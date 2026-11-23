@@ -27,10 +27,25 @@ export function pregameDek(game, now = Date.now()) {
 }
 
 const rankTag = (r, of = 32) => (r ? `<span class="pg-rk${r <= 8 ? ' hi' : r > of - 8 ? ' lo' : ''}">${ord(r)}</span>` : '');
+// Results as the NHL gives them: W / L in regulation, OTW / OTL in overtime, SOW / SOL in a shootout.
+const RESULT_TITLE = { W: 'Win', L: 'Loss', OTW: 'Overtime win', OTL: 'Overtime loss', SOW: 'Shootout win', SOL: 'Shootout loss' };
 const form = (results = []) => `<span class="pg-form" aria-label="Last ${results.length}, newest first">${results.slice(0, 10).map((r) => {
   const k = /W$/.test(r) ? 'w' : r === 'L' ? 'l' : 'o';
-  return `<i class="${k}" title="${esc(r)}">${esc(r.replace(/^OT/, 'O').replace(/^SO/, 'S'))}</i>`;
+  return `<i class="${k}" title="${esc(RESULT_TITLE[r] ?? r)}">${esc(r)}</i>`;
 }).join('')}</span>`;
+
+/**
+ * The NHL streak ("W3", "L2", "O1") in the same labels. NHL streaks lump overtime and shootout
+ * losses together as "O": name them from the games themselves (OTL, SOL, or OTL/SOL when mixed).
+ */
+export function streakLabel(side) {
+  const m = /^([WLO])(\d+)$/.exec(side?.streak ?? '');
+  if (!m) return side?.streak ?? null;
+  if (m[1] !== 'O') return side.streak;
+  const run = (side.results ?? []).slice(0, Number(m[2]));
+  const kinds = new Set(run.filter((r) => r === 'OTL' || r === 'SOL'));
+  return `${kinds.size === 1 ? [...kinds][0] : 'OTL/SOL'} ${m[2]}`;
+}
 
 function winCard(game, pg, c) {
   const p = pg.pick;
@@ -106,7 +121,7 @@ function tape(game, pg, c) {
   const pv = game.preview ?? {};
   const formRow = pv.away?.results?.length && pv.home?.results?.length ? `<div class="pg-tg">Form</div>
     <div class="pg-tr pg-formrow"><div class="pg-v">${esc(pv.away.last10 ?? '')}</div><div class="pg-fa">${form(pv.away.results)}</div>
-      <div class="pg-lab">Last 10<small>newest first${pv.away.streak ? ` · ${esc(game.away.abbrev)} ${esc(pv.away.streak)}, ${esc(game.home.abbrev)} ${esc(pv.home.streak)}` : ''}</small></div>
+      <div class="pg-lab">Last 10<small>newest first${pv.away.streak ? ` · ${esc(game.away.abbrev)} ${esc(streakLabel(pv.away))}, ${esc(game.home.abbrev)} ${esc(streakLabel(pv.home))}` : ''}</small></div>
       <div class="pg-fh">${form(pv.home.results)}</div><div class="pg-v h">${esc(pv.home.last10 ?? '')}</div></div>` : '';
   if (!groups && !formRow) return '';
   const chip = (s) => `<span class="pg-chip" style="background:${c[s]};color:${onColor(c[s])}">${esc(game[s].abbrev)}</span>`;

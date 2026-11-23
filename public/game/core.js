@@ -590,3 +590,22 @@ export function withFinishRate(game, rate = 1) {
   });
   return { ...game, players, teamStats, finishRate: rate };
 }
+
+/** How a game ended, from its line score: 'SO', 'OT' or 'REG'. */
+export function gameEnd(game) {
+  const labels = (game?.linescore?.periods ?? []).map((p) => String(p.label));
+  return labels.includes('SO') ? 'SO' : labels.some((l) => /OT$/.test(l)) ? 'OT' : 'REG';
+}
+
+/**
+ * A result in Dion's labels: W or L in regulation, OTW / OTL in overtime, SOW / SOL in a shootout.
+ * `base` is 'W', 'L' or 'O' (the NHL's goalie decision for an OT or shootout loss).
+ */
+export function resultLabel(base, end) {
+  if (!base) return base;
+  if (end !== 'OT' && end !== 'SO') return base === 'O' ? 'OTL' : base;
+  return `${end}${base === 'W' ? 'W' : 'L'}`;
+}
+
+/** A goalie's decision for this game, e.g. 'SOW' or 'OTL'. */
+export const decisionLabel = (game, d) => resultLabel(d, gameEnd(game));

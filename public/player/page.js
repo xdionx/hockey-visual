@@ -2,7 +2,7 @@ import '../horn.js'; // goal horns for games with a horn on, on every page
 // Full player card: profile, this season in depth, SAT and momentum for every season, season-by-season
 // table and the last five games. player.html?id=<playerId>
 import { loadPlayer, loadSeason, ourStats, fmt, positionName, typeToggle, getStatsType, setStatsType, GAME_TYPES } from './store.js';
-import { teamColor, esc } from '../game/core.js';
+import { teamColor, esc, decisionLabel } from '../game/core.js';
 import { installPlayerLinks } from './link.js';
 import { rankBit } from './quick.js';
 import { getData } from '../data.js';
@@ -201,7 +201,7 @@ async function lastFive(p) {
     return null;
   };
   const head = p.goalie
-    ? '<th class="l">Date</th><th class="l">Opp</th><th title="Win, loss or overtime loss">Dec</th><th>SA</th><th>GA</th><th>SV%</th><th class="pc-o" title="Goals saved above expected that game (as on the box score)">GSAx</th><th>TOI</th><th>Rating</th>'
+    ? '<th class="l">Date</th><th class="l">Opp</th><th title="Decision: W or L in regulation, OTW or OTL in overtime, SOW or SOL in a shootout">Dec</th><th>SA</th><th>GA</th><th>SV%</th><th class="pc-o" title="Goals saved above expected that game (as on the box score)">GSAx</th><th>TOI</th><th>Rating</th>'
     : '<th class="l">Date</th><th class="l">Opp</th><th>G</th><th>A</th><th>P</th><th>SOG</th><th>TOI</th><th class="pc-o">SAT</th><th class="pc-o">MOM</th><th>Rating</th>';
   const rows = p.last5.map((g, i) => {
     const m = mine(games[i]);
@@ -210,7 +210,7 @@ async function lastFive(p) {
     const opp = `${g.home ? 'vs' : '@'} ${esc(g.opponent)}`;
     const rating = m?.rating != null ? `<span class="pc-rate">${m.rating.toFixed(1)}</span>` : '-';
     return p.goalie
-      ? `<tr><td class="l">${link}</td><td class="l">${opp}</td><td>${esc(g.decision ?? '-')}</td><td>${g.shotsAgainst ?? '-'}</td><td>${g.goalsAgainst ?? '-'}</td><td>${fmt.sv(g.savePct)}</td><td class="pc-o ${(m?.gsax ?? 0) >= 0 ? 'up' : 'down'}">${m?.gsax != null ? fmt.signed(m.gsax, 1) : '-'}</td><td>${esc(g.toi ?? '-')}</td><td>${rating}</td></tr>`
+      ? `<tr><td class="l">${link}</td><td class="l">${opp}</td><td>${esc((games[i] ? decisionLabel(games[i], g.decision) : g.decision) ?? '-')}</td><td>${g.shotsAgainst ?? '-'}</td><td>${g.goalsAgainst ?? '-'}</td><td>${fmt.sv(g.savePct)}</td><td class="pc-o ${(m?.gsax ?? 0) >= 0 ? 'up' : 'down'}">${m?.gsax != null ? fmt.signed(m.gsax, 1) : '-'}</td><td>${esc(g.toi ?? '-')}</td><td>${rating}</td></tr>`
       : `<tr><td class="l">${link}</td><td class="l">${opp}</td><td>${g.goals}</td><td>${g.assists}</td><td><b>${g.points}</b></td><td>${g.shots}</td><td>${esc(g.toi ?? '-')}</td><td class="pc-o">${m?.attempts ?? '-'}</td><td class="pc-o ${(m?.momentum ?? 0) >= 0 ? 'up' : 'down'}">${m ? fmt.signed(m.momentum, 1) : '-'}</td><td>${rating}</td></tr>`;
   });
   return card('Last 5 games', 'tap a date for the box score', `<div class="pc-scroll"><table class="pc-table"><thead><tr>${head}</tr></thead><tbody>${rows.join('')}</tbody></table></div>`);
