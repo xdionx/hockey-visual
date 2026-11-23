@@ -1106,3 +1106,13 @@ main { padding: 0 0 48px; }
 .b-type { font: 700 11px "Barlow Condensed", sans-serif; letter-spacing: .12em; text-transform: uppercase; color: #fbbf24; }
 /* Game Stats: the numbered section header already names these cards */
 #st-stars > .b-card > h2, #st-scoring > .b-card > h2, #st-team > .b-card > h2 { display: none; }
+/* Phones: the cards stack, so each opened scorecard goes right under its own card, not under all three */
+@media (max-width: 900px) {
+  .ss-row { display: flex; flex-direction: column; }
+  .ss-row > .ss-cards { display: contents; }
+  .ss-row .ss-card { margin-bottom: 14px; }
+  .ss-row .ss-panel { margin: -4px 0 14px; }
+  .ss-row .ss-card:nth-child(1) { order: 1; } .ss-row .ss-panel[data-panel="0"] { order: 2; }
+  .ss-row .ss-card:nth-child(2) { order: 3; } .ss-row .ss-panel[data-panel="1"] { order: 4; }
+  .ss-row .ss-card:nth-child(3) { order: 5; } .ss-row .ss-panel[data-panel="2"] { order: 6; }
+}
