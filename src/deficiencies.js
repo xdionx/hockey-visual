@@ -79,7 +79,11 @@ function leagueBase(total, rate, minGp, sbase) {
 
 // A skater's scoring in goals vs average: finishing plus playmaking (assists) once the season file has assists,
 // finishing alone before that.
-const scoreOf = (pg) => pg.scoringVsAvg ?? pg.gaa;
+// Finishing is mostly luck over a few dozen shots (scripts/scoring-lab: half of a finishing number is skill only
+// once a player has about 22 expected goals), so only that share of the gap counts; assists are counted in full.
+export const FIN_TRUST_XG = 22;
+export const finTrust = (pg) => (pg.avgGoals == null ? 1 : pg.avgGoals / (pg.avgGoals + FIN_TRUST_XG));
+const scoreOf = (pg) => (pg.gaa == null ? 0 : finTrust(pg) * pg.gaa) + (pg.playVsAvg ?? 0);
 
 function skaterRows(total, team, rate, minGp, pos, sbase) {
   const out = [];
@@ -95,7 +99,7 @@ function skaterRows(total, team, rate, minGp, pos, sbase) {
       mnPg: pg.momNegPerGame, mnPct: pctBelow(P.mns, pg.momNegPerGame), // low pct = gives away more than most
       mnMore: P.mns.length ? P.mns.filter((x) => x > pg.momNegPerGame).length / P.mns.length : null,
       goals: row.xgg ?? null, avgGoals: pg.avgGoals ?? null, gaa: pg.gaa, shPct: pg.shPct, xShPct: pg.xShPct,
-      allGoals: pg.goals, assists: pg.assists, playVsAvg: pg.playVsAvg, scoringVsAvg: pg.scoringVsAvg,
+      allGoals: pg.goals, assists: pg.assists, playVsAvg: pg.playVsAvg, scoringVsAvg: pg.scoringVsAvg, trust: finTrust(pg), counted: scoreOf(pg),
       belowPct: pg.belowPct, posBelow: P.below,
       momCost: momGoals * row.gp, finCost: finGoals * row.gp, cost: (momGoals + finGoals) * row.gp,
     });
@@ -120,10 +124,11 @@ export function skaterReasons(p) {
   }
   if (p.finCost <= -1 && p.goals != null && p.avgGoals != null) {
     const kind = isD(p.pos) ? 'defenseman' : 'forward';
-    const finish = `${p.goals} goal${p.goals === 1 ? '' : 's'} on shots an average shooter would turn into ${p.avgGoals.toFixed(1)} (shooting ${pctTxt(p.shPct)} where ${pctTxt(p.xShPct)} is normal)`;
+    const hot = p.gaa >= 0;
+    const finish = `${p.goals} goal${p.goals === 1 ? '' : 's'} on shots an average shooter would turn into ${p.avgGoals.toFixed(1)} (shooting ${pctTxt(p.shPct)} where ${pctTxt(p.xShPct)} is normal${hot ? ', so the goals are fine' : ''})`;
     out.push({ k: 'fin', cost: p.finCost, text: p.scoringVsAvg == null
-      ? `Finishing: ${finish}.`
-      : `Scoring: ${finish}, and ${p.assists} assist${p.assists === 1 ? '' : 's'}, ${p.playVsAvg >= 0 ? 'which only partly makes up for it' : `fewer than a typical ${kind} gets in ${p.gp} games`}. Goals and assists together come to ${sign(p.scoringVsAvg)} goals against an average ${kind}.` });
+      ? `Finishing: ${finish}. Mostly luck this early, so only ${Math.round(p.trust * 100)}% of the gap is counted.`
+      : `Scoring: ${finish}, and ${p.assists} assist${p.assists === 1 ? '' : 's'}, ${p.playVsAvg >= 0 ? 'which only partly makes up for it' : `fewer than a typical ${kind} gets in ${p.gp} games`}. Goals and assists together come to ${sign(p.scoringVsAvg)} goals against an average ${kind}. Finishing is mostly luck this early, so only ${Math.round(p.trust * 100)}% of the finishing difference is counted: ${sign(p.counted)} goals.` });
   }
   if (p.belowPct != null && p.posBelow != null && p.belowPct >= Math.max(0.28, p.posBelow + 0.1)) {
     out.push({ k: 'below', cost: 0, text: `Well below a typical ${isD(p.pos) ? 'defenseman' : 'forward'}'s game in ${pctTxt(p.belowPct, 0)} of games (most ${posName}: ${pctTxt(p.posBelow, 0)}).` });
