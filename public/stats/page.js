@@ -87,7 +87,7 @@ function modelCard(m, season, state, playoffs = false) {
     <div class="ms-wins">${winTile('ng', m.wins.ng, true)}${winTile('sat', m.wins.sat)}${winTile('mom', m.wins.mom)}${winTile('home', m.wins.home)}</div>
     <p class="pq-note">Expect the per-game numbers without goals to sit near 50%: a team that falls behind pushes harder for the rest of the game (analysts call it score effects), so it often wins the shot and momentum battle while losing the game. The standings and prediction checks below look past that.</p>
     ${missingNg ? `<p class="pq-note">${missingNg} games saved before "goals left out" existed are skipped in that number until they are refreshed.</p>` : ''}
-    <h3 class="pc-sub">${playoffs ? 'Does it explain who went deep?' : 'Does it explain the standings?'} <small>correlation (r) between a team's share and its ${playoffs ? 'playoff points %' : 'points %'}, 1 = perfect</small></h3>
+    <h3 class="pc-sub">${playoffs ? 'Does it explain who went deep?' : 'Does it explain the standings?'} <small>correlation (r) between a team's share and its ${playoffs ? 'playoff win %' : 'points %'}, 1 = perfect</small></h3>
     <div class="pq-grid pc-grid ms-corr">
       ${corr('Momentum, no goals', m.fit.ng, 'share of team momentum')}
       ${corr('SAT', m.fit.sat, 'share of shot attempts')}
@@ -131,7 +131,7 @@ function binsTable(bins) {
 }
 
 /** Scatter: each team's share (x) against its points % (y). */
-function scatter(teams, key) {
+function scatter(teams, key, playoffs = false) {
   const pts = teams.filter((t) => t[key] != null && t.ptsPct != null);
   if (pts.length < 3) return '<p class="pq-note">Not enough games yet.</p>';
   const W = 560;
@@ -164,31 +164,34 @@ function scatter(teams, key) {
   const yt = ticks(y0, y1, 0.1).map((v) => `<line class="ms-grid" x1="${pad.l}" x2="${W - pad.r}" y1="${Y(v)}" y2="${Y(v)}"/><text class="ms-ax" x="${pad.l - 6}" y="${Y(v) + 3}" text-anchor="end">${(v * 100).toFixed(0)}%</text>`).join('');
   const color = key === 'satShare' ? C.sat : key === 'momShare' ? C.mom : C.ng;
   const dots = pts.map((t) => `<g class="ms-hit"><circle cx="${X(t[key])}" cy="${Y(t.ptsPct)}" r="12" fill="transparent"/><circle cx="${X(t[key])}" cy="${Y(t.ptsPct)}" r="5" fill="${color}" stroke="#111827" stroke-width="2"/>
-    <text class="ms-dot" x="${X(t[key]) + 8}" y="${Y(t.ptsPct) + 3}">${esc(t.abbrev)}</text><title>${esc(t.abbrev)}: ${pct(t[key])} share, ${pct(t.ptsPct)} of points (${t.w}-${t.l}-${t.otl})</title></g>`).join('');
+    <text class="ms-dot" x="${X(t[key]) + 8}" y="${Y(t.ptsPct) + 3}">${esc(t.abbrev)}</text><title>${esc(t.abbrev)}: ${pct(t[key])} share, ${playoffs ? `${pct(t.ptsPct)} wins (${t.w}-${t.l})` : `${pct(t.ptsPct)} of points (${t.w}-${t.l}-${t.otl})`}</title></g>`).join('');
   const xLabel = key === 'satShare' ? 'Share of shot attempts' : key === 'momShare' ? 'Share of momentum (all pushes)' : 'Share of momentum (goals left out)';
   return `<div class="ms-scroll"><svg class="ms-chart" viewBox="0 0 ${W} ${H}" style="max-width:${W}px" role="img" aria-label="${xLabel} against points percentage">${xt}${yt}
     <line class="ms-fit" x1="${X(x0)}" y1="${Y(fy(x0))}" x2="${X(x1)}" y2="${Y(fy(x1))}"/>${dots}
     <text class="ms-ax" x="${pad.l + (W - pad.l - pad.r) / 2}" y="${H - 4}" text-anchor="middle">${xLabel}</text>
-    <text class="ms-ax" transform="translate(11 ${pad.t + (H - pad.t - pad.b) / 2}) rotate(-90)" text-anchor="middle">Points %</text></svg></div>`;
+    <text class="ms-ax" transform="translate(11 ${pad.t + (H - pad.t - pad.b) / 2}) rotate(-90)" text-anchor="middle">${playoffs ? 'Win %' : 'Points %'}</text></svg></div>`;
 }
 
 function teamsCard(m) {
   if (!m.teams.length) return '';
+  const po = !!m.playoffs;
   const rows = m.teams.slice().sort((a, b) => b.ptsPct - a.ptsPct).map((t) => `<tr style="--team:${teamColor(t.abbrev)}">
-    <td class="l ms-team">${esc(t.abbrev)}</td><td>${t.gp}</td><td class="l">${t.w}-${t.l}-${t.otl}</td>
+    <td class="l ms-team">${esc(t.abbrev)}</td><td>${t.gp}</td><td class="l">${po ? `${t.w}-${t.l}` : `${t.w}-${t.l}-${t.otl}`}</td>${po ? `<td class="l" data-v="${t.otw - t.otl}">${t.otw}-${t.otl}</td>` : ''}
     <td data-v="${t.ptsPct}"><b>${pct(t.ptsPct)}</b></td><td data-v="${t.gdPerGame}">${fmt.signed(t.gdPerGame, 2)}</td>
     <td class="pc-o" data-v="${t.ngShare ?? ''}">${pct(t.ngShare)}</td><td class="pc-o" data-v="${t.momShare}">${pct(t.momShare)}</td>
     <td data-v="${t.satShare}">${pct(t.satShare)}</td><td data-v="${t.momPerGame}" class="pc-o ${t.momPerGame >= 0 ? 'up' : 'down'}">${fmt.signed(t.momPerGame, 1)}</td>
     <td class="${t.gaa > 0 ? 'up' : t.gaa < 0 ? 'down' : ''}" data-v="${t.gaa ?? ''}">${fmt.signed(t.gaa, 1)}</td></tr>`).join('');
-  return card('Teams', 'momentum share against the standings', `
+  return card('Teams', po ? 'momentum share against playoff wins' : 'momentum share against the standings', `
     <div class="ms-toggle" role="group" aria-label="Chart">
       <button type="button" data-x="ngShare" aria-pressed="true">Momentum, no goals <small>r ${r2(m.fit.ng)}</small></button>
       <button type="button" data-x="satShare" aria-pressed="false">SAT <small>r ${r2(m.fit.sat)}</small></button>
       <button type="button" data-x="momShare" aria-pressed="false">Momentum, all <small>r ${r2(m.fit.mom)}</small></button>
     </div>
-    <div class="ms-scatter">${scatter(m.teams, 'ngShare')}</div>
+    <div class="ms-scatter">${scatter(m.teams, 'ngShare', po)}</div>
     <p class="pq-note">Each dot is a team. The closer the dots hug the line, the better that number explains who is winning.</p>
-    <div class="pc-scroll"><table class="pc-table sortable"><thead><tr><th class="l" data-sort>Team</th><th data-sort>GP</th><th class="l" title="Wins, losses, and overtime plus shootout losses (OTL and SOL both earn a point, as in NHL standings)">W-L-OTL</th><th data-sort data-dir="desc">Pts %</th><th data-sort title="Goal differential per game">GD/GP</th>
+    <div class="pc-scroll"><table class="pc-table sortable"><thead><tr><th class="l" data-sort>Team</th><th data-sort>GP</th>${po
+        ? '<th class="l" title="Playoff record: an overtime loss is a loss">W-L</th><th class="l" data-sort title="Overtime record: overtime wins - overtime losses (also counted in W-L)">OT W-L</th><th data-sort data-dir="desc" title="Share of playoff games won">Win %</th>'
+        : '<th class="l" title="Wins, losses, and overtime plus shootout losses (OTL and SOL both earn a point, as in NHL standings)">W-L-OTL</th><th data-sort data-dir="desc">Pts %</th>'}<th data-sort title="Goal differential per game">GD/GP</th>
       <th class="pc-o" data-sort title="Share of the momentum both teams built, goals left out">MOM% no goals</th><th class="pc-o" data-sort title="Share of all momentum, goals included">MOM%</th><th data-sort title="Share of shot attempts (Corsi for %)">SAT%</th><th class="pc-o" data-sort title="Momentum built minus momentum given up, per game">MOM +/− /GP</th><th data-sort title="Finishing: goals scored minus what average NHL shooters would score from the same shots. Not part of momentum.">Goals vs avg</th></tr></thead>
       <tbody>${rows}</tbody></table></div>`, 'ms-teams');
 }
@@ -260,7 +263,7 @@ function finTeams(m) {
   if (!teams.length) return NO_FIN;
   const rows = teams.map((t) => `<tr style="--team:${teamColor(t.abbrev)}"><td class="l ms-team">${esc(t.abbrev)}</td><td>${t.gp}</td><td data-v="${t.ptsPct}">${pct(t.ptsPct)}</td>
     <td>${t.finSog}</td><td>${t.finGoals}</td><td data-v="${t.shPct ?? ''}">${pct(t.shPct)}</td><td data-v="${t.xShPct ?? ''}">${pct(t.xShPct)}</td>${gaaCell(t.gaa, 1, true)}${gaaCell(t.gaaPerGame, 2)}</tr>`).join('');
-  return `<div class="pc-scroll"><table class="pc-table sortable"><thead><tr><th class="l" data-sort>Team</th><th data-sort>GP</th><th data-sort>Pts %</th>
+  return `<div class="pc-scroll"><table class="pc-table sortable"><thead><tr><th class="l" data-sort>Team</th><th data-sort>GP</th><th data-sort>${m.playoffs ? 'Win %' : 'Pts %'}</th>
       <th data-sort title="Shots on goal with a goalie in net">Shots</th><th data-sort title="Goals scored with a goalie in net (empty-net goals and shootouts left out)">Goals</th><th data-sort title="Share of shots on goal that went in">Shooting %</th><th data-sort title="What average NHL shooters would shoot from the same shots this season">Avg shooter %</th><th class="pc-o" data-sort data-dir="desc" title="Goals scored minus what average NHL shooters would score from the same shots">Goals vs avg</th><th class="pc-o" data-sort title="Goals vs average, per game">Per game</th></tr></thead>
       <tbody>${rows}</tbody></table></div>
     <p class="pq-note">Goals vs average per game against points %: r ${r2(m.fit.fin)}.${m.finSource === 'players' ? ' This season was saved before game rows carried team shots, so team totals add up every skater\'s season under the player\'s latest team (a traded player counts fully for the new team).' : ''}</p>`;
@@ -301,6 +304,7 @@ function scoringCard(total, pos, showAll, team) {
 
 /** League view across every season we have: win % per season (line chart) plus a table. */
 function trendsCard(list) {
+  const vs = state.type === 'playoffs' ? 'win %' : 'points %';
   const have = list.filter((s) => s.model?.games).reverse(); // oldest first
   if (!have.length) return '';
   const W = Math.max(640, have.length * 52 + 60);
@@ -331,7 +335,7 @@ function trendsCard(list) {
     <div class="ms-scroll"><svg class="ms-chart" viewBox="0 0 ${W} ${H}" style="max-width:${W}px" role="img" aria-label="Win percentage of the team that won each battle, by season">${grid.join('')}${line('sat')}${line('mom')}${line('ng')}${xl}</svg></div>
     <p class="pq-note">Win % of the team that won each battle.${missing ? ` ${missing} older season${missing === 1 ? ' is' : 's are'} still being built from the NHL play-by-play and will appear on their own.` : ''}${list.some((s) => s.state === 'partial') ? ' * = still being built, numbers so far.' : ''}</p>
     <div class="pc-scroll"><table class="pc-table"><thead><tr><th class="l">Season</th><th>Games</th><th class="pc-o" title="Momentum winner, goals left out">MOM win %</th><th title="SAT winner">SAT win %</th><th title="Momentum winner, goals included">MOM (all) win %</th><th>Home win %</th>
-      <th class="pc-o" title="Team momentum share (no goals) vs points %">MOM r</th><th title="Team SAT share vs points %">SAT r</th><th class="pc-o" title="First-half momentum share vs second-half points %">MOM predicts</th><th title="First-half SAT share vs second-half points %">SAT predicts</th><th title="Momentum per team per game">MOM/team GP</th><th title="Shot attempts per team per game">SAT/team GP</th></tr></thead>
+      <th class="pc-o" title="Team momentum share (no goals) vs ${vs}">MOM r</th><th title="Team SAT share vs ${vs}">SAT r</th><th class="pc-o" title="First-half momentum share vs second-half points %">MOM predicts</th><th title="First-half SAT share vs second-half points %">SAT predicts</th><th title="Momentum per team per game">MOM/team GP</th><th title="Shot attempts per team per game">SAT/team GP</th></tr></thead>
       <tbody>${rows}</tbody></table></div>`);
 }
 
@@ -513,7 +517,7 @@ main.addEventListener('click', async (e) => {
   if (x) {
     const sel = state.list.find((s) => s.season === state.season);
     x.parentNode.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b === x)));
-    main.querySelector('.ms-scatter').innerHTML = scatter(sel.model.teams, x.dataset.x);
+    main.querySelector('.ms-scatter').innerHTML = scatter(sel.model.teams, x.dataset.x, !!sel.model.playoffs);
     return;
   }
   const l = e.target.closest('[data-lab]');
