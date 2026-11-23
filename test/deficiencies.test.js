@@ -45,6 +45,18 @@ test('ordinals', () => {
   assert.deepEqual([1, 2, 3, 4, 11, 12, 13, 21, 22, 32].map(ord), ['1st', '2nd', '3rd', '4th', '11th', '12th', '13th', '21st', '22nd', '32nd']);
 });
 
+import { leaguePlayers } from '../src/deficiencies.js';
+test('league list ranks costly skaters across teams, worst first', () => {
+  const mk = (n, t, mom, xgg) => ({ n, t, p: 'C', gp: 10, mom, mp: Math.max(mom, 0), mn: 0, sat: 10, sog: 10, xg: 5, xgg });
+  const players = { 1: mk('Good', 'AAA', 90, 8), 2: mk('Mid', 'AAA', 50, 5) , 3: mk('Mid2', 'BBB', 50, 5), 4: mk('Bad', 'BBB', -20, 0), 5: mk('Worse', 'AAA', -40, 0) };
+  const r = leaguePlayers({ players, g: [] });
+  assert.equal(r.n, 5);
+  assert.ok(r.players.length >= 1 && r.players[0].name === 'Worse');
+  assert.ok(r.players.every((p, i, a) => i === 0 || a[i - 1].cost <= p.cost));
+  assert.ok(r.players.every((p) => p.team && p.reasons.length));
+  assert.equal(leaguePlayers(null), null);
+
+});
 test('on-ice list: flags a regular whose team shot share drops with him, not a normal-share player', async () => {
   const { onIceRows } = await import('../src/deficiencies.js');
   const mk = (id, cf, ca, extra = {}) => ({ id, name: `P${id}`, pos: 'D', gp: 15, toiPg: 18 * 60, cost: -2, oi: { sec: 200 * 60, cf, ca, gf: 5, ga: 5 }, ...extra });
