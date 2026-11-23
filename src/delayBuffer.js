@@ -3,10 +3,12 @@
 // (now - delay). Pure logic here (no DOM, no storage) so it can be tested; public/delay.js wires it to the page.
 
 export const MAX_DELAY_S = 180;
-export const STEP_S = 5;
-export const PRESETS_S = [15, 30, 45, 60, 90];
+/** The nudge buttons: this many seconds more or less. */
+export const NUDGES_S = [1, 5, 10];
 /** History is always kept this long, so turning a delay on takes effect right away instead of filling up first. */
 export const MIN_KEEP_MS = 60_000;
+/** Live pages refresh every 5 s. No refresh for this long (tab asleep, page closed) breaks the history. */
+export const GAP_MS = 30_000;
 
 export const clampDelay = (s) => Math.max(0, Math.min(MAX_DELAY_S, Math.round(Number(s) || 0)));
 

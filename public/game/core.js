@@ -149,6 +149,13 @@ export function faceoffLine(p) {
 
 export const pct = (v, d = 3) => (v == null ? '-' : v.toFixed(d).replace(/^0/, ''));
 
+/** The status for a header: a live clock that counts down between refreshes, plus a timeout chip ("BUF Timeout"). */
+let statusHook = null; // set by game.js (the live clock lives in ../clock.js, outside these designs)
+export function setStatusHtml(fn) { statusHook = fn; }
+export function statusHtml(game) {
+  return statusHook ? statusHook(game, statusText(game)) : esc(statusText(game));
+}
+
 export function statusText(game) {
   if (game.status.state === 'pre') {
     return new Date(game.startTimeUTC).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit', timeZoneName: 'short' });
