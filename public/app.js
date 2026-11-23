@@ -1,5 +1,5 @@
 import { getData, getStatic, LIVE_REFRESH_MS, live, later, cancelLater } from './data.js';
-import { teamColors, strengthBadge, contrastRatio } from './game/core.js';
+import { teamColors, strengthBadge, onColor } from './game/core.js';
 import { teamAudio, radioOpen } from './horn.js'; // horn.js also watches for goals in games with a horn on, on every page
 import { getDelay, delayScores, delayButton, onDelayChange, delayable } from './delay.js';
 import { clockSpan, startClocks } from './clock.js';
@@ -78,7 +78,6 @@ function phase(game) {
 const started = (game) => game.status.state !== 'pre' && game.status.state !== 'postponed';
 const sideOf = (game, abbrev) => (abbrev === game.away.abbrev ? 'away' : 'home');
 /** Text color that reads on a team color. */
-const onColor = (c) => (contrastRatio(c, '#ffffff') >= 3 ? '#fff' : '#0a0e17');
 const initials = (g) => `${(g.scorer.firstName || g.scorer.name || '?')[0]}${(g.scorer.lastName || '')[0] ?? ''}`.toUpperCase();
 
 // Shot attempts per game come from a small separate feed (the scoreboard doesn't have them).
@@ -211,7 +210,7 @@ function predictionLine(game, tc) {
   const bars = bar('US', p.away, ourTitle) + books.map((b) => bar(b.name === 'DraftKings' ? 'DK' : b.name === 'FanDuel' ? 'FD' : b.name, b.p, `${b.name}'s line with its margin removed`)).join('');
   const row = (k, v) => `<dt>${k}</dt><dd>${v}</dd>`;
   // One line per team (away first, like the bars), each led by a chip in the team's color.
-  const chip = (side) => `<span class="tchip" style="background:${tc[side]}">${esc(game[side].abbrev)}</span>`;
+  const chip = (side) => `<span class="tchip" style="background:${tc[side]};color:${onColor(tc[side])}">${esc(game[side].abbrev)}</span>`;
   const lines = (fn) => ['away', 'home'].map((side) => `<span class="tl">${chip(side)}${fn(side)}</span>`).join('');
   const gname = (side) => (goalie[side].name ? esc(lastName(goalie[side].name)) : 'Unknown goalie');
   const lu = lineups.get(game.id);

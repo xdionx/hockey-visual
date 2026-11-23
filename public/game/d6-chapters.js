@@ -1,6 +1,6 @@
 // "The story" in more depth: a chapter per period, the turning points in order, and the
 // numbers that explain the result. Everything is worked out from the box score data.
-import { esc, allSkaters, elapsed, headshot, logo, penKind } from './core.js';
+import { esc, allSkaters, elapsed, headshot, logo, penKind, onColor } from './core.js';
 import { shotSummary } from './d4-analytics.js';
 import { decisivePenalties } from './d6-penalties.js';
 import { clipButton } from './d6-story.js';
@@ -54,7 +54,7 @@ function chapters(game, c, events, changes) {
   const periods = game.linescore.periods.filter((p) => p.label !== 'SO');
   const shareOf = game.momentum?.periods ?? [];
   const pps = game.momentum?.powerPlays ?? [];
-  const tag = (side) => `<span class="st-ch-tm" style="--team:${c[side]}">${esc(game[side].abbrev)}</span>`;
+  const tag = (side) => `<span class="st-ch-tm" style="--team:${c[side]};color:${onColor(c[side])}">${esc(game[side].abbrev)}</span>`;
   return periods.map((p, i) => {
     const start = i * 1200;
     const end = i < 3 ? start + 1200 : Infinity;
@@ -377,7 +377,7 @@ function penaltySummary(game, c) {
     const keyWhy = [...key].find(([k]) => k.period === x.period && k.time === x.time && k.player === x.player)?.[1] ?? [];
     const badge = PEN_BADGE[x.kind] ? `<em class="st-pen-b ${x.kind}">${PEN_BADGE[x.kind]}</em>` : '';
     return `<tr class="${keyWhy.length ? 'st-pen-key' : ''}" style="--team:${c[side(x)]}"><td class="st-pen-t">P${esc(String(x.period).replace('P', ''))} ${esc(x.time)}</td>
-      <td><span class="st-ch-tm" style="--team:${c[side(x)]}">${esc(x.team)}</span></td>
+      <td><span class="st-ch-tm" style="--team:${c[side(x)]};color:${onColor(c[side(x)])}">${esc(x.team)}</span></td>
       <td class="st-pen-w"><b>${esc(x.player)}</b><small>${esc(x.infraction)}${x.drawnBy ? ` · drawn by ${esc(x.drawnBy)}` : ''}</small></td>
       <td>${badge}<span class="st-pen-m">${x.minutes ?? ''}${x.minutes ? ' min' : ''}</span></td>
       <td class="st-pen-r ${cls}">${esc(res)}${keyWhy.map((w) => `<span class="st-pen-why ${w.kind}">${esc(w.text)}</span>`).join('')}</td></tr>`;

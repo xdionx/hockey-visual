@@ -2,7 +2,7 @@
 // (season-to-date team numbers, bars = league rank) and a scouting card per team (strengths and
 // weak spots, probable starter, lineup news, top skaters). game.pregame is filled in by game.js;
 // game.preview (records, special teams, last 10) comes from the NHL right rail via src/gameDetail.js.
-import { esc, logo } from './core.js';
+import { esc, logo, onColor } from './core.js';
 // Same wording as notableRole in src/lineupAlert.js (kept here so this file loads without the src copy).
 const notableRole = (p) => `#${p.rank} ${p.pos === 'D' ? 'defenseman' : 'forward'}`;
 
@@ -109,7 +109,7 @@ function tape(game, pg, c) {
       <div class="pg-lab">Last 10<small>newest first${pv.away.streak ? ` · ${esc(game.away.abbrev)} ${esc(pv.away.streak)}, ${esc(game.home.abbrev)} ${esc(pv.home.streak)}` : ''}</small></div>
       <div class="pg-fh">${form(pv.home.results)}</div><div class="pg-v h">${esc(pv.home.last10 ?? '')}</div></div>` : '';
   if (!groups && !formRow) return '';
-  const chip = (s) => `<span class="pg-chip" style="background:${c[s]}">${esc(game[s].abbrev)}</span>`;
+  const chip = (s) => `<span class="pg-chip" style="background:${c[s]};color:${onColor(c[s])}">${esc(game[s].abbrev)}</span>`;
   return `<div class="b-card pg-card"><h2>Tale of the tape</h2>
     <div class="pg-tr pg-thead"><div>${chip('away')}</div><div></div><div class="pg-lab"><small>Season to date. Bars show league rank.</small></div><div></div><div class="h">${chip('home')}</div></div>
     ${groups}${formRow}
