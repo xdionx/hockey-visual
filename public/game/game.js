@@ -1,8 +1,10 @@
 // Box score page: loads one game's data/games/<id>.json and renders it in the chosen design.
 // Switch designs with the bar at the top, keys 1-4, or ?design=<name> in the URL.
 import { hornIcons, watchGoals, radioOpen, resetGoals } from '../horn.js';
-import { getDelay, delayBuffer, delayButton, onDelayChange, delayable } from '../delay.js';
-import { setHtmlFilter, filterHtml, esc, initVideo, makeSortable, makeTabs, upgradeShots, morphInner, setMountSignal, resetRinkIds, withFinishRate } from './core.js';
+import { getDelay, delayBuffer, delayButton, onDelayChange, delayable, delayScores } from '../delay.js';
+import { noteClock, startClocks, clockSpan, timeoutChip } from '../clock.js';
+import { hasRecentGoal } from '../src/liveClock.js';
+import { setStatusHtml, setHtmlFilter, filterHtml, esc, initVideo, makeSortable, makeTabs, upgradeShots, morphInner, setMountSignal, resetRinkIds, withFinishRate } from './core.js';
 import { loadSeason } from '../player/store.js';
 import { leagueRate } from '../src/seasonStats.js';
 import { tierVsSeason } from '../src/impact.js';
@@ -192,13 +194,30 @@ function withPregame(g, info) {
 const buf = /^\d{10}$/.test(gameId ?? '') && !params.has('sim') ? delayBuffer(`games/${gameId}`) : null;
 let latest = null; // newest data fetched
 let wait = 0; // ms of history still missing (page just opened)
+let hold = false; // still filling and a goal the video may not have shown is in the data: keep the box score back
 let tick = null;
 let showing = Promise.resolve();
 function delayed() {
   const s = getDelay(gameId);
-  const p = s && buf ? buf.pick(s) : null;
-  wait = p && delayable(p.data) ? p.waitMs : 0;
-  return p?.data ?? latest;
+  const p = buf ? buf.pick(s) : null;
+  wait = s && p && delayable(p.data) ? p.waitMs : 0;
+  const data = p?.data ?? latest;
+  hold = wait > 0 && spoils(data, wait / 1000);
+  // When this reading reaches the viewer: it arrived at p.t and is shown s seconds later (for the live clock).
+  if (data?.status) data.seenAt = p && !wait ? p.t + s * 1000 : undefined;
+  return data;
+}
+/**
+ * Opened with a delay and no history yet: the newest data is ahead of the video. If the Scores page (or the goal
+ * watcher) kept this game's delayed score in this tab, compare goals with it; otherwise hide anything with a goal
+ * in the stretch of game time the video may not have reached.
+ */
+function spoils(data, aheadS) {
+  if (!data?.scoring) return false;
+  const sb = delayScores(data.gameDate, null).games.find((g) => String(g.id) === String(gameId));
+  const shown = (data.scoring ?? []).filter((g) => g.period !== 'SO').length;
+  if (sb?.goals && sb.status?.state === 'live' && !sb.masked) return shown > sb.goals.filter((g) => g.period !== 'SO').length;
+  return hasRecentGoal(data, aheadS);
 }
 /** Draw what's due now; while a delay is on this runs every second so held-back plays land on time. */
 function showDue(force = false) {
@@ -216,8 +235,16 @@ async function showGame(data) {
   const info = data.status?.state === 'pre' && !params.has('sim') ? await loadPick(data) : null;
   if (params.has('sim')) watchGoals([data]); // live horns come from horn.js's own watcher, on every page
   // Redraw when the pregame radio buttons appear, or the delay chip changes.
-  const text = JSON.stringify(data) + (radioOpen(data) ? '1' : '0') + getDelay(gameId) + Math.ceil(wait / 1000);
+  const text = JSON.stringify(data) + (radioOpen(data) ? '1' : '0') + getDelay(gameId) + Math.ceil(wait / 1000) + hold;
   if (text === lastText) return;
+  if (hold) { // the box score would give away a goal the video hasn't shown yet: wait it out
+    lastText = text;
+    rendered = null;
+    document.querySelector('#horns').innerHTML = hornIcons(data) + delayButton(data, wait);
+    box.className = 'design';
+    box.innerHTML = `<p class="msg hold">⏱ Syncing with your video… ${Math.ceil(wait / 1000)}s<br><small>The box score is held back so a goal you haven't seen yet doesn't show early.</small></p>`;
+    return;
+  }
   game = withPregame(withTiers(withFinishRate(upgradeShots(data), rate), rate), info);
   lastText = text;
   names = gameNames(game);
@@ -272,8 +299,8 @@ async function load(quiet = false) {
       box.innerHTML = '<p class="msg">This box score isn\'t ready yet. Box scores appear once a game starts.</p>';
       return;
     }
-    buf?.push(data, getDelay(gameId));
-    latest = data;
+    if (!buf || buf.push(data, getDelay(gameId))) { latest = data; noteClock(data); }
+    else latest ??= data; // a stale answer (older than what we have): keep showing the newer one
     await showDue();
     if (data.status.state === 'live' || data.status.imminent) timer = later(() => load(true), LIVE_REFRESH_MS);
     else if (data.status.state === 'pre' || data.status.settling) timer = later(() => load(true), 60_000);
@@ -288,6 +315,8 @@ document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible' && timer && !params.has('sim')) load(true);
 });
 
+startClocks();
+setStatusHtml((g, text) => clockSpan(g, text, g.seenAt) + timeoutChip(g));
 initVideo(box);
 installPlayerLinks();
 render();

@@ -535,6 +535,19 @@ function preview(landing, rightRail) {
   return { away: side('awayTeam'), home: side('homeTeam') };
 }
 
+/**
+ * A timeout going on right now: the last play is a stoppage for a timeout and the clock hasn't restarted.
+ * Returns { team: 'BUF' } for a team timeout, { team: null, tv: true } for a TV timeout, else null.
+ */
+export function timeoutNow(lastPlay, box) {
+  if (!lastPlay || lastPlay.typeDescKey !== 'stoppage' || box?.clock?.running || box?.clock?.inIntermission) return null;
+  const why = [lastPlay.details?.reason, lastPlay.details?.secondaryReason];
+  if (why.includes('home-timeout')) return { team: box.homeTeam?.abbrev ?? null };
+  if (why.includes('visitor-timeout')) return { team: box.awayTeam?.abbrev ?? null };
+  if (why.includes('tv-timeout')) return { team: null, tv: true };
+  return null;
+}
+
 /** One game's box score from the raw endpoint responses. Any of landing/rightRail/pbp may be missing. */
 export function normalizeGameDetail({ box, landing = null, rightRail = null, pbp = null, shifts = null }) {
   const counts = eventCounts(pbp);
@@ -565,6 +578,7 @@ export function normalizeGameDetail({ box, landing = null, rightRail = null, pbp
     : null;
   return {
     id: box.id,
+    timeout: status.state === 'live' ? timeoutNow(lastPlay, box) : null,
     season: box.season,
     gameType: box.gameType,
     gameDate: box.gameDate,

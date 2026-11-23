@@ -2,6 +2,7 @@ import { getData, getStatic, LIVE_REFRESH_MS, live, later, cancelLater } from '.
 import { teamColors, strengthBadge, contrastRatio } from './game/core.js';
 import { teamAudio, radioOpen } from './horn.js'; // horn.js also watches for goals in games with a horn on, on every page
 import { getDelay, delayScores, delayButton, onDelayChange, delayable } from './delay.js';
+import { clockSpan, startClocks } from './clock.js';
 import { pushSnapshot, trimSnapshots, pickSnapshot, delayLabel } from './src/delayBuffer.js';
 import { playerIndex, linkPlayers, installPlayerLinks } from './player/link.js';
 import { loadSeason } from './player/store.js';
@@ -363,7 +364,7 @@ function gameHtml(game) {
     game.video?.condensed ? videoLink(game.video.condensed, game.video.condensedId, `${game.away.abbrev} @ ${game.home.abbrev} · Condensed game`, 'Condensed') : '',
   ].join('');
   return `<article class="game cd ph-${phase(game)}" data-id="${game.id}" style="--away:${tc.away};--home:${tc.home}">
-    <div class="status ${game.status.state}"><span class="label">${esc(statusText(game))}${strengthBadge(game, tc)}</span><span class="venue">${delayTag(game)}${esc(game.venue)}</span></div>
+    <div class="status ${game.status.state}"><span class="label">${clockSpan(game, statusText(game), seenFor.get(game.id))}${strengthBadge(game, tc)}</span><span class="venue">${delayTag(game)}${esc(game.venue)}</span></div>
     <div class="tbs">${teamBlock(game, 'away', tc, true)}${teamBlock(game, 'home', tc, true)}</div>
     ${statLines(game, tc)}
     ${predictionLine(game, tc)}
@@ -453,12 +454,14 @@ let lastText = '';
 
 // ── Data delay for video/audio (see delay.js) ──
 const waitFor = new Map(); // gameId -> ms of history still missing (page just opened)
+let seenFor = new Map(); // gameId -> when the shown reading reached the viewer (live clock)
 let tickTimer = null;
 /** The scoreboard as each game's viewer should see it: games with a delay come from an older refresh. */
 function delayedView(data) {
-  const { games, wait } = delayScores(data.date, null);
+  const { games, wait, seenAt } = delayScores(data.date, null);
   waitFor.clear();
   for (const [k, v] of wait) waitFor.set(k, v);
+  seenFor = seenAt;
   return games.some((g, i) => g !== data.games[i]) ? { ...data, games } : data;
 }
 /** Draw what's due now. While a delay is on, this runs every second so held-back plays land on time. */
@@ -544,3 +547,4 @@ $('#today').addEventListener('click', () => load());
 
 load(new URLSearchParams(location.search).get('date'));
 installPlayerLinks();
+startClocks();
