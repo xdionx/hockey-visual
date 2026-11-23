@@ -334,6 +334,35 @@ export function makeTabs(root) {
   });
 }
 
+/**
+ * The order for "best player of the game", with every tie-break spelled out. Ratings show one decimal, so two
+ * players often share one; then the unrounded game score decides, then points, goals and momentum.
+ */
+export const RANK_ORDER = [
+  ['rating', 'rating', (v) => v.toFixed(1)],
+  ['gameScore', 'game score', (v) => `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v).toFixed(2)}`],
+  ['points', 'points', String],
+  ['goals', 'goals', String],
+  ['momentum', 'momentum', (v) => v.toFixed(1)],
+];
+const rankVal = (p, k) => p[k] ?? (k === 'gameScore' || k === 'rating' ? -Infinity : 0);
+export function byRating(a, b) {
+  for (const [k] of RANK_ORDER) {
+    const d = rankVal(b, k) - rankVal(a, k);
+    if (d) return d;
+  }
+  return 0;
+}
+
+/** Why p ranks ahead of q when both show the same rating: "ahead on game score (+2.79 to +2.49)", or null. */
+export function tieBreak(p, q) {
+  if (!p || !q || p.rating?.toFixed(1) !== q.rating?.toFixed(1)) return null;
+  for (const [k, label, fmt] of RANK_ORDER.slice(1)) {
+    if (rankVal(p, k) !== rankVal(q, k) && p[k] != null && q[k] != null) return { label, p: fmt(p[k]), q: fmt(q[k]) };
+  }
+  return { label: 'nothing', p: '', q: '' };
+}
+
 /** Color for a 3-10 rating: red → amber → green → blue. */
 export function ratingColor(r) {
   if (r >= 8.5) return '#2563eb'; // blue stays for everything above, including ratings over 10

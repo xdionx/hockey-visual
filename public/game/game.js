@@ -1,5 +1,5 @@
 // Box score page: loads one game's data/games/<id>.json and renders it in the chosen design.
-// Switch designs with the bar at the top, keys 1-4, or ?design=<name> in the URL.
+// Switch views with the bar at the top, keys 0-4, or ?design=<name> in the URL.
 import { hornIcons, watchGoals, radioOpen, resetGoals } from '../horn.js';
 import { getDelay, delayBuffer, delayButton, onDelayChange, delayable } from '../delay.js';
 import { setHtmlFilter, filterHtml, esc, initVideo, makeSortable, makeTabs, upgradeShots, morphInner, setMountSignal, resetRinkIds, withFinishRate } from './core.js';
@@ -8,7 +8,7 @@ import { leagueRate } from '../src/seasonStats.js';
 import { tierVsSeason } from '../src/impact.js';
 import { getData, getStatic, LIVE_REFRESH_MS, later, cancelLater } from '../data.js';
 import { predictGame } from '../src/predict.js';
-import { topPlayers, missingTop } from '../src/lineupAlert.js';
+import { notablePlayers, missingTop } from '../src/lineupAlert.js';
 import { teamTable, goalieLine, teamGoalies, teamSkaters } from '../src/matchup.js';
 import { noVigAway, BOOK_NAMES } from '../src/odds.js';
 import { startSim } from './sim.js';
@@ -16,10 +16,12 @@ import momentum from './d3-momentum.js';
 import analytics from './d4-analytics.js';
 import scorecards from './d5-scorecards.js';
 import story from './d6-story.js';
+import pregame from './d0-pregame.js';
 import { playerIndex, linkPlayers, installPlayerLinks } from '../player/link.js';
 
-// Game Story is the main design; the others stay for comparison while it settles.
-const DESIGNS = [story, momentum, analytics, scorecards];
+// Views by key: 0 Pregame, 1 Game Story (the default), 2 Momentum, 3 Game Stats, 4 Scorecards.
+// Each holds its own part of the game, so swapping between them repeats as little as possible.
+const DESIGNS = [pregame, story, momentum, analytics, scorecards];
 const params = new URLSearchParams(location.search);
 const gameId = params.get('id');
 // League goals per expected goal for this game's season, so finishing reads against an average shooter.
@@ -37,22 +39,35 @@ let timer = null;
 
 const stored = () => { try { return localStorage.getItem('boxDesign.v2'); } catch { return null; } };
 const store = (v) => { try { localStorage.setItem('boxDesign.v2', v); } catch { /* private mode */ } };
-let design = DESIGNS.find((d) => d.id === params.get('design'))?.id ?? DESIGNS.find((d) => d.id === stored())?.id ?? DESIGNS[0].id;
+const asked = DESIGNS.find((d) => d.id === params.get('design'))?.id;
+let design = asked ?? DESIGNS.find((d) => d.id === stored() && d.id !== 'pregame')?.id ?? 'story';
+// Before puck drop the Pregame view opens first (unless a view was asked for); once the game starts the
+// page moves on to your usual view by itself, unless you picked one in the meantime.
+let autoPregame = false;
 
-switcher.innerHTML = DESIGNS.map((d, i) => `<button type="button" data-design="${d.id}" title="${esc(d.inspiration)} (key ${i + 1})"><span class="n">${i + 1}</span>${esc(d.name)}</button>`).join('');
+switcher.innerHTML = DESIGNS.map((d, i) => `<button type="button" data-design="${d.id}" title="${esc(d.inspiration)} (key ${i})"><span class="n">${i}</span>${esc(d.name)}</button>`).join('');
 switcher.addEventListener('click', (e) => {
   const b = e.target.closest('[data-design]');
   if (b) setDesign(b.dataset.design);
 });
+// Links to other views inside a view (the Story's "more views" row).
+box.addEventListener('click', (e) => {
+  const a = e.target.closest('a[data-design]');
+  if (!a || e.metaKey || e.ctrlKey || e.shiftKey || e.button) return;
+  e.preventDefault();
+  setDesign(a.dataset.design);
+  scrollTo(0, 0);
+});
 document.addEventListener('keydown', (e) => {
   if (e.target.closest('input, textarea, select') || e.metaKey || e.ctrlKey || e.altKey) return;
-  const d = DESIGNS[Number(e.key) - 1];
+  const d = /^\d$/.test(e.key) ? DESIGNS[Number(e.key)] : null;
   if (d) setDesign(d.id);
 });
 
 function setDesign(id) {
   design = id;
-  store(id);
+  autoPregame = false;
+  if (id !== 'pregame') store(id); // Pregame is a look-up, not a default to come back to
   const url = new URL(location.href);
   url.searchParams.set('design', id);
   history.replaceState(null, '', url);
@@ -152,10 +167,11 @@ function loadPick(g) {
   return pickP;
 }
 
+// Filled for every game, so the Pregame view (key 0) works before, during and after it.
 function withPregame(g, info) {
-  if (g.status.state !== 'pre') return g;
+  if (params.has('sim') || g.status.state === 'postponed') return g;
   const side = (k) => {
-    const top = topPlayers(seasonTotal, info?.prev, g[k].abbrev);
+    const top = notablePlayers(seasonTotal, info?.prev, g[k].abbrev);
     return { top, out: g[k].scratches?.length ? missingTop(top, g[k].scratches, g[k].scratchIds) : [] };
   };
   const n = Number(String(g.id).slice(-4));
@@ -213,7 +229,10 @@ function showDue(force = false) {
 onDelayChange((id) => { if (id === String(gameId)) { resetGoals(id); showDue(true); } });
 
 async function showGame(data) {
-  const info = data.status?.state === 'pre' && !params.has('sim') ? await loadPick(data) : null;
+  const info = !params.has('sim') ? await loadPick(data) : null;
+  // First look at a game that hasn't started: open on Pregame. When it starts, move to the usual view.
+  if (!game && !asked && data.status?.state === 'pre') { design = 'pregame'; autoPregame = true; }
+  else if (autoPregame && data.status?.state !== 'pre') { autoPregame = false; design = DESIGNS.find((d) => d.id === stored())?.id ?? 'story'; }
   if (params.has('sim')) watchGoals([data]); // live horns come from horn.js's own watcher, on every page
   // Redraw when the pregame radio buttons appear, or the delay chip changes.
   const text = JSON.stringify(data) + (radioOpen(data) ? '1' : '0') + getDelay(gameId) + Math.ceil(wait / 1000);
