@@ -3,7 +3,9 @@
 .pn:hover, .pn:focus-visible { text-decoration-color: currentColor; outline: none; }
 .pn:focus-visible { box-shadow: 0 0 0 2px #e11d48; border-radius: 2px; }
 
-.pn-chip { position: fixed; z-index: 60; display: flex; gap: 2px; padding: 2px; background: #0b1220; border: 1px solid #334155; border-radius: 6px; box-shadow: 0 6px 16px rgba(0,0,0,.45); }
+.pn-chip { position: fixed; z-index: 60; left: 0; top: 0; opacity: 0; visibility: hidden; pointer-events: none; transform: translateY(3px); transition: opacity .14s ease, transform .14s ease, visibility 0s linear .14s; display: flex; gap: 2px; padding: 2px; background: #0b1220; border: 1px solid #334155; border-radius: 6px; box-shadow: 0 6px 16px rgba(0,0,0,.45); }
+.pn-chip.on { opacity: 1; visibility: visible; pointer-events: auto; transform: none; transition: opacity .14s ease, transform .14s ease, visibility 0s; }
+@media (prefers-reduced-motion: reduce) { .pn-chip, .pn-chip.on { transition: none; transform: none; } }
 .pn-chip button, .pn-chip a { display: grid; place-items: center; width: 26px; height: 24px; border: 0; border-radius: 4px; background: none; color: #cbd5e1; cursor: pointer; padding: 0; }
 .pn-chip button:hover, .pn-chip a:hover { background: #1e293b; color: #fff; }
 .pn-chip svg, .pq svg { width: 15px; height: 15px; }

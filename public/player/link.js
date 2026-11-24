@@ -139,26 +139,28 @@ export function installPlayerLinks() {
   }, true);
 
   // Hover buttons (mouse only; on touch a tap opens the quick view, which has its own pop-out).
+  // Hover intent: the buttons only appear once the mouse rests on a name for a moment, so sweeping
+  // across names (or dragging a goal strip) never pops them up in the way. Never while a button is held.
   const chip = document.createElement('div');
   chip.className = 'pn-chip';
-  chip.hidden = true;
   chip.innerHTML = `<button type="button" data-act="quick" title="Quick view" aria-label="Quick view">${EYE_ICON}</button><a data-act="pop" target="_blank" rel="noopener" title="Open player card in a new tab" aria-label="Open player card in a new tab">${POP_ICON}</a>`;
   document.body.append(chip);
-  let current = null;
+  const SHOW_DELAY = 450;
+  let current = null; // the name the chip is showing for
+  let pending = null; // the name we are waiting on
+  let showTimer = null;
   let hideTimer = null;
-  const hide = () => { chip.hidden = true; current = null; };
+  let lastXY = null;
+  const isOn = () => chip.classList.contains('on');
+  const cancel = () => { clearTimeout(showTimer); showTimer = null; pending = null; };
+  const hide = () => { cancel(); clearTimeout(hideTimer); chip.classList.remove('on'); current = null; };
   const later = () => { clearTimeout(hideTimer); hideTimer = setTimeout(hide, 220); };
-  document.addEventListener('pointerover', (e) => {
-    if (e.pointerType !== 'mouse') return;
-    if (chip.contains(e.target)) { clearTimeout(hideTimer); return; }
-    const el = e.target.closest?.('.pn[data-pid]');
-    if (!el) return;
-    clearTimeout(hideTimer);
-    if (current === el && !chip.hidden) return;
+  const show = (el) => {
+    showTimer = null; pending = null;
+    if (!el.isConnected) return;
     current = el;
     chip.dataset.pid = el.dataset.pid;
     chip.querySelector('[data-act="pop"]').href = playerUrl(el.dataset.pid);
-    chip.hidden = false;
     const r = el.getBoundingClientRect();
     const w = chip.offsetWidth;
     const h = chip.offsetHeight;
@@ -166,11 +168,34 @@ export function installPlayerLinks() {
     const top = r.top - h - 2 < 4 ? r.bottom + 2 : r.top - h + 4;
     chip.style.left = `${left}px`;
     chip.style.top = `${top}px`;
+    chip.classList.add('on');
+  };
+  const arm = (el) => { clearTimeout(showTimer); pending = el; showTimer = setTimeout(() => show(el), SHOW_DELAY); };
+  document.addEventListener('pointerover', (e) => {
+    if (e.pointerType !== 'mouse') return;
+    if (chip.contains(e.target)) { if (isOn()) clearTimeout(hideTimer); return; }
+    const el = e.target.closest?.('.pn[data-pid]');
+    if (!el || e.buttons) return;
+    clearTimeout(hideTimer);
+    if (current === el && isOn()) return;
+    if (isOn()) hide(); // moving to another name: drop the old buttons, wait again
+    lastXY = [e.clientX, e.clientY];
+    arm(el);
   });
+  // Still moving across the name: keep waiting until the mouse settles.
+  document.addEventListener('pointermove', (e) => {
+    if (!pending || e.pointerType !== 'mouse') return;
+    if (e.buttons) { cancel(); return; }
+    if (lastXY && Math.hypot(e.clientX - lastXY[0], e.clientY - lastXY[1]) > 3) { lastXY = [e.clientX, e.clientY]; arm(pending); }
+  }, { passive: true });
   document.addEventListener('pointerout', (e) => {
     if (e.pointerType !== 'mouse') return;
-    if (e.target.closest?.('.pn[data-pid]') || chip.contains(e.target)) later();
+    const el = e.target.closest?.('.pn[data-pid]');
+    if (el && el.contains(e.relatedTarget)) return;
+    if (el && el === pending) cancel();
+    if ((el && el === current) || chip.contains(e.target)) later();
   });
+  document.addEventListener('pointerdown', (e) => { if (!chip.contains(e.target)) hide(); }, true);
   chip.addEventListener('click', (e) => {
     const b = e.target.closest('[data-act]');
     if (!b) return;
@@ -179,4 +204,5 @@ export function installPlayerLinks() {
     hide();
   }, true);
   addEventListener('scroll', hide, { passive: true, capture: true });
+  addEventListener('blur', hide);
 }
