@@ -243,7 +243,7 @@ function zoneTable(game, shots, c, teams) {
       return { label, att: z.length, sog, g, miss: z.filter((s) => s.kind === 'miss').length, block: z.filter((s) => s.kind === 'block').length };
     }).sort((a, b) => b.att - a.att);
     return `<table class="a-table a-zt"><caption style="color:${c[team]}">${esc(game[team].abbrev)} SAT by zone</caption>
-      <thead><tr><th class="l">Zone</th><th title="Shot attempts (SAT)">SAT</th><th title="Shots on goal">SOG</th><th title="Missed the net">Miss</th><th title="Blocked">Blk</th><th title="Goals">G</th><th title="Shooting percentage">Sh%</th></tr></thead>
+      <thead><tr><th class="l">Zone</th><th title="Shot attempts (SAT)">SAT</th><th title="Shots on goal">SOG</th><th title="Missed the net">Miss</th><th title="Blocked">Blk</th><th title="Goals">G</th><th title="Shooting percentage">S%</th></tr></thead>
       <tbody>${rows.map((r) => `<tr><td class="l">${esc(r.label)}</td><td>${r.att}</td><td>${r.sog}</td><td>${r.miss}</td><td>${r.block}</td><td>${r.g}</td><td>${r.sog ? `${Math.round((100 * r.g) / r.sog)}%` : '-'}</td></tr>`).join('')}</tbody></table>`;
   }).join('')}</div>`;
 }

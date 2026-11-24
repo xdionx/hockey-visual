@@ -82,7 +82,7 @@ function thisSeason(p, ours, pick, v) {
     tiles = [
       tile('GP', n?.gp ?? ours?.gp ?? 0), tile('G', n?.goals ?? '-'), tile('A', n?.assists ?? '-'), tile('P', n?.points ?? '-', '', 'pq-hl'),
       tile('+/-', n ? fmt.signed(n.plusMinus, 0) : '-'), tile('PIM', n?.pim ?? '-'), tile('TOI/GP', fmt.toi(n?.toiPerGame ?? ours?.toiPerGame)),
-      tile('Shots', n?.shots ?? '-'), tile('SH%', fmt.pct(n?.shootingPct)), tile('PPP', n?.ppp ?? '-'),
+      tile('Shots', n?.shots ?? '-'), tile('S%', fmt.pct(n?.shootingPct)), tile('PPP', n?.ppp ?? '-'),
       ...(n?.foPct ? [tile('FO%', fmt.pct(n.foPct))] : []),
       ...(v.playoffs && n?.gwg ? [tile('GWG', n.gwg)] : []),
     ];
@@ -101,7 +101,7 @@ function thisSeason(p, ours, pick, v) {
       ${ours.gaa != null ? tile('Goals vs avg', fmt.signed(ours.gaa, 1), rankBit(ours.finRank) || 'vs an average shooter', 'pq-ours') : ''}
       ${ours.scoringVsAvg != null ? tile('Scoring vs avg', fmt.signed(ours.scoringVsAvg, 1), rankBit(ours.scoreRank) || `goals ${fmt.signed(ours.gaa, 1)}, assists ${fmt.signed(ours.playVsAvg, 1)}`, 'pq-ours') : ''}
       ${ours.abovePct != null ? tile('Above avg games', fmt.pct(ours.abovePct, 0), `below avg ${fmt.pct(ours.belowPct, 0)}, ${ours.row.tg} games rated`, 'pq-ours') : ''}
-      ${ours.shPct != null ? tile('Sh% on a goalie', fmt.pct(ours.shPct), `avg shooter ${fmt.pct(ours.xShPct)} on the same shots`, 'pq-ours') : ''}
+      ${ours.shPct != null ? tile('S% on a goalie', fmt.pct(ours.shPct), `avg shooter ${fmt.pct(ours.xShPct)} on the same shots`, 'pq-ours') : ''}
     </div>`;
   const title = v.playoffs ? (v.season === p.currentSeason ? 'These playoffs' : 'Latest playoffs') : 'This season';
   return card(title, `${fmt.season(v.season)} ${v.playoffs ? 'playoffs' : 'regular season'}`, `<div class="pq-grid pc-grid">${tiles.join('')}</div>${ourTiles}`);
