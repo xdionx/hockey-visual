@@ -80,3 +80,18 @@ test('goalies who let in far more than an average goalie show up in both lists',
   assert.ok(a.onIce.some((p) => p.goalie && p.name === 'Bad'));
   assert.ok(!a.players.some((p) => p.name === 'Good'));
 });
+
+test('last-N view ranks teams on only their most recent games', () => {
+  const r = deficiencies(total, { last: 2 });
+  const a = r.teams.find((t) => t.abbrev === 'AAA');
+  const b = r.teams.find((t) => t.abbrev === 'BBB');
+  assert.equal(r.last, 2);
+  assert.equal(a.gp, 2);
+  assert.equal(b.gp, 2);
+  assert.equal(deficiencies(total).last, null);
+  assert.equal(deficiencies(total).teams[0].gp, 4);
+  // A single-game window follows only that game's results.
+  const one = deficiencies(total, { last: 1 }).teams.find((t) => t.abbrev === 'BBB');
+  assert.equal(one.gp, 1);
+  assert.equal(one.w, 1);
+});
