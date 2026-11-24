@@ -294,7 +294,7 @@ function gameNames(g) {
 // Score and clock come from the light scores feed (one small answer shared by every game that day), checked
 // every refresh. The heavy box score (box + play-by-play + shifts) is only fetched when that feed shows a new
 // goal or a new period, or every FULL_EVERY_MS to keep the stats current.
-const FULL_EVERY_MS = 30_000;
+const FULL_EVERY_MS = 5_000; // box score + play-by-play stay at 5s; only the scores feed polls at LIVE_REFRESH_MS (2s)
 let fullAt = 0;
 /** Score, clock, period and strength always come from the scores feed row, never from the box score. */
 function overlay(d, g) {
@@ -359,7 +359,7 @@ async function load(quiet = false) {
     else if (data.status.state === 'pre' || data.status.settling) timer = later(() => load(true), 60_000);
   } catch (err) {
     if (!quiet) box.innerHTML = `<p class="msg">Couldn't load this box score: ${esc(err.message)}</p>`;
-    else timer = later(() => load(true), LIVE_REFRESH_MS);
+    else timer = later(() => load(true), 5_000);
   }
 }
 
