@@ -1,6 +1,6 @@
 // Design 2 "Broadcast": a dark, bold, on-air graphics look.
 // Inspired by TSN and NHL broadcast score bugs: team-color panels, condensed type, big numbers.
-import { esc, logo, teamColors, statusText, statusHtml, prettyDate, skaters, goaliesOf, pct, signed, videoButton, visualizerButton, elapsed, headshot, strengthBadge, decisionLabel } from './core.js';
+import { esc, logo, teamColors, statusText, statusHtml, prettyDate, skaters, goaliesOf, pct, signed, videoButton, visualizerButton, elapsed, headshot, strengthBadge, decisionLabel, onColor } from './core.js';
 
 /** Shots on goal and shot attempts for one team, for next to the score. */
 export function shotLine(game, side) {
@@ -56,7 +56,7 @@ export function flow(game, c) {
           let row = rows[s].findIndex((end) => x - end > 9);
           if (row < 0) row = rows[s].length;
           rows[s][row] = x;
-          return `<div class="b-goal ${s}" style="left:${x}%;--team:${c[s]};--row:${row}" title="${esc(`${g.team} ${g.scorer.name} ${g.period === 'OT' ? 'OT' : `P${g.period}`} ${g.time}`)}"><span>${esc(g.scorer.name.replace(/^.*?\.\s*/, ''))}</span></div>`;
+          return `<div class="b-goal ${s}" style="left:${x}%;--team:${c[s]};--on:${onColor(c[s])};--row:${row}" title="${esc(`${g.team} ${g.scorer.name} ${g.period === 'OT' ? 'OT' : `P${g.period}`} ${g.time}`)}"><span>${esc(g.scorer.name.replace(/^.*?\.\s*/, ''))}</span></div>`;
         }).join('');
       })()}
       <div class="b-flow-lbl"><span>1st</span><span>2nd</span><span>3rd</span>${reg.length > 3 ? '<span>OT</span>' : ''}</div>

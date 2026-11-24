@@ -1,4 +1,5 @@
 import { getData, later, cancelLater, LIVE_REFRESH_MS } from './data.js';
+import { compareGoals, teamGoals } from './goalSeen.js';
 import { delayScores, getDelay, delayable, onDelayChange } from './delay.js';
 
 // Goal horns: per team and per game, off by default, remembered in this browser.
@@ -504,15 +505,13 @@ document.addEventListener('click', (e) => {
 // on screen. It polls scores/<date>.json for those games' dates and is the only thing that sounds a live horn.
 // Goal counts are saved in localStorage with a time, so a goal scored while moving between pages still honks,
 // another open tab doesn't honk the same goal twice, and opening the site after a while never honks old goals.
-const FRESH_MS = 10 * 60_000; // a saved count older than this is a fresh baseline
 const SEEN = (id, abbrev) => `hornSeen:${id}:${abbrev}`;
 const seenMem = new Map(); // used when localStorage isn't available
 function readSeen(k) {
   const v = store(k) ?? seenMem.get(k);
   try { const o = JSON.parse(v); return Number.isFinite(o?.n) && Number.isFinite(o?.t) ? o : null; } catch { return null; }
 }
-function writeSeen(k, n, t) { const v = JSON.stringify({ n, t }); seenMem.set(k, v); store(k, v); }
-const goalCount = (g, a) => (g.goals ?? g.scoring ?? []).filter((x) => x.period !== 'SO' && x.team === a).length;
+function writeSeen(k, rec) { const v = JSON.stringify(rec); seenMem.set(k, v); store(k, v); }
 const isoDay = (ms) => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(ms));
 
 /** Games with a horn on, grouped by date: Map(date -> Set of game ids). Old dates are forgotten. */
@@ -554,12 +553,10 @@ export function checkGoals(games, now = Date.now()) {
       const a = g[side].abbrev;
       if (!hornOn(g.id, a)) continue;
       const k = SEEN(g.id, a);
-      const n = goalCount(g, a);
-      const before = readSeen(k);
-      const fresh = before && now - before.t < FRESH_MS;
-      if (fresh && n > before.n && yield_) continue; // leave this goal to the tab on screen
-      writeSeen(k, n, now);
-      if (fresh && n > before.n && HORNS.has(a)) play(alertFor(g, side));
+      const { newCount, record } = compareGoals(readSeen(k), teamGoals(g, a), now);
+      if (newCount && yield_) continue; // leave this goal to the tab on screen
+      writeSeen(k, record);
+      if (newCount && HORNS.has(a)) play(alertFor(g, side));
     }
   }
 }
