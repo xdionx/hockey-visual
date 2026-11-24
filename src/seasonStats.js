@@ -27,7 +27,8 @@ import { tierOf } from './impact.js';
 //    goals against vs expected (ga, xga, gs = games started), and each game's starting goalies (ags, hgs).
 // 6: scoring (g = all goals, a1 primary assists, a2 secondary assists; shootouts left out) for Scoring vs avg.
 // 7: home plate narrowed to 19 ft, inner 2x / outer 3.5x, wide shots 0.5x (momentum and on-ice weights).
-export const SEASON_VERSION = 7;
+// 8: goalie shots against (sa) and goals on them (sg), plus one [shots, goals] entry per start (q), for quality starts.
+export const SEASON_VERSION = 8;
 
 /** First season we keep on-ice shot attempts for (shift charts; the Team deficiencies tab starts here too). */
 export const FIRST_SHIFT_SEASON = 20202021;
@@ -167,6 +168,7 @@ export function fromPbp(pbp) {
   const inNet = new Set(pbp.plays.map((e) => e.details?.goalieInNetId).filter(Boolean));
   // Goals against and expected goals against per goalie, and who started for each team.
   const gk = new Map();
+  const faced = new Map();
   const starters = {};
   const teamOf = new Map((pbp.rosterSpots ?? []).map((r) => [r.playerId, r.teamId]));
   for (const e of [...pbp.plays].sort((x, y) => (x.sortOrder ?? 0) - (y.sortOrder ?? 0))) {
@@ -175,6 +177,11 @@ export function fromPbp(pbp) {
     if (!d.goalieInNetId) continue;
     const team = teamOf.get(d.goalieInNetId);
     if (team != null && starters[team] == null) starters[team] = d.goalieInNetId;
+    // Shots against and goals on them (every shot with a goalie in net, shootouts left out) for quality starts.
+    const f = faced.get(d.goalieInNetId) ?? { sa: 0, sg: 0 };
+    f.sa++;
+    if (e.typeDescKey === 'goal') f.sg++;
+    faced.set(d.goalieInNetId, f);
     const p = shotXg({ x: d.xCoord, y: d.yCoord, shotType: d.shotType });
     if (p == null) continue;
     const g = gk.get(d.goalieInNetId) ?? { ga: 0, xga: 0 };
@@ -186,7 +193,8 @@ export function fromPbp(pbp) {
     const base = { id: r.playerId, name: `${t(r.firstName)} ${t(r.lastName)}`.trim(), team: abbrev[r.teamId] ?? '', pos: r.positionCode };
     if (r.positionCode === 'G') {
       const g = gk.get(r.playerId) ?? { ga: 0, xga: 0 };
-      return { ...base, toi: null, ga: g.ga, xga: Math.round(g.xga * 100) / 100, st: starters[r.teamId] === r.playerId ? 1 : 0 };
+      const f = faced.get(r.playerId) ?? { sa: 0, sg: 0 };
+      return { ...base, toi: null, ga: g.ga, xga: Math.round(g.xga * 100) / 100, sa: f.sa, sg: f.sg, st: starters[r.teamId] === r.playerId ? 1 : 0 };
     }
     const m = momentum[r.playerId];
     const a = att.get(r.playerId) ?? { sat: 0, sog: 0, xg: 0, xgg: 0 };
@@ -250,6 +258,11 @@ export function addGame(total, lines, game = null) {
       p.ga = (p.ga ?? 0) + (l.ga ?? 0);
       p.xga = Math.round(((p.xga ?? 0) + l.xga) * 100) / 100;
       p.gs = (p.gs ?? 0) + (l.st ?? 0);
+      if (l.sa != null) {
+        p.sa = (p.sa ?? 0) + l.sa;
+        p.sg = (p.sg ?? 0) + (l.sg ?? 0);
+        if (l.st) (p.q ??= []).push([l.sa, l.sg ?? 0]); // one [shots against, goals against] per start
+      }
     }
     if (l.toi != null) p.toi = (p.toi ?? 0) + l.toi;
   }
@@ -307,15 +320,77 @@ export function finishingLine(goals, xg, sog, rate = 1) {
   return { shPct: sog ? goals / sog : null, xShPct: sog ? avg / sog : null, gaa: goals - avg, avgGoals: avg };
 }
 
-/** A goalie's season in plain numbers: expected goals against (scaled to the league), goals saved above expected. */
-export function goalieLineOf(row, rate = 1) {
+/**
+ * Quality starts (Rob Vollman's definition). A start is a quality start when the goalie's save % is at or above the
+ * league average that season, or, on a quiet night (under 20 shots), when he allows 2 goals or fewer and still saves
+ * at least .885. The league average is computed from the season file, never hardcoded.
+ * A pulled starter is judged on the shots he faced; relief appearances are never starts.
+ */
+export const QS_LOW_SHOTS = 20;
+export const QS_MAX_GA = 2;
+export const QS_MIN_SV = 0.885;
+
+/** League-wide save % of every goalie that season (shootouts and empty nets left out), or null before the totals carry shots. */
+export function leagueSavePct(total) {
+  let sa = 0;
+  let sg = 0;
+  for (const p of Object.values(total?.players ?? {})) {
+    if (p.p !== 'G' || p.sa == null) continue;
+    sa += p.sa;
+    sg += p.sg ?? 0;
+  }
+  return sa > 0 ? 1 - sg / sa : null;
+}
+
+/** Is one start ([shots against, goals against]) a quality start, given the league save %? */
+export function isQualityStart([sa, ga], lgSv) {
+  const sv = sa ? 1 - ga / sa : 1;
+  return sv >= lgSv || (sa < QS_LOW_SHOTS && ga <= QS_MAX_GA && sv >= QS_MIN_SV);
+}
+
+/** { qs, starts, qsPct } for a goalie row, or null when the row has no per-start data (seasons built before v8). */
+export function qualityStarts(row, lgSv) {
+  if (!row?.q || lgSv == null) return null;
+  const qs = row.q.filter((s) => isQualityStart(s, lgSv)).length;
+  return { qs, starts: row.q.length, qsPct: row.q.length ? qs / row.q.length : null };
+}
+
+/** Quality starts per team (by each goalie's latest team): { TOR: { qs, starts, qsPct } }. */
+export function teamQualityStarts(total) {
+  const lgSv = leagueSavePct(total);
+  const out = {};
+  for (const r of Object.values(total?.players ?? {})) {
+    const q = r.p === 'G' ? qualityStarts(r, lgSv) : null;
+    if (!q) continue;
+    const t = (out[r.t] ??= { qs: 0, starts: 0 });
+    t.qs += q.qs;
+    t.starts += q.starts;
+  }
+  for (const t of Object.values(out)) t.qsPct = t.starts ? t.qs / t.starts : null;
+  return out;
+}
+
+/** A goalie's season in plain numbers: expected goals against (scaled to the league), goals saved above expected, quality starts. */
+export function goalieLineOf(row, rate = 1, lgSv = null) {
   const xga = row.xga * rate;
   const gsax = xga - (row.ga ?? 0);
-  return { ga: row.ga ?? 0, xgaAvg: xga, gsax, gsaxPerGame: row.gp ? gsax / row.gp : null, starts: row.gs ?? 0 };
+  const q = qualityStarts(row, lgSv);
+  return { ga: row.ga ?? 0, xgaAvg: xga, gsax, gsaxPerGame: row.gp ? gsax / row.gp : null, starts: row.gs ?? 0, qs: q?.qs ?? null, qsStarts: q?.starts ?? null, qsPct: q?.qsPct ?? null, lgSv };
+}
+
+/** Goalies ranked by quality start % (QS as the tie-break), best first. minStarts defaults to a quarter of the most starts. */
+export function qsBoard(total, { minStarts = null } = {}) {
+  const lgSv = leagueSavePct(total);
+  const rows = Object.entries(total?.players ?? {}).filter(([, r]) => r.p === 'G' && r.q?.length).map(([id, r]) => ({ id: Number(id), ...r, ...qualityStarts(r, lgSv), lgSv }));
+  const most = Math.max(0, ...rows.map((r) => r.starts));
+  const min = minStarts ?? Math.max(1, Math.ceil(most / 4));
+  const board = rows.filter((r) => r.starts >= min).sort((a, b) => b.qsPct - a.qsPct || b.qs - a.qs || b.starts - a.starts);
+  board.forEach((r, i) => { r.rank = i && board[i - 1].qsPct === r.qsPct && board[i - 1].qs === r.qs ? board[i - 1].rank : i + 1; });
+  return { board, lgSv, minStarts: min };
 }
 
 /** Per-game averages for one player's season row (null when the player has no games). rate: leagueRate(total). */
-export function perGame(row, rate = 1, base = null) {
+export function perGame(row, rate = 1, base = null, lgSv = null) {
   if (!row?.gp) return null;
   const skater = row.p !== 'G';
   return {
@@ -340,7 +415,7 @@ export function perGame(row, rate = 1, base = null) {
     ...(skater ? finishingLine(row.xgg ?? 0, row.xg, row.sog ?? 0, rate) : { shPct: null, xShPct: null, gaa: null }),
     ...scoringLine(row, skater && row.xg != null ? (row.xgg ?? 0) - row.xg * rate : null, base),
     // Goalies: goals saved above what an average NHL goalie would allow on the same shots (xGA x league rate).
-    ...(!skater && row.xga != null ? goalieLineOf(row, rate) : {}),
+    ...(!skater && row.xga != null ? goalieLineOf(row, rate, lgSv) : {}),
   };
 }
 

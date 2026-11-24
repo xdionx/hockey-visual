@@ -29,8 +29,8 @@ const mug = (p) => (p?.headshot
   : `<span class="pq-mug pq-mug-fb">${esc(initials(p?.fullName))}</span>`);
 const initials = (n) => String(n ?? '?').split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase();
 
-function tile(label, value, sub = '', cls = '') {
-  return `<div class="pq-t ${cls}"><span class="pq-v">${value}</span><span class="pq-k">${label}</span>${sub ? `<span class="pq-s">${sub}</span>` : ''}</div>`;
+function tile(label, value, sub = '', cls = '', tip = '') {
+  return `<div class="pq-t ${cls}"${tip ? ` title="${tip.replace(/"/g, '&quot;')}"` : ''}><span class="pq-v">${value}</span><span class="pq-k">${label}</span>${sub ? `<span class="pq-s">${sub}</span>` : ''}</div>`;
 }
 
 /** "12th of 410" plus a small bar showing where that sits (best at the right). */
@@ -56,6 +56,7 @@ function body(id, p, ours, season, type) {
       tile('SV%', fmt.sv(now?.savePct)), tile('GAA', fmt.dec(now?.gaa, 2)), tile('SO', now?.shutouts ?? '-'), tile('TOI/GP', fmt.toi(now?.toiPerGame)),
       ...(ours?.gsax != null ? [
         tile('GSAx', fmt.signed(ours.gsax, 1), rankBit(ours.gsaxRank), 'pq-ours'),
+        ...(ours.qs != null ? [tile('QS', `${ours.qs} <small>${fmt.pct(ours.qsPct, 0)}</small>`, rankBit(ours.qsRank) || 'quality starts', 'pq-ours', `Quality start: save % at least the league average this season${ours.lgSv ? ` (${fmt.sv(ours.lgSv)})` : ''}, or under 20 shots with 2 goals or fewer allowed and a save % of .885+. A pulled starter is judged on the shots he faced; relief appearances don't count.`)] : []),
         ...(now?.shotsAgainst ? [tile('SV% vs exp', `${fmt.signed((ours.gsax / now.shotsAgainst) * 100, 1)}%`, `expected ${fmt.sv(1 - ours.xgaAvg / now.shotsAgainst)}`, 'pq-ours')] : []),
       ] : []),
     ];

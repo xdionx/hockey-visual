@@ -106,3 +106,18 @@ test('scoring vs avg: assists above the position average make up for cold finish
   assert.equal(old.scoringVsAvg, null);
   assert.ok(old.gaa < 0);
 });
+
+test('quality starts: league save % or a quiet night with 2 goals or fewer', async () => {
+  const { isQualityStart, qualityStarts, leagueSavePct, addGame, emptySeason } = await import('../src/seasonStats.js');
+  assert.equal(isQualityStart([30, 2], 0.905), true); // .933
+  assert.equal(isQualityStart([30, 4], 0.905), false);
+  assert.equal(isQualityStart([18, 2], 0.905), true); // .889 on 18 shots, 2 GA
+  assert.equal(isQualityStart([18, 3], 0.905), false);
+  assert.equal(isQualityStart([25, 2], 0.93), false); // quiet-night rule needs under 20 shots
+  const t = emptySeason(20262027);
+  addGame(t, [{ id: 1, name: 'A', team: 'X', pos: 'G', ga: 1, xga: 1, sa: 30, sg: 1, st: 1 }, { id: 2, name: 'B', team: 'Y', pos: 'G', ga: 5, xga: 3, sa: 25, sg: 5, st: 1 }, { id: 3, name: 'C', team: 'Y', pos: 'G', ga: 0, xga: 0, sa: 5, sg: 0, st: 0 }]);
+  assert.ok(Math.abs(leagueSavePct(t) - (1 - 6 / 60)) < 1e-9);
+  assert.equal(qualityStarts(t.players['1'], leagueSavePct(t)).qs, 1);
+  assert.equal(qualityStarts(t.players['2'], leagueSavePct(t)).qs, 0);
+  assert.equal(t.players['3'].q, undefined); // relief: no start recorded
+});

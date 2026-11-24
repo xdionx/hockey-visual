@@ -1,7 +1,7 @@
 // Loads player profiles (live data Worker) and season totals (static files the GitHub Action saves),
 // with small in-memory caches so opening the same card twice is instant.
 import { getData, getStatic } from '../data.js';
-import { perGame, scoringBase, rankOf, seasonOf, seasonFile, minGames, leagueRate, REGULAR, PLAYOFFS } from '../src/seasonStats.js';
+import { perGame, scoringBase, rankOf, seasonOf, seasonFile, minGames, leagueRate, leagueSavePct, qsBoard, REGULAR, PLAYOFFS } from '../src/seasonStats.js';
 import { goalieLine } from '../src/matchup.js';
 
 const players = new Map();
@@ -36,6 +36,12 @@ export function typeToggle(type, cls = '') {
   return `<div class="pc-type ${cls}" role="group" aria-label="Regular season or playoffs">${b('regular', 'Regular season')}${b('playoffs', 'Playoffs')}</div>`;
 }
 
+function qsRankOf(total, id) {
+  const { board } = qsBoard(total);
+  const hit = board.find((r) => r.id === Number(id));
+  return hit ? { rank: hit.rank, of: board.length } : null;
+}
+
 function goalieRank(total, id) {
   const g = goalieLine(total, id, leagueRate(total));
   return g?.rank ? { rank: g.rank, of: g.of } : null;
@@ -47,7 +53,8 @@ export const currentSeason = () => seasonOf(new Date(Date.now() - 10 * 3600_000)
 export function ourStats(total, id) {
   const row = total?.players?.[String(id)];
   if (!row) return null;
-  const avg = perGame(row, leagueRate(total), scoringBase(total));
+  const lgSv = row.p === 'G' ? leagueSavePct(total) : null;
+  const avg = perGame(row, leagueRate(total), scoringBase(total), lgSv);
   const opts = { minGp: minGames(total) };
   return {
     row,
@@ -59,6 +66,7 @@ export function ourStats(total, id) {
     // Goalies: goals saved above expected, ranked among goalies with 5+ starts (as on the Pregame view).
     scoreRank: row.p === 'G' || avg?.scoringVsAvg == null || (row.xg ?? 0) < FIN_MIN_XG ? null : rankOf(total, id, 'scoringVsAvg', { ...opts, minXg: FIN_MIN_XG }),
     gsaxRank: row.p === 'G' && avg?.gsax != null ? goalieRank(total, id) : null,
+    qsRank: row.p === 'G' && avg?.qsPct != null ? qsRankOf(total, id) : null,
     minGp: opts.minGp,
     games: total.games,
     complete: !!total.complete,
