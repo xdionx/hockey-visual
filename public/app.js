@@ -280,7 +280,7 @@ function goalChip(game, g, tc) {
   const so = g.period === 'SO';
   const nth = nthInGame(game, g);
   const when = so ? 'SO' : `${ordPeriod(g.period)} ${g.time}`;
-  const assists = so ? 'Shootout' : g.assists.length ? g.assists.map(assistText).join(', ') : 'Unassisted';
+  const assists = so ? 'Shootout' : g.assists.length ? g.assists.map((a) => `<span class="as">${assistText(a)}</span>`).join(' ') : 'Unassisted';
   const tag = attrs ? 'a' : 'div';
   const logo = game[sideOf(game, g.team)]?.logo;
   const face = `<span class="gc-face"><span class="mug"><b>${esc(initials(g))}</b>${g.scorer.mugshot ? `<img src="${esc(g.scorer.mugshot)}" alt="" loading="lazy" onerror="this.remove()">` : ''}</span>${logo ? `<span class="logo"><img src="${esc(logo)}" alt="" loading="lazy" onerror="this.parentNode.remove()"></span>` : ''}</span>`;
