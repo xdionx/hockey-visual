@@ -272,7 +272,7 @@ function runningScore(game, g) {
   if (g.period === 'SO' || !g.score) return '';
   const side = sideOf(game, g.team);
   const ab = (s) => (s === side ? `<strong>${esc(game[s].abbrev)}</strong>` : esc(game[s].abbrev));
-  return `<span class="g-run">${ab('away')} ${g.score.away}-${g.score.home} ${ab('home')}</span>`;
+  return `<span class="g-run">${ab('away')}<b class="g-sc">${g.score.away}\u2013${g.score.home}</b>${ab('home')}</span>`;
 }
 
 /** A goal chip for the scrolling strip: scorer, when, assists; opens the clip. */
@@ -284,7 +284,9 @@ function goalChip(game, g, tc) {
   const when = so ? 'SO' : `${ordPeriod(g.period)} ${g.time}`;
   const assists = so ? 'Shootout' : g.assists.length ? g.assists.map(assistText).join(', ') : 'Unassisted';
   const tag = attrs ? 'a' : 'div';
-  return `<${tag} class="gc${attrs ? ' has-play' : ''}"${attrs ? ` ${attrs}` : ''} style="--team:${color}"><span class="gc-txt"><b>${esc(g.scorer.lastName || g.scorer.name)}${g.scorer.goalsToDate != null ? ` <span class="cnt">(${g.scorer.goalsToDate})</span>` : ''}</b>${runningScore(game, g) ? `<small class="gc-run">${runningScore(game, g)}</small>` : ''}<small>${esc(when)}${strengthTags(g).map((t) => ` <em class="st">${t}</em>`).join('')}${nth ? ` <em class="nth">${nthLabel(nth)}</em>` : ''}</small><small>${assists}</small></span>${attrs ? `<span class="gc-play">${playIcon}</span>` : ''}</${tag}>`;
+  const logo = game[sideOf(game, g.team)]?.logo;
+  const face = `<span class="gc-face"><span class="mug"><b>${esc(initials(g))}</b>${g.scorer.mugshot ? `<img src="${esc(g.scorer.mugshot)}" alt="" loading="lazy" onerror="this.remove()">` : ''}</span>${logo ? `<span class="logo"><img src="${esc(logo)}" alt="" loading="lazy" onerror="this.parentNode.remove()"></span>` : ''}</span>`;
+  return `<${tag} class="gc${attrs ? ' has-play' : ''}"${attrs ? ` ${attrs}` : ''} style="--team:${color}">${face}<span class="gc-txt"><b>${esc(g.scorer.lastName || g.scorer.name)}${g.scorer.goalsToDate != null ? ` <span class="cnt">(${g.scorer.goalsToDate})</span>` : ''}</b>${runningScore(game, g) ? `<small class="gc-run">${runningScore(game, g)}</small>` : ''}<small>${esc(when)}${strengthTags(g).map((t) => ` <em class="st">${t}</em>`).join('')}${nth ? ` <em class="nth">${nthLabel(nth)}</em>` : ''}</small><small>${assists}</small></span>${attrs ? `<span class="gc-play">${playIcon}</span>` : ''}</${tag}>`;
 }
 
 /** A goal tile: who, assists, the running score and a play button. */
@@ -299,7 +301,7 @@ function goalTile(game, g, tc) {
   const meta = so ? 'Deciding shootout goal' : `${runningScore(game, g)} · ${esc(ordPeriod(g.period))} ${esc(g.time)}`;
   const mug = g.scorer.mugshot ? `<img src="${esc(g.scorer.mugshot)}" alt="" loading="lazy" onerror="this.remove()">` : '';
   return `<${attrs ? 'a' : 'div'} class="gt"${attrs ? ` ${attrs}` : ''} style="--team:${tc[side]};--on:${onColor(tc[side])}">
-    <span class="gt-mug">${mug}<b>${esc(initials(g))}</b></span>
+    <span class="gt-face"><span class="gt-mug">${mug}<b>${esc(initials(g))}</b></span>${game[side]?.logo ? `<span class="logo"><img src="${esc(game[side].logo)}" alt="" loading="lazy" onerror="this.parentNode.remove()"></span>` : ''}</span>
     <span class="gt-who"><strong>${esc(g.scorer.name)}${count}${tags}</strong>${assists ? `<em>${assists}</em>` : ''}<small>${meta}</small></span>
     ${attrs ? `<span class="gt-play">${playIcon}</span>` : ''}
   </${attrs ? 'a' : 'div'}>`;
