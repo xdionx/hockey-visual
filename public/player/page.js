@@ -2,17 +2,20 @@ import '../horn.js'; // goal horns for games with a horn on, on every page
 // Full player card: profile, this season in depth, SAT and momentum for every season, season-by-season
 // table and the last five games. player.html?id=<playerId>
 import { loadPlayer, loadSeason, ourStats, fmt, positionName, typeToggle, getStatsType, setStatsType, GAME_TYPES } from './store.js';
-import { teamColor, esc, decisionLabel } from '../game/core.js';
+import { teamColor, esc, decisionLabel, initVideo } from '../game/core.js';
 import { installPlayerLinks } from './link.js';
 import { rankBit } from './quick.js';
 import { getData } from '../data.js';
-import { FIRST_FULL_SEASON } from '../src/seasonStats.js';
+import { FIRST_FULL_SEASON, leagueRate, leagueSavePct } from '../src/seasonStats.js';
+import { leagueGoalies, teamGameIds, startFromGame } from '../src/goalieCard.js';
+import { goalieSections, lastStartsSection, navHtml, rangeToggle } from './goalie.js';
 import { combineSeasons } from '../src/player.js';
 import { goalieRating, W } from '../src/predict.js';
 
 const id = new URLSearchParams(location.search).get('id');
 const main = document.querySelector('#player');
 installPlayerLinks();
+initVideo(main);
 
 const initials = (n) => String(n ?? '?').split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase();
 const QS_TIP = (o) => `Quality start: save % at least the league average this season${o.lgSv ? ` (${fmt.sv(o.lgSv)})` : ''}, or under 20 shots with 2 goals or fewer allowed and a save % of .885+. A pulled starter is judged on the shots he faced; relief appearances don't count.`;
@@ -135,7 +138,7 @@ function trend(rows, goalie = false, playoffs = false) {
   const pending = list.some((r) => !r.ours && !r.built);
   if (goalie) {
     return card(playoffs ? 'Playoff goaltending by season' : 'Goaltending by season', `${playoffs ? 'playoffs' : 'regular season'}, vs an average goalie on the same shots`,
-      `<div class="pt-wrap">${chart('gsax', 'Goals saved above expected', true, (v) => fmt.signed(v, 1))}${chart('svVsExp', 'SV% vs expected (points)', true, (v) => fmt.signed(v * 100, 1))}</div>
+      `<div class="pt-wrap">${chart('gsax', 'Goals saved above expected', true, (v) => fmt.signed(v, 1))}${chart('svVsExp', 'SV% vs expected (points)', true, (v) => fmt.signed(v * 100, 1))}${chart('qsPct', 'Quality start %', false, (v) => fmt.pct(v, 0))}</div>
       ${pending ? '<p class="pq-note">Hollow bars are seasons we are still building from the NHL play-by-play (goalie numbers go back to 2020-21 so far). They fill in on their own.</p>' : ''}`);
   }
   return card(playoffs ? 'Playoff SAT and momentum' : 'SAT and momentum by season', `per game, ${playoffs ? 'each playoff run' : 'regular season'}`,
@@ -231,12 +234,38 @@ async function load() {
   }
   document.title = `${p.fullName} · Player card`;
   // Last five games don't change with the toggle: load them once.
-  const last5 = lastFive(p).catch(() => '');
+  const last5 = p.goalie ? Promise.resolve('') : lastFive(p).catch(() => '');
   const views = {};
+  let range = 0; // goalies: 0 = all games, 10 = last 10 starts
+  let startsFor = null;
+  const showGoalie = async (type, v) => {
+    const startsP = (startsFor ??= {})[type] ??= loadStarts(p, v);
+    const body = () => {
+      const lg = v.file ? leagueGoalies(v.file, v.playoffs ? 2 : undefined) : null;
+      return lg && v.ours ? goalieSections({ id: p.id, lg, ours: v.ours, now: v.now, pick: v.pick, starts: body.starts, n: range, playoffs: v.playoffs }) : '';
+    };
+    const paint = () => {
+      const html = body();
+      main.querySelector('#gc-body').innerHTML = html || thisSeason(p, v.ours, v.pick, v);
+      main.querySelector('#gc-last').innerHTML = lastStartsSection(body.starts, v.playoffs);
+    };
+    main.innerHTML = `${hero(p)}<div class="gc-bar">${typeToggle(type, 'pc-type-main')}${v.playoffs ? '' : rangeToggle(range)}</div>${navHtml()}<div class="pc-cols" id="gc-body"></div><div class="pc-cols" id="gc-hist">${trend(v.rows, true, v.playoffs)}${seasonsTable(p, v.rows, v)}</div><div id="gc-last" class="pc-cols"></div>`;
+    document.querySelectorAll('.pt-scroll').forEach((el) => { el.scrollLeft = el.scrollWidth; });
+    body.starts = null;
+    paint();
+    startsP.then((st) => { if (getStatsType() !== type) return; body.starts = st; paint(); });
+  };
+  main.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-gc-range]');
+    if (!b || b.getAttribute('aria-pressed') === 'true') return;
+    range = Number(b.dataset.gcRange);
+    show(getStatsType());
+  });
   const show = async (type) => {
     views[type] ??= buildView(p, type);
     const v = await views[type];
     if (getStatsType() !== type) return; // toggled again while loading
+    if (p.goalie) return showGoalie(type, v);
     main.innerHTML = `${hero(p)}${typeToggle(type, 'pc-type-main')}<div class="pc-cols">${thisSeason(p, v.ours, v.pick, v)}${trend(v.rows, p.goalie, v.playoffs)}${seasonsTable(p, v.rows, v)}<div id="pc-last5"></div></div>`;
     // Season bars scroll sideways on narrow screens: start at the newest seasons.
     document.querySelectorAll('.pt-scroll').forEach((el) => { el.scrollLeft = el.scrollWidth; });
@@ -252,6 +281,26 @@ async function load() {
     show(getStatsType());
   });
   await show(getStatsType());
+}
+
+/** Every start this regular season, from the saved game files (shots, goals and their clips). Empty when there are none. */
+async function loadStarts(p, v) {
+  if (v.playoffs || !v.file || !v.ours) return [];
+  const rate = leagueRate(v.file);
+  const lgSv = leagueSavePct(v.file);
+  const ids = teamGameIds(v.file, v.ours.row.t).filter((g) => g.starter === p.id);
+  const out = [];
+  let next = 0;
+  const worker = async () => {
+    while (next < ids.length) {
+      const g = ids[next++];
+      const game = await getData(`games/${g.id}.json`).catch(() => null);
+      const s = game ? startFromGame(game, p.id, rate, lgSv) : null;
+      if (s) out.push(s);
+    }
+  };
+  await Promise.all(Array.from({ length: 6 }, worker));
+  return out.sort((a, b) => a.date.localeCompare(b.date) || a.id - b.id);
 }
 
 /** Everything the season cards need for the regular season or the playoffs. */
@@ -270,12 +319,13 @@ async function buildView(p, type) {
   if (playoffs) {
     // The card up top shows the latest playoff run (this season's once it starts).
     const latest = rows[0] ?? null;
-    return { playoffs, list, rows, season: latest?.season ?? p.currentSeason, now: latest, ours: latest?.ours ?? null, pick: null, career: combineSeasons(p.playoffs, p.goalie) };
+    const poFile = latest ? await loadSeason(latest.season, gameType) : null;
+    return { playoffs, list, rows, season: latest?.season ?? p.currentSeason, now: latest, ours: latest?.ours ?? null, pick: null, career: combineSeasons(p.playoffs, p.goalie), file: poFile };
   }
   const curFile = await loadSeason(p.currentSeason);
   const ours = rows.find((r) => r.season === p.currentSeason)?.ours ?? ourStats(curFile, p.id);
   const pick = p.goalie ? goalieRating(p.id, curFile, await loadSeason(p.currentSeason - 10001)) : null;
-  return { playoffs, list, rows, season: p.currentSeason, now: p.now, ours, pick, career: p.career };
+  return { playoffs, list, rows, season: p.currentSeason, now: p.now, ours, pick, career: p.career, file: curFile };
 }
 
 load().catch((err) => { main.innerHTML = `<p class="msg">Couldn't load this player: ${esc(err.message)}</p>`; });
