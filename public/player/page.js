@@ -159,7 +159,7 @@ function seasonsTable(p, rows, v) {
     if (r.season < FIRST_FULL_SEASON) return '<td class="pc-na" title="No full play-by-play before 2009-10">n/a</td><td class="pc-na">n/a</td><td class="pc-na">n/a</td><td class="pc-na">n/a</td>';
     if (r.ours?.gsax == null) return `<td class="pc-na" title="${r.built ? 'No games in our data' : 'Still being built'}">${r.built ? '-' : '…'}</td><td class="pc-na">${r.built ? '-' : '…'}</td><td class="pc-na">${r.built ? '-' : '…'}</td><td class="pc-na">${r.built ? '-' : '…'}</td>`;
     const part = !r.ours.complete && r.season !== p.currentSeason;
-    const t = r.ours.gsaxRank ? ` title="${fmt.ord(r.ours.gsaxRank.rank)} of ${r.ours.gsaxRank.of} goalies with 5+ starts"` : '';
+    const t = r.ours.gsaxRank ? ` title="${fmt.ord(r.ours.gsaxRank.rank)} NHL, among ${r.ours.gsaxRank.of} goalies with 5+ starts"` : '';
     return `<td class="pc-o ${r.ours.gsax >= 0 ? 'up' : 'down'}${part ? ' pc-part' : ''}"${t}>${fmt.signed(r.ours.gsax, 1)}${part ? '*' : ''}</td><td class="pc-o${part ? ' pc-part' : ''}">${r.ours.svVsExp == null ? '-' : svPts(r.ours.svVsExp)}</td><td class="pc-o">${r.ours.qs ?? '-'}</td><td class="pc-o">${r.ours.qsPct == null ? '-' : fmt.pct(r.ours.qsPct, 0)}</td>`;
   };
   const ourCells = (r) => {

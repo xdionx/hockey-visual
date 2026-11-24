@@ -14,12 +14,13 @@ const sg = (n, d = 1) => fmt.signed(n, d);
 const cls = (v) => (v > 0.05 ? 'up' : v < -0.05 ? 'down' : '');
 const tile = (label, value, sub = '', c = '', tip = '') => `<div class="pq-t pq-ours"${tip ? ` title="${esc(tip)}"` : ''}><span class="pq-v ${c}">${value}</span><span class="pq-k">${label}</span>${sub ? `<span class="pq-s">${sub}</span>` : ''}</div>`;
 const plain = (label, value, sub = '', c = '') => `<div class="pq-t ${c === 'hl' ? 'pq-hl' : ''}"><span class="pq-v">${value}</span><span class="pq-k">${label}</span>${sub ? `<span class="pq-s">${sub}</span>` : ''}</div>`;
-const ofN = (r, what = 'goalies') => (r ? `${fmt.ord(r.rank)} of ${r.of} ${what}` : '');
+/** Rank label: "15th NHL", "T1st NHL" when tied. */
+const ofN = (r) => (r ? `${r.tied ? 'T' : ''}${fmt.ord(r.rank)} NHL` : '');
 const sec = (id, title, sub, html) => `<section class="pc-card gc-sec" id="${id}"><h2>${title}${sub ? ` <small>${sub}</small>` : ''}</h2>${html}</section>`;
 const fig = (inner) => `<div class="gc-fig">${inner}</div>`;
 const day = (d) => new Date(`${d}T12:00:00Z`).toLocaleDateString(undefined, { month: 'short', day: 'numeric', timeZone: 'UTC' });
 
-export const NAV = [['gc-res', 'Results'], ['gc-exp', 'Saves vs expected'], ['gc-loc', 'Shot location'], ['gc-con', 'Consistency'], ['gc-lg', 'League rank'], ['gc-pick', 'Starter quality'], ['gc-hist', 'History'], ['gc-last', 'Last 10 starts']];
+export const NAV = [['gc-res', 'Results'], ['gc-exp', 'Saves vs expected'], ['gc-loc', 'Shot location'], ['gc-con', 'Consistency'], ['gc-lg', 'NHL rank'], ['gc-pick', 'Starter quality'], ['gc-hist', 'History'], ['gc-last', 'Last 10 starts']];
 export const navHtml = () => `<nav class="gc-nav" aria-label="Sections">${NAV.map(([id, l]) => `<a href="#${id}">${l}</a>`).join('')}</nav>`;
 
 /** The All games / Last 10 switch. */
@@ -118,7 +119,7 @@ function zoneChart(b, inRate, outRate) {
   return `<svg viewBox="0 0 440 120" role="img" aria-label="Save percentage inside and outside the home plate against the league">${zs.map(([l, sa, ga, rt], i) => {
     const s = 1 - ga / sa, base = 1 - rt, lo = 0.7, sx = (v) => 110 + ((v - lo) / (1 - lo)) * 300, y = 18 + i * 50;
     return `<text class="gc-v" x="4" y="${y + 11}">${l}</text><rect x="110" y="${y}" width="300" height="14" rx="7" fill="#1a2740"/><rect x="110" y="${y}" width="${Math.max(0, sx(s) - 110)}" height="14" rx="7" fill="${s >= base ? UP : DOWN}"/>
-      <line x1="${sx(base)}" x2="${sx(base)}" y1="${y - 5}" y2="${y + 19}" stroke="#fff" stroke-width="2"/><text class="gc-v" x="${sx(s) - 36}" y="${y + 11}" style="fill:#04101a">${sv3(s)}</text><text x="${sx(base) + 6}" y="${y + 31}">league ${sv3(base)}</text>`;
+      <line x1="${sx(base)}" x2="${sx(base)}" y1="${y - 5}" y2="${y + 19}" stroke="#fff" stroke-width="2"/><text class="gc-v" x="${sx(s) - 36}" y="${y + 11}" style="fill:#04101a">${sv3(s)}</text><text x="${sx(base) + 6}" y="${y + 31}">NHL AVG ${sv3(base)}</text>`;
   }).join('')}</svg>`;
 }
 
@@ -139,7 +140,7 @@ function strips(lg, id, row) {
     const lo = Math.min(...vals), top = Math.max(...vals), span = top - lo || 1;
     const X = (v) => 6 + (hi ? (v - lo) / span : 1 - (v - lo) / span) * 388;
     const r = rankAmong(vals, mine, hi);
-    return `<div class="gc-strip"><div class="gc-k">${k}<small>${sub}</small></div><svg viewBox="0 0 400 30" role="img" aria-label="${k}: ${ofN(r)}"><line x1="6" x2="394" y1="15" y2="15" stroke="#26344f" stroke-width="2"/><line x1="${X(median(vals))}" x2="${X(median(vals))}" y1="5" y2="25" stroke="#8b95a7"/>${vals.map((v) => `<circle cx="${X(v)}" cy="15" r="3" fill="#5a6f94" opacity=".55"/>`).join('')}<circle cx="${X(mine)}" cy="15" r="6.5" fill="${BLUE}" stroke="#fff"/></svg><div class="gc-r"><b>${fm(mine)}</b><span>${fmt.ord(r.rank)} of ${r.of}</span></div></div>`;
+    return `<div class="gc-strip"><div class="gc-k">${k}<small>${sub}</small></div><svg viewBox="0 0 400 30" role="img" aria-label="${k}: ${ofN(r)}"><line x1="6" x2="394" y1="15" y2="15" stroke="#26344f" stroke-width="2"/><line x1="${X(median(vals))}" x2="${X(median(vals))}" y1="5" y2="25" stroke="#8b95a7"/>${vals.map((v) => `<circle cx="${X(v)}" cy="15" r="3" fill="#5a6f94" opacity=".55"/>`).join('')}<circle cx="${X(mine)}" cy="15" r="6.5" fill="${BLUE}" stroke="#fff"/></svg><div class="gc-r"><b>${fm(mine)}</b><span>${ofN(r)}</span></div></div>`;
   }).join('');
 }
 
@@ -159,9 +160,9 @@ export function radarChart(points, n) {
     ${[0.25, 0.5, 0.75, 1].map((f) => `<polygon points="${poly(f)}" fill="none" stroke="${f === 0.5 ? '#64748b' : '#26344f'}" stroke-width="${f === 0.5 ? 1.5 : 1}" ${f === 0.5 ? 'stroke-dasharray="4 3"' : ''}/>`).join('')}
     ${points.map((_, i) => `<line x1="${c}" y1="${c}" x2="${pt(i, 1)[0]}" y2="${pt(i, 1)[1]}" stroke="#26344f"/>`).join('')}
     <polygon points="${shape}" fill="${BLUE}" fill-opacity=".28" stroke="${BLUE}" stroke-width="2.4" stroke-linejoin="round"/>
-    ${points.map((q, i) => { const [x, y] = pt(i, Math.max(0.03, q.pct / 100)); const [lx, ly] = pt(i, 1.2); const a = Math.cos(ang(i)); return `<circle cx="${x}" cy="${y}" r="4.5" fill="${q.pct >= 50 ? UP : DOWN}" stroke="#0b1220" stroke-width="1.5"><title>${q.tip}: ${RADAR_FMT[q.key](q.value)}, ${fmt.ord(q.rank.rank)} of ${q.rank.of} (${q.pct}th percentile)</title></circle>
+    ${points.map((q, i) => { const [x, y] = pt(i, Math.max(0.03, q.pct / 100)); const [lx, ly] = pt(i, 1.2); const a = Math.cos(ang(i)); return `<circle cx="${x}" cy="${y}" r="4.5" fill="${q.pct >= 50 ? UP : DOWN}" stroke="#0b1220" stroke-width="1.5"><title>${q.tip}: ${RADAR_FMT[q.key](q.value)}, ${ofN(q.rank)} (${q.pct}th percentile)</title></circle>
       <text class="gc-rl" x="${lx}" y="${ly - 2}" text-anchor="${Math.abs(a) < 0.2 ? 'middle' : a > 0 ? 'start' : 'end'}">${esc(q.label)}</text><text class="gc-rv" x="${lx}" y="${ly + 10}" text-anchor="${Math.abs(a) < 0.2 ? 'middle' : a > 0 ? 'start' : 'end'}">${q.pct}</text>`; }).join('')}
-  </svg><figcaption>Overall picture: percentile vs the league's goalies, 100 = best. Dashed ring = league median.${n ? ' Season totals, not the last 10.' : ''} <b>Average ${avg}</b></figcaption></figure>`;
+  </svg><figcaption>Overall picture: percentile vs NHL goalies, 100 = best. Dashed ring = NHL median.${n ? ' Season totals, not the last 10.' : ''} <b>Average ${avg}</b></figcaption></figure>`;
 }
 
 const pending = () => '<p class="pq-note gc-wait">Loading every start…</p>';
@@ -205,8 +206,8 @@ export function goalieSections(ctx) {
     b.qs != null ? `<span class="gc-chip ${qsLg != null && b.qs / nStarts < qsLg - 0.08 ? 'bad' : qsLg != null && b.qs / nStarts > qsLg + 0.08 ? 'good' : 'ctx'}">QS ${b.qs}/${b.n}</span>` : '',
   ].join('');
   const pts = radarPoints(lg, ctx.id);
-  const bars = pts.length >= 3 ? `<div class="gc-bars" aria-label="League percentile by area">${pts.map((q) => `<div title="${esc(q.tip)}: ${esc(RADAR_FMT[q.key](q.value))}, ${fmt.ord(q.rank.rank)} of ${q.rank.of}"><span>${esc(q.label)}</span><i><b style="width:${Math.max(2, q.pct)}%;background:${q.pct >= 50 ? UP : DOWN}"></b></i><em>${q.pct}</em></div>`).join('')}</div>` : '';
-  const verdict = `<div class="gc-verdict ${bad}"><b>${headline}.</b> ${sg(b.gsax)} goals against an average goalie on the same shots${b.n ? ` over ${b.n} starts` : ''} (${playoffs ? 'this playoff run' : b.label}${season && gl ? `, ${fmt.ord(gl.rank)} of ${gl.of}` : ''}). ${b.sv != null && b.expSv != null ? `Save % ${sv3(b.sv)} against an expected ${sv3(b.expSv)}.` : ''}<div class="gc-chips">${chips}</div>${where ? `<p>${where}</p>` : ''}${bars}</div>`;
+  const bars = pts.length >= 3 ? `<div class="gc-bars" aria-label="NHL percentile by area">${pts.map((q) => `<div title="${esc(q.tip)}: ${esc(RADAR_FMT[q.key](q.value))}, ${ofN(q.rank)}"><span>${esc(q.label)}</span><i><b style="width:${Math.max(2, q.pct)}%;background:${q.pct >= 50 ? UP : DOWN}"></b></i><em>${q.pct}</em></div>`).join('')}</div>` : '';
+  const verdict = `<div class="gc-verdict ${bad}"><b>${headline}.</b> ${sg(b.gsax)} goals against an average goalie on the same shots${b.n ? ` over ${b.n} starts` : ''} (${playoffs ? 'this playoff run' : b.label}${season && gl ? `, ${ofN(gl)}` : ''}). ${b.sv != null && b.expSv != null ? `Save % ${sv3(b.sv)} against an expected ${sv3(b.expSv)}.` : ''}<div class="gc-chips">${chips}</div>${where ? `<p>${where}</p>` : ''}${bars}</div>`;
 
   const spider = radarChart(pts, n);
   const out = [spider ? `<div class="gc-top">${verdict}${spider}</div>` : verdict];
@@ -234,15 +235,15 @@ export function goalieSections(ctx) {
     <div class="gc-cols"${playoffs ? ' style="grid-template-columns:1fr"' : ''}>${playoffs ? '' : `<div><h3 class="pc-sub">Shots against him${shots ? ` <small>${shots.length} starts</small>` : ''}</h3>${fig(shotMap(shots))}
       <div class="gc-legend"><span><i style="background:#8b95a7"></i>Save</span><span><i style="background:${DOWN}"></i>Goal (tap to watch)</span><span><i class="ring"></i>Soft goal: outside the plate, under 6%</span></div></div>`}
     <div>${b.inSa != null && b.inSa + b.outSa > 0 ? `<div class="pq-grid pc-grid">${[
-      tile('Inside plate SV%', sv3(1 - b.inGa / b.inSa), `${b.inGa} goals on ${b.inSa} · league ${sv3(1 - lg.inRate)}`, cls(inVs)),
-      tile('Outside plate SV%', sv3(1 - b.outGa / b.outSa), `${b.outGa} goals on ${b.outSa} · league ${sv3(1 - lg.outRate)}`, cls(outVs)),
+      tile('Inside plate SV%', sv3(1 - b.inGa / b.inSa), `${b.inGa} goals on ${b.inSa} · NHL AVG ${sv3(1 - lg.inRate)}`, cls(inVs)),
+      tile('Outside plate SV%', sv3(1 - b.outGa / b.outSa), `${b.outGa} goals on ${b.outSa} · NHL AVG ${sv3(1 - lg.outRate)}`, cls(outVs)),
       tile('Inside vs avg', sg(inVs), 'goals', cls(inVs)), tile('Outside vs avg', sg(outVs), 'goals', cls(outVs)),
       tile('Soft goals', b.soft ?? 0, b.n ? `${((b.soft ?? 0) / b.n).toFixed(2)} per start` : '', (b.soft ?? 0) >= nStarts * 0.5 ? 'down' : ''),
       tile('Shots inside plate', fmt.pct(b.inSa / b.sa, 0), 'share of shots faced'),
-    ].join('')}</div><h3 class="pc-sub">Save % against the league, by area</h3>${fig(zoneChart(b, lg.inRate, lg.outRate))}<p class="pq-note">White tick = league save % on shots from that area. Home plate = the slot (19 ft either side of the net, out to the top of the circles).</p>`
+    ].join('')}</div><h3 class="pc-sub">Save % against the NHL AVG, by area</h3>${fig(zoneChart(b, lg.inRate, lg.outRate))}<p class="pq-note">White tick = NHL AVG save % on shots from that area. Home plate = the slot (19 ft either side of the net, out to the top of the circles).</p>`
       : unavailable(playoffs ? 'Shot areas and the shot map are built for regular seasons.' : rowHasPlate || b.last ? 'No shots in this stretch.' : 'Shot areas are not built for this season yet; they fill in as the backfill rebuilds it.')}</div></div>`));
   // 4 Consistency
-  const lgQs = lg.lgQsPct != null ? `league avg ${fmt.pct(lg.lgQsPct, 0)}` : '';
+  const lgQs = lg.lgQsPct != null ? `NHL AVG ${fmt.pct(lg.lgQsPct, 0)}` : '';
   out.push(sec('gc-con', 'Consistency', 'quality starts and the bad nights', `
     <div class="pq-grid pc-grid">${[
       b.qs != null ? tile('Quality starts', b.qs, `of ${b.n} starts`, '', QS_TIP(lgSv)) : '',
@@ -252,18 +253,18 @@ export function goalieSections(ctx) {
       b.soft != null && b.n ? tile('Soft goals/start', ((b.soft ?? 0) / nStarts).toFixed(2), season && me?.softPer != null ? ofN(rankAmong(lg.rows.map((g) => g.softPer), me.softPer, false)) + ' (fewest best)' : '') : '',
     ].join('')}</div>
     ${playoffs ? '' : `<h3 class="pc-sub">Every start, quality or not</h3>${fig(qsChart(starts?.slice(n ? -n : 0) ?? null, lgSv))}`}
-    <div class="gc-legend"${playoffs ? ' hidden' : ''}><span><i style="background:${BLUE}"></i>Quality start</span><span><i style="background:${DOWN}"></i>Not a quality start</span><span>Bar = save %, dashed line = league save % (${sv3(lgSv)})</span></div>
-    <p class="pq-note">${QS_TIP(lgSv)} The league plays to about ${fmt.pct(lg.lgQsPct ?? 0.54, 0)} quality starts.</p>`));
+    <div class="gc-legend"${playoffs ? ' hidden' : ''}><span><i style="background:${BLUE}"></i>Quality start</span><span><i style="background:${DOWN}"></i>Not a quality start</span><span>Bar = save %, dashed line = NHL AVG save % (${sv3(lgSv)})</span></div>
+    <p class="pq-note">${QS_TIP(lgSv)} The NHL AVG is about ${fmt.pct(lg.lgQsPct ?? 0.54, 0)} quality starts.</p>`));
   // 5 League rank
-  out.push(sec('gc-lg', 'Where he ranks', `among ${lg.rows.length} goalies with 5+ starts, ${playoffs ? 'this playoff run' : n ? 'season totals' : 'this season'}`, `${strips(lg, ctx.id)}<p class="pq-note">One dot per goalie, worse on the left and better on the right (soft goals flipped so fewer is right). Cyan = this goalie; the tick is the league median.</p>`));
+  out.push(sec('gc-lg', 'Where he ranks', `among ${lg.rows.length} goalies with 5+ starts, ${playoffs ? 'this playoff run' : n ? 'season totals' : 'this season'}`, `${strips(lg, ctx.id)}<p class="pq-note">One dot per goalie, worse on the left and better on the right (soft goals flipped so fewer is right). Cyan = this goalie; the tick is the NHL median.</p>`));
   // 6 Starter quality
   out.push(sec('gc-pick', 'Starter quality', 'what the research says is worth watching', `<div class="gc-cols"><div class="pq-grid pc-grid">${[
     pick?.id ? tile('Pick edge', sg(W.goalie * pick.value, 2), 'goals a game in our pick when he starts vs an average goalie') : '',
-    ours.gsaxRank ? tile('GSAx rank', fmt.ord(ours.gsaxRank.rank), `of ${ours.gsaxRank.of} goalies`) : '',
+    ours.gsaxRank ? tile('GSAx rank', ofN(ours.gsaxRank), `among ${ours.gsaxRank.of} NHL goalies`) : '',
   ].join('')}</div><div><p class="pq-note" style="margin-top:0"><b>What we tested</b> (6 seasons, 409,000 shots): save streaks, big saves, goalie pulls and last-5-starts form do not swing games or predict the next one, so goalies get no in-game momentum. Season-long skill is real (GSAx per shot repeats, split-half r .36), and the starter's GSAx this season and last (shrunk toward average) adds to our pre-game pick on the Scores page. <b>Pick edge</b> is that adjustment.</p></div></div>`));
   return out.join('');
 }
 
-const QS_TIP = (lgSv) => `Quality start: save % at least the league average this season${lgSv ? ` (${sv3(lgSv)})` : ''}, or under 20 shots with 2 goals or fewer allowed and a save % of .885+. A pulled starter is judged on the shots he faced; relief appearances don't count.`;
+const QS_TIP = (lgSv) => `Quality start: save % at least the NHL average this season${lgSv ? ` (${sv3(lgSv)})` : ''}, or under 20 shots with 2 goals or fewer allowed and a save % of .885+. A pulled starter is judged on the shots he faced; relief appearances don't count.`;
 
 export const lastStartsSection = (starts, playoffs) => sec('gc-last', 'Last 10 starts', 'tap a date for the box score', playoffs ? unavailable('Start-by-start lists are built for the regular season.') : lastStarts(starts));
