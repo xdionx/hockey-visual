@@ -20,6 +20,7 @@ main { max-width: 1200px; margin: 0 auto; padding: 8px 16px 40px; display: grid;
 .status { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin-bottom: 8px; display: flex; justify-content: space-between; gap: 8px; }
 .status.live { color: var(--live); }
 .status.live .label::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--live); margin-right: 6px; vertical-align: 1px; }
+.status.live .label:has(.int-ico)::before { display: none; }
 .status .venue { color: var(--muted); font-weight: 400; text-transform: none; letter-spacing: 0; }
 table.ls { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
 .ls th { font-size: 12px; font-weight: 600; color: var(--muted); text-align: center; padding: 2px 6px 6px; border-bottom: 1px solid var(--line); }
@@ -310,6 +311,8 @@ a.gc:hover { background: #2a3850; }
 .gstrip.dragging { cursor: grabbing; scroll-snap-type: none; user-select: none; }
 .gstrip.dragging * { pointer-events: none; }
 .gstrip { overscroll-behavior-x: contain; }
+/* With a mouse, snapping fights the drag and jumps on release; touch keeps its snap. */
+@media (hover: hover) and (pointer: fine) { .gstrip { scroll-snap-type: none; } }
 /* Scores page: lift the cards off the page background (they were dark on dark) */
 #games .game.cd { background: #182236; border-color: #34466a; box-shadow: 0 2px 14px rgba(0, 0, 0, .55), inset 0 1px 0 rgba(255, 255, 255, .05); }
 #games .cd .tb { background: linear-gradient(90deg, color-mix(in srgb, var(--team) 34%, #1b2740), #1b2740 88%); }
