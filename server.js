@@ -45,7 +45,7 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === '/data/odds.json') {
       try { return sendJson(res, 200, JSON.parse(await readFile(join(ROOT, 'data', 'odds.json'), 'utf8'))); } catch { return sendJson(res, 404, { error: 'no odds saved yet' }); }
     }
-    const se = url.pathname.match(/^\/data\/seasons\/(\d{8}(?:-p)?)\.json$/);
+    const se = url.pathname.match(/^\/data\/seasons\/(\d{8}(?:-p|-recent)?)\.json$/);
     if (se) return sendJson(res, 200, JSON.parse(await readFile(join(ROOT, 'data', 'seasons', `${se[1]}.json`), 'utf8')));
     const r = url.pathname.match(/^\/data\/raw\/(\d{10})\.json$/);
     if (r) return sendJson(res, 200, await getGameDetailRaw(r[1]));
