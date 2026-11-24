@@ -3,7 +3,7 @@
 // a highlight clip for every goal let in. Pure helpers live in ../src/goalieCard.js.
 import { esc, videoButton } from '../game/core.js';
 import { fmt } from './store.js';
-import { rankAmong, median, summarize, zoneVs } from '../src/goalieCard.js';
+import { rankAmong, median, summarize, zoneVs, radarPoints } from '../src/goalieCard.js';
 import { W } from '../src/predict.js';
 
 const UP = '#4ade80';
@@ -143,6 +143,27 @@ function strips(lg, id, row) {
   }).join('');
 }
 
+
+const RADAR_FMT = { gsax: (v) => sg(v, 2), sv: sv3, qs: (v) => fmt.pct(v, 0), inn: sv3, out: sv3, soft: (v) => v.toFixed(2) };
+
+/** The spider graph: an overall picture of the goalie against the league. The 50 ring is the league median. */
+export function radarChart(points, n) {
+  if (points.length < 3) return '';
+  const S = 320, c = S / 2, R = 108;
+  const ang = (i) => -Math.PI / 2 + (i * 2 * Math.PI) / points.length;
+  const pt = (i, f) => [c + Math.cos(ang(i)) * R * f, c + Math.sin(ang(i)) * R * f];
+  const poly = (f) => points.map((_, i) => pt(i, f).join(',')).join(' ');
+  const shape = points.map((q, i) => pt(i, Math.max(0.03, q.pct / 100)).join(',')).join(' ');
+  const avg = Math.round(points.reduce((a, q) => a + q.pct, 0) / points.length);
+  return `<figure class="gc-radar"><svg viewBox="-40 0 ${S + 80} ${S}" role="img" aria-label="Spider graph of league percentiles: ${points.map((q) => `${q.label} ${q.pct}`).join(', ')}">
+    ${[0.25, 0.5, 0.75, 1].map((f) => `<polygon points="${poly(f)}" fill="none" stroke="${f === 0.5 ? '#64748b' : '#26344f'}" stroke-width="${f === 0.5 ? 1.5 : 1}" ${f === 0.5 ? 'stroke-dasharray="4 3"' : ''}/>`).join('')}
+    ${points.map((_, i) => `<line x1="${c}" y1="${c}" x2="${pt(i, 1)[0]}" y2="${pt(i, 1)[1]}" stroke="#26344f"/>`).join('')}
+    <polygon points="${shape}" fill="${BLUE}" fill-opacity=".28" stroke="${BLUE}" stroke-width="2.4" stroke-linejoin="round"/>
+    ${points.map((q, i) => { const [x, y] = pt(i, Math.max(0.03, q.pct / 100)); const [lx, ly] = pt(i, 1.2); const a = Math.cos(ang(i)); return `<circle cx="${x}" cy="${y}" r="4.5" fill="${q.pct >= 50 ? UP : DOWN}" stroke="#0b1220" stroke-width="1.5"><title>${q.tip}: ${RADAR_FMT[q.key](q.value)}, ${fmt.ord(q.rank.rank)} of ${q.rank.of} (${q.pct}th percentile)</title></circle>
+      <text class="gc-rl" x="${lx}" y="${ly - 2}" text-anchor="${Math.abs(a) < 0.2 ? 'middle' : a > 0 ? 'start' : 'end'}">${esc(q.label)}</text><text class="gc-rv" x="${lx}" y="${ly + 10}" text-anchor="${Math.abs(a) < 0.2 ? 'middle' : a > 0 ? 'start' : 'end'}">${q.pct}</text>`; }).join('')}
+  </svg><figcaption>Overall picture: percentile vs the league's goalies, 100 = best. Dashed ring = league median.${n ? ' Season totals, not the last 10.' : ''} <b>Average ${avg}</b></figcaption></figure>`;
+}
+
 const pending = () => '<p class="pq-note gc-wait">Loading every start…</p>';
 const unavailable = (why) => `<p class="pq-note">${why}</p>`;
 
@@ -183,9 +204,12 @@ export function goalieSections(ctx) {
     b.soft != null ? `<span class="gc-chip ${b.soft >= nStarts * 0.5 ? 'bad' : 'ctx'}">${b.soft} soft goal${b.soft === 1 ? '' : 's'}</span>` : '',
     b.qs != null ? `<span class="gc-chip ${qsLg != null && b.qs / nStarts < qsLg - 0.08 ? 'bad' : qsLg != null && b.qs / nStarts > qsLg + 0.08 ? 'good' : 'ctx'}">QS ${b.qs}/${b.n}</span>` : '',
   ].join('');
-  const verdict = `<div class="gc-verdict ${bad}"><b>${headline}.</b> ${sg(b.gsax)} goals against an average goalie on the same shots${b.n ? ` over ${b.n} starts` : ''} (${playoffs ? 'this playoff run' : b.label}${season && gl ? `, ${fmt.ord(gl.rank)} of ${gl.of}` : ''}). ${b.sv != null && b.expSv != null ? `Save % ${sv3(b.sv)} against an expected ${sv3(b.expSv)}.` : ''}<div class="gc-chips">${chips}</div>${where ? `<p>${where}</p>` : ''}</div>`;
+  const pts = radarPoints(lg, ctx.id);
+  const bars = pts.length >= 3 ? `<div class="gc-bars" aria-label="League percentile by area">${pts.map((q) => `<div title="${esc(q.tip)}: ${esc(RADAR_FMT[q.key](q.value))}, ${fmt.ord(q.rank.rank)} of ${q.rank.of}"><span>${esc(q.label)}</span><i><b style="width:${Math.max(2, q.pct)}%;background:${q.pct >= 50 ? UP : DOWN}"></b></i><em>${q.pct}</em></div>`).join('')}</div>` : '';
+  const verdict = `<div class="gc-verdict ${bad}"><b>${headline}.</b> ${sg(b.gsax)} goals against an average goalie on the same shots${b.n ? ` over ${b.n} starts` : ''} (${playoffs ? 'this playoff run' : b.label}${season && gl ? `, ${fmt.ord(gl.rank)} of ${gl.of}` : ''}). ${b.sv != null && b.expSv != null ? `Save % ${sv3(b.sv)} against an expected ${sv3(b.expSv)}.` : ''}<div class="gc-chips">${chips}</div>${where ? `<p>${where}</p>` : ''}${bars}</div>`;
 
-  const out = [verdict];
+  const spider = radarChart(pts, n);
+  const out = [spider ? `<div class="gc-top">${verdict}${spider}</div>` : verdict];
   // 1 Results
   const n0 = now;
   out.push(sec('gc-res', 'Results', 'what the NHL box score says', `<div class="pq-grid pc-grid">${n && b.last
