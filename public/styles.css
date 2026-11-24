@@ -423,3 +423,6 @@ a.gc:hover .gc-play, a.gc:focus-visible .gc-play { transform: scale(1.08); filte
 .gc .nm .g-run strong { color: #fff; font-weight: 800; }
 .gc small.al { display: flex; flex-wrap: wrap; column-gap: 6px; white-space: normal; overflow: visible; }
 .gc .as { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+/* Logo badges: the logo fills its white circle (NHL logo files carry padding, so zoom in and crop). */
+.gc-face .logo, .gt-face .logo { overflow: hidden; }
+.gc-face .logo img, .gt-face .logo img { width: 100%; height: 100%; object-fit: contain; transform: scale(1.5); }
