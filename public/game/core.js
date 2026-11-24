@@ -52,9 +52,19 @@ export function contrastRatio(a, b) {
  * away) would put white names on white, so those use the team's darkest brand color instead.
  */
 export function teamPanel(accent, abbrev) {
-  if (contrastRatio(accent, '#ffffff') >= 1.6) return panelColor(accent);
+  if (contrastRatio(accent, '#ffffff') >= 1.6) return deepen(panelColor(accent), 3);
   const dark = [...(TEAM_COLORS[abbrev] ?? []), ...(TEAM_EXTRA[abbrev] ?? [])].sort((a, b) => luminance(a) - luminance(b))[0];
-  return panelColor(dark ?? '#334155');
+  return deepen(panelColor(dark ?? '#334155'), 3);
+}
+
+/**
+ * Darken a color (same hue) until white text on it reaches the given contrast. Every surface that carries
+ * white text on a team color goes through this, so a white or silver team color can never put white on white.
+ */
+export function deepen(h, min = 4.5) {
+  let [r, g, b] = hex(h);
+  for (let i = 0; i < 40 && contrastRatio(`#${[r, g, b].map((v) => Math.round(v).toString(16).padStart(2, '0')).join('')}`, '#ffffff') < min; i++) [r, g, b] = [r, g, b].map((v) => v * 0.93);
+  return `#${[r, g, b].map((v) => Math.round(v).toString(16).padStart(2, '0')).join('')}`;
 }
 
 /** Text color for a label sitting on a team color: white, or near-black when the color is light (Utah's white). */
@@ -187,7 +197,7 @@ export function strengthBadge(game, colors = null, cls = 'strength') {
   const color = side && colors ? colors[side] : null;
   const what = st.kind === 'pp' ? 'power play' : st.kind === 'empty-net' ? 'empty net' : 'even strength';
   const text = side ? `${game[side].abbrev} ${what}` : what;
-  return `<span class="${cls} ${st.kind}"${color ? ` style="--team:${color}"` : ''} title="${esc(`${text} ${st.label}`)}"><b>${esc(st.label)}</b>${esc(text)}${st.remaining ? ` <i>${esc(st.remaining)}</i>` : ''}</span>`;
+  return `<span class="${cls} ${st.kind}"${color ? ` style="--team:${color};--on:${onColor(color)}"` : ''} title="${esc(`${text} ${st.label}`)}"><b>${esc(st.label)}</b>${esc(text)}${st.remaining ? ` <i>${esc(st.remaining)}</i>` : ''}</span>`;
 }
 
 export function prettyDate(iso, opts = { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }) {

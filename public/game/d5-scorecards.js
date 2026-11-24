@@ -2,7 +2,7 @@
 // A modern take on HockeyStats-style player game cards; the start of the per-player scorecard.
 import { hero } from './d2-broadcast.js';
 import { colors, header as secHeader } from './d6-story.js';
-import { faceoffLine, esc, logo, teamColors, statusText, statusHtml, prettyDate, allSkaters, allGoalies, pct, signed, rinkMarkup, shotMark, headshot, ratingColor, GS_PARTS, on, morphInner, goalieXg, fold, penKind, elapsed, byRating, tieBreak, decisionLabel } from './core.js';
+import { faceoffLine, esc, logo, teamColors, statusText, statusHtml, prettyDate, allSkaters, allGoalies, pct, signed, rinkMarkup, shotMark, headshot, ratingColor, GS_PARTS, on, morphInner, goalieXg, fold, penKind, elapsed, byRating, tieBreak, decisionLabel, deepen } from './core.js';
 
 export const PART_COLORS = { scoring: '#6366f1', momentum: '#22c55e', shooting: '#0ea5e9', onIce: '#14b8a6', defense: '#a3a3a3', discipline: '#f59e0b', faceoffs: '#ec4899' };
 
@@ -164,7 +164,7 @@ function spot(game, c, best, scale, rank, players = []) {
     if (v == null) return '';
     return `<div class="s-part"><span><i style="background:${PART_COLORS[k]}"></i>${esc(label)}</span><b>${v > 0 ? '+' : ''}${v.toFixed(2)}</b></div>`;
   }).join('');
-  return `<section class="s-spot${rank > 1 ? ' s-spot-sub' : ''}" style="--team:${c[best.side]}">
+  return `<section class="s-spot${rank > 1 ? ' s-spot-sub' : ''}" style="--team:${deepen(c[best.side === 'away' ? 'panelAway' : 'panelHome'] ?? c[best.side])}">
     <div class="s-spot-l">${headshot(best, 's-spot-mug')}<div><span class="s-kicker">${rank === 1 ? 'Player of the game' : rank === 2 ? 'Second best player' : 'Third best player'}</span><h2>${esc(best.fullName)}</h2><span class="s-muted">#${best.number ?? ''} · ${esc(best.position)} · ${esc(game[best.side].name)}</span></div></div>
     <div class="s-spot-r">${ratingBadge(best.rating, true)}
       ${best.position === 'G' ? `<div class="s-parts"><div class="s-part"><span>Saves</span><b>${best.saves}/${best.shotsAgainst}</b></div><div class="s-part"><span>SV%</span><b>${pct(best.savePct)}</b></div>${best.gsax != null ? `<div class="s-part" title="Our own estimate from shot distance, angle and type"><span>GSAx</span><b>${best.gsax > 0 ? '+' : ''}${best.gsax.toFixed(1)}</b></div><div class="s-part" title="Actual save % minus expected save %"><span>SV% vs exp</span><b>${best.savePctAboveExpected > 0 ? '+' : ''}${(best.savePctAboveExpected * 100).toFixed(1)}%</b></div>` : ''}</div>` : `<div class="s-parts">${parts}</div>`}

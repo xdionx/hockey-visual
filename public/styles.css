@@ -97,7 +97,7 @@ h1::before { content: ""; width: 8px; height: 30px; background: var(--accent); t
 .strength b { padding: 1px 6px; border-radius: 2px; background: #334155; color: #fff; font-weight: 800; }
 .strength i { font-style: normal; color: #fff; }
 .strength.pp, .strength.empty-net { background: color-mix(in srgb, var(--team) 25%, #0a0e17); color: #fff; box-shadow: inset 3px 0 0 var(--team); }
-.strength.pp b, .strength.empty-net b { background: var(--team); }
+.strength.pp b, .strength.empty-net b { background: var(--team); color: var(--on, #fff); }
 .strength.pp { animation: strength-pulse 1.6s ease-in-out infinite; }
 @keyframes strength-pulse { 50% { box-shadow: inset 3px 0 0 var(--team), 0 0 0 3px color-mix(in srgb, var(--team) 35%, transparent); } }
 @media (prefers-reduced-motion: reduce) { .strength.pp { animation: none; } }
