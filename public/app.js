@@ -287,7 +287,7 @@ function goalChip(game, g, tc) {
   const tag = attrs ? 'a' : 'div';
   const logo = game[sideOf(game, g.team)]?.logo;
   const face = `<span class="gc-face"><span class="mug"><b>${esc(initials(g))}</b>${g.scorer.mugshot ? `<img src="${esc(g.scorer.mugshot)}" alt="" loading="lazy" onerror="this.remove()">` : ''}</span>${logo ? `<span class="logo"><img src="${esc(logo)}" alt="" loading="lazy" onerror="this.parentNode.remove()"></span>` : ''}</span>`;
-  return `<${tag} class="gc${attrs ? ' has-play' : ''}"${attrs ? ` ${attrs}` : ''} style="--team:${color}">${face}<span class="gc-txt"><b>${esc(g.scorer.lastName || g.scorer.name)}${g.scorer.goalsToDate != null ? ` <span class="cnt">(${g.scorer.goalsToDate})</span>` : ''}</b>${runningScore(game, g) ? `<small class="gc-run">${runningScore(game, g)}</small>` : ''}<small>${esc(when)}${strengthTags(g).map((t) => ` <em class="st">${t}</em>`).join('')}${nth ? ` <em class="nth">${nthLabel(nth)}</em>` : ''}</small><small>${assists}</small></span>${attrs ? `<span class="gc-play">${playIcon}</span>` : ''}</${tag}>`;
+  return `<${tag} class="gc${attrs ? ' has-play' : ''}"${attrs ? ` ${attrs}` : ''} style="--team:${color}">${face}<span class="gc-txt"><span class="nm"><b>${esc(g.scorer.lastName || g.scorer.name)}${g.scorer.goalsToDate != null ? ` <span class="cnt">(${g.scorer.goalsToDate})</span>` : ''}</b>${runningScore(game, g)}</span><small>${esc(when)}${strengthTags(g).map((t) => ` <em class="st">${t}</em>`).join('')}${nth ? ` <em class="nth">${nthLabel(nth)}</em>` : ''}</small><small class="al">${assists}</small></span>${attrs ? `<span class="gc-play">${playIcon}</span>` : ''}</${tag}>`;
 }
 
 /** A goal tile: who, assists, the running score and a play button. */

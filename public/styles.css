@@ -410,3 +410,16 @@ a.gc:hover .gc-play, a.gc:focus-visible .gc-play { transform: scale(1.08); filte
 /* Collapsed chips: an assist and its count never split across lines; the line wraps between players. */
 .gc .as { white-space: nowrap; }
 .gc .as:not(:last-child)::after { content: ","; }
+
+/* Goal chips v3: wider, bigger faces and logo badges, score next to the scorer, long assist names fit. */
+.gc { flex-basis: 260px; min-height: 72px; gap: 12px; }
+.gc.has-play { flex-basis: 316px; grid-template-columns: auto minmax(0, 1fr) 30px; }
+.gc-face, .gc-face .mug { width: 46px; height: 46px; }
+.gc-face .logo { right: -6px; bottom: -5px; width: 26px; height: 26px; }
+.gc-face .logo img { width: 20px; height: 20px; }
+.gc .nm { display: flex; align-items: baseline; gap: 8px; white-space: nowrap; min-width: 0; }
+.gc .nm b { display: inline; overflow: visible; }
+.gc .nm .g-run { font: 600 11px Inter, sans-serif; color: #8b97ab; }
+.gc .nm .g-run strong { color: #fff; font-weight: 800; }
+.gc small.al { display: flex; flex-wrap: wrap; column-gap: 6px; white-space: normal; overflow: visible; }
+.gc .as { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
