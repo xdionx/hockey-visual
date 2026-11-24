@@ -3,6 +3,8 @@ import '../horn.js'; // goal horns for games with a horn on, on every page
 // For each team: the areas it loses ground in (in goals per game against an average team), other warning
 // signs, and the players and goalies behind it, each with the numbers that explain why. Logic: src/deficiencies.js.
 import { loadSeason, currentSeason, fmt } from '../player/store.js';
+import { getStatic } from '../data.js';
+import { recentFile } from '../src/seasonStats.js';
 import { installPlayerLinks, playerLink } from '../player/link.js';
 import { esc, makeSortable, teamColor } from '../game/core.js';
 import { deficiencies, headline, onIceText, AREAS, ord } from '../src/deficiencies.js';
@@ -18,6 +20,10 @@ const cls = (v) => (v == null ? '' : v > 0.005 ? 'up' : v < -0.005 ? 'down' : ''
 const gpg = (v) => (v == null ? '-' : `${fmt.signed(v, 2)}`);
 
 let state = null;
+const recentCache = new Map();
+/** Each team's last 10 games of player lines (current season only), or null. */
+const loadRecent = (season) => { if (!recentCache.has(season)) recentCache.set(season, getStatic(`seasons/${recentFile(season)}`).catch(() => null)); return recentCache.get(season); };
+const opts = () => (state.last ? { last: LAST, recent: state.recent } : {});
 const LAST = 10;
 
 /** Season / Last 10 games switch for the team numbers (players and on-ice lists stay season-long). */
@@ -74,11 +80,11 @@ function areaWhy(a, team, last) {
   }
   const gs = team.goalies.filter((g) => g.gs > 0);
   const rows = gs.map((g) => `<li class="td-goalie"><span>${playerLink(g.id, g.name)} <small>${g.gs} start${g.gs === 1 ? '' : 's'}</small></span><b class="${cls(g.gsax)}">${fmt.signed(g.gsax, 1)}</b></li>`).join('');
-  const worst = gs.filter((g) => g.gs >= 3).sort((x, y) => x.gsax - y.gsax)[0];
+  const worst = gs.filter((g) => g.gs >= (team.playersLast ? 2 : 3)).sort((x, y) => x.gsax - y.gsax)[0];
   return [
     li(`Allows <b>${fmt.dec(a.goals, 2)}</b> goals a game on shots an average NHL goalie would let in ${fmt.dec(a.expected, 2)}.`),
-    !last && worst && worst.gsax <= -3 ? li(`Most of it is ${playerLink(worst.id, worst.name)}: ${worst.ga} goals on shots worth ${fmt.dec(worst.expGa, 1)} to an average goalie, in ${worst.gs} starts.`) : '',
-    rows ? `<li class="td-gl"><span class="td-gl-h">Goals saved above expected${last ? ' (whole season)' : ''}</span><ul>${rows}</ul></li>` : '',
+    worst && worst.gsax <= (team.playersLast ? -1.5 : -3) ? li(`Most of it is ${playerLink(worst.id, worst.name)}: ${worst.ga} goals on shots worth ${fmt.dec(worst.expGa, 1)} to an average goalie, in ${worst.gs} starts.`) : '',
+    rows ? `<li class="td-gl"><span class="td-gl-h">Goals saved above expected${last && !team.playersLast ? ' (whole season)' : ''}</span><ul>${rows}</ul></li>` : '',
   ].join('');
 }
 
@@ -102,9 +108,9 @@ function teamCard(r, team) {
     <p class="td-lede">${esc(headline(team))}</p>
     <div class="td-areas">${AREAS.map(([k]) => areaTile(team.areas[k], team, r.n, r.last)).join('')}</div>
     ${checks ? `<h3 class="pc-sub">Other warning signs${r.last ? ' <small>all games</small>' : ''}</h3><ul class="td-checks">${checks}</ul>` : ''}
-    <h3 class="pc-sub">Underperforming so far <small>${r.last ? 'whole season, not just the last games: ' : ''}goals below a typical player at the position this season; short-term, not a verdict on the player</small></h3>
+    <h3 class="pc-sub">Underperforming so far <small>${r.last ? (team.playersLast ? `last ${r.last} games, so the numbers are small and noisy: ` : 'whole season, since this season has no per-game player data: ') : ''}goals below a typical player at the position this season; short-term, not a verdict on the player</small></h3>
     ${players.length ? `<ul class="td-players">${players.map(playerRow).join('')}</ul>` : '<p class="pq-note">No skater with enough games is this far below a typical player yet.</p>'}
-    ${team.onIce?.length ? `<h3 class="pc-sub">The team does worse with them on the ice <small>${r.last ? 'whole season, ' : ''}and they are below a typical player on their own numbers</small></h3>
+    ${team.onIce?.length ? `<h3 class="pc-sub">The team does worse with them on the ice <small>${r.last && !team.playersLast ? 'whole season, ' : ''}and they are below a typical player on their own numbers</small></h3>
     <ul class="td-players">${team.onIce.map((r) => `<li class="td-player"><div class="td-player-h"><span class="td-pn">${playerLink(r.id, r.name)} <small>${esc(r.pos)} · ${r.gp} GP</small></span><span class="td-cost" title="${r.goalie ? "Share of points in his starts minus the team's other games" : "Share of shot attempts with him on the ice minus the team's other players at his position"}">${r.tag ?? `${fmt.signed(r.gap * 100, 0)} pts`}</span></div><ul class="td-why"><li>${r.text ?? onIceText(r)}</li></ul></li>`).join('')}</ul>
     <p class="pq-note">Skater shot attempts come from shift charts; goalies are judged on points in their starts. Usage matters (who he plays against, where shifts start, who he plays with), so treat this as a reason to watch the player, not a verdict. Needs 150+ minutes.</p>` : ''}
     <p class="pq-note">Player goals add momentum (0.023 goals per point, as in "How it was won") and scoring (finishing plus assists), each against the average forward or defenseman. Skaters need ${r.minGp}+ games; a traded player counts for their latest team.</p>
@@ -165,15 +171,17 @@ async function show(season) {
   state.season = season;
   const total = await loadSeason(season);
   state.total = total;
-  state.report = total ? deficiencies(total, state.last ? { last: LAST } : {}) : null;
+  state.recent = state.last ? await loadRecent(season) : null;
+  state.report = total ? deficiencies(total, opts()) : null;
   render();
 }
 
-main.addEventListener('click', (e) => {
+main.addEventListener('click', async (e) => {
   const b = e.target.closest('[data-span]');
   if (!b || !state.total) return;
   state.last = b.dataset.span === 'last';
-  state.report = deficiencies(state.total, state.last ? { last: LAST } : {});
+  if (state.last) state.recent = await loadRecent(state.season);
+  state.report = deficiencies(state.total, opts());
   syncUrl();
   render();
 });

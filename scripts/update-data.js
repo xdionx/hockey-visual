@@ -22,7 +22,7 @@ import { getScoreboard, getGameDetailRaw } from '../src/nhlApi.js';
 import { normalizeGameDetail } from '../src/gameDetail.js';
 import { normalizeScoreboard } from '../src/normalize.js';
 import { shotAttempts } from '../src/sat.js';
-import { emptySeason, addGame, fromPbp, linesFromDetail, seasonOf, seasonFile, SEASON_VERSION } from '../src/seasonStats.js';
+import { emptyRecent, addRecent, recentFile, emptySeason, addGame, fromPbp, linesFromDetail, seasonOf, seasonFile, SEASON_VERSION } from '../src/seasonStats.js';
 import { getPlayByPlay } from '../src/nhlApi.js';
 import { parsePartner, mergeOdds } from '../src/odds.js';
 import { predictGame } from '../src/predict.js';
@@ -111,6 +111,7 @@ for (let date = from; date <= today; date = shift(date, 1)) {
 // in their own file (<season>-p.json). Preseason games never count.
 const season = seasonOf(today);
 const totals = { 2: emptySeason(season, 2), 3: emptySeason(season, 3) };
+const recent = emptyRecent(season);
 let linesFetched = 0;
 for (const f of (await readdir(join(outDir, 'games'))).filter((x) => x.endsWith('.json')).sort()) {
   const g = JSON.parse(await readFile(join(outDir, 'games', f), 'utf8').catch(() => 'null'));
@@ -131,7 +132,9 @@ for (const f of (await readdir(join(outDir, 'games'))).filter((x) => x.endsWith(
   const toi = new Map(linesFromDetail(g).map((l) => [l.id, l.toi]));
   // On-ice shot attempts and goals per skater come from the box score's shift charts (when the game had them).
   const oi = new Map(g.hasShifts ? ['away', 'home'].flatMap((side) => [...(g.players?.[side]?.forwards ?? []), ...(g.players?.[side]?.defense ?? [])]).filter((s) => s.onIce).map((s) => [s.id, s.onIce]) : []);
-  addGame(total, saved.lines.map((l) => ({ ...l, toi: toi.get(l.id) ?? null, oi: oi.get(l.id) })), saved.game ?? null);
+  const merged = saved.lines.map((l) => ({ ...l, toi: toi.get(l.id) ?? null, oi: oi.get(l.id) }));
+  addGame(total, merged, saved.game ?? null);
+  if (g.gameType === 2) addRecent(recent, merged, Number(String(g.id).slice(-4)));
 }
 await mkdir(join(outDir, 'seasons'), { recursive: true });
 for (const total of Object.values(totals)) {
@@ -142,6 +145,15 @@ for (const total of Object.values(totals)) {
     total.updated = new Date().toISOString();
     total.complete = false;
     await writeFile(file, `${JSON.stringify(total)}\n`);
+    changed++;
+  }
+}
+// Each team's last 10 games of player lines, for the Team deficiencies "Last 10 games" view.
+if (totals[2].games) {
+  const rf = join(outDir, 'seasons', recentFile(season));
+  const body = `${JSON.stringify(recent)}\n`;
+  if ((await readFile(rf, 'utf8').catch(() => null)) !== body) {
+    await writeFile(rf, body);
     changed++;
   }
 }

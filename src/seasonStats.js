@@ -269,6 +269,43 @@ export function addGame(total, lines, game = null) {
   return total;
 }
 
+// Each team's last few games of player lines, kept in their own file (data/seasons/<season>-recent.json) so the
+// Team deficiencies "Last 10 games" view can rebuild player rows for a window. Replayed through addGame, so the
+// numbers match the season file's. Only the current season is kept (the Action rebuilds it every run).
+export const RECENT_GAMES = 10;
+export const recentFile = (season) => `${season}-recent.json`;
+export const emptyRecent = (season) => ({ season: Number(season), v: 1, names: {}, teams: {} });
+const LINE_KEYS = ['id', 'pos', 'mom', 'mp', 'mn', 'sat', 'sog', 'xg', 'xgg', 'g', 'a1', 'a2', 'toi', 'ga', 'xga', 'sa', 'sg', 'st'];
+
+/** Adds one game's lines (as given to addGame) to each team's list, keeping its latest RECENT_GAMES games. */
+export function addRecent(recent, lines, n) {
+  const byTeam = new Map();
+  for (const l of lines) {
+    if (!l.team) continue;
+    if (l.name) recent.names[l.id] = l.name;
+    const o = {};
+    for (const k of LINE_KEYS) if (l[k] != null) o[k] = l[k];
+    if (l.oi) o.oi = l.oi;
+    (byTeam.get(l.team) ?? byTeam.set(l.team, []).get(l.team)).push(o);
+  }
+  for (const [team, l] of byTeam) {
+    const list = (recent.teams[team] ??= []);
+    list.push({ n, l });
+    list.sort((a, b) => a.n - b.n);
+    while (list.length > RECENT_GAMES) list.shift();
+  }
+  return recent;
+}
+
+/** A season-shaped total (players only) for a team's last `last` games, or null when the file has none. */
+export function recentTotal(recent, team, last = RECENT_GAMES) {
+  const games = (recent?.teams?.[team] ?? []).slice(-last);
+  if (!games.length) return null;
+  const total = emptySeason(recent.season);
+  for (const g of games) addGame(total, g.l.map((l) => ({ ...l, name: recent.names?.[l.id] ?? '', team })));
+  return total;
+}
+
 /**
  * League-wide goals on a goalie per expected goal that season (from every skater row). Our xG only sees
  * distance, angle and shot type, so it runs low (the league scores 11-24% more than it expects); multiplying
