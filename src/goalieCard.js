@@ -120,3 +120,26 @@ export function summarize(starts) {
 
 /** Goals kept out (+) or let in (-) in a zone against the league goal rate there. */
 export const zoneVs = (sa, ga, rate) => (rate == null ? null : sa * rate - ga);
+
+/** Spider graph axes: each is the share of the league's goalies (5+ starts) he is ahead of, 0-100 (100 = best of all). */
+export const RADAR_AXES = [
+  { key: 'gsax', label: 'Saves vs exp', tip: 'GSAx per game', get: (g) => g.gsaxPerGame, hi: true },
+  { key: 'sv', label: 'Save %', tip: 'Save %', get: (g) => g.sv, hi: true },
+  { key: 'qs', label: 'Quality starts', tip: 'Quality start %', get: (g) => g.qsPct, hi: true },
+  { key: 'inn', label: 'Inside plate', tip: 'Save % inside the home plate', get: (g) => g.inSv, hi: true },
+  { key: 'out', label: 'Outside plate', tip: 'Save % outside the home plate', get: (g) => g.outSv, hi: true },
+  { key: 'soft', label: 'No soft goals', tip: 'Soft goals per start (fewer is better)', get: (g) => g.softPer, hi: false },
+];
+
+/** [{ key, label, tip, value, pct, rank }] for the axes this goalie has numbers for (league table from leagueGoalies). */
+export function radarPoints(lg, id) {
+  const me = lg.rows.find((g) => g.id === Number(id));
+  if (!me) return [];
+  return RADAR_AXES.map((a) => {
+    const vals = lg.rows.map(a.get).filter((v) => v != null);
+    const value = a.get(me);
+    if (value == null || vals.length < 3) return null;
+    const rank = rankAmong(vals, value, a.hi);
+    return { key: a.key, label: a.label, tip: a.tip, value, pct: Math.round(((rank.of - rank.rank) / (rank.of - 1)) * 100), rank };
+  }).filter(Boolean);
+}

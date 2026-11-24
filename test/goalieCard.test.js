@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { leagueGoalies, rankAmong, teamGameIds, startFromGame, summarize, median } from '../src/goalieCard.js';
+import { radarPoints, leagueGoalies, rankAmong, teamGameIds, startFromGame, summarize, median } from '../src/goalieCard.js';
 
 const g = (id, o = {}) => ({ n: `G${id}`, t: 'AAA', p: 'G', gp: 10, gs: 10, ga: 25, xga: 22, sa: 300, sg: 25, psa: 100, pga: 15, osa: 200, oga: 10, sf: 2, q: Array.from({ length: 10 }, (_, i) => (i < 5 ? [25, 1] : [25, 4])), ...o });
 const total = { season: 20262027, gameType: 2, games: 2, g: [[1, 'AAA', 'BBB', 3, 2, 0, 0, 0, 0, 0, 0, 'REG', 11, 22], [2, 'CCC', 'AAA', 1, 2, 0, 0, 0, 0, 0, 0, 'REG', 33, 11]], players: { 11: g(11), 12: g(12, { ga: 40, sg: 40 }), 13: g(13, { gs: 2 }) } };
@@ -50,4 +50,14 @@ test('a start is built from the game file: clips matched by period and time, pla
   assert.equal(sum.outGa, 1);
   assert.equal(sum.soft, 1);
   assert.equal(startFromGame(game, 5), null);
+});
+
+test('spider percentiles rank him among league goalies, soft goals flipped', async () => {
+  const lg = { rows: [1, 2, 3, 4, 5].map((i) => ({ id: i, gsaxPerGame: i, sv: i / 10, qsPct: i / 10, inSv: i / 10, outSv: i / 10, softPer: 5 - i })) };
+  const best = radarPoints(lg, 5);
+  assert.equal(best.length, 6);
+  assert.ok(best.every((p) => p.pct === 100));
+  const worst = radarPoints(lg, 1);
+  assert.ok(worst.every((p) => p.pct === 0));
+  assert.deepEqual(radarPoints(lg, 99), []);
 });
