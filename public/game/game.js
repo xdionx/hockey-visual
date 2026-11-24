@@ -291,6 +291,32 @@ function gameNames(g) {
   return playerIndex(people, { avoid });
 }
 
+// Score and clock come from the light scores feed (one small answer shared by every game that day), checked
+// every refresh. The heavy box score (box + play-by-play + shifts) is only fetched when that feed shows a new
+// goal or a new period, or every FULL_EVERY_MS to keep the stats current.
+const FULL_EVERY_MS = 5_000; // box score + play-by-play stay at 5s; only the scores feed polls at LIVE_REFRESH_MS (2s)
+let fullAt = 0;
+/** Score, clock, period and strength always come from the scores feed row, never from the box score. */
+function overlay(d, g) {
+  if (!g || d.status.state !== 'live' || g.status.state !== 'live') return d;
+  return { ...d, status: g.status, strength: g.strength ?? d.strength, away: { ...d.away, score: g.away.score }, home: { ...d.home, score: g.home.score } };
+}
+async function fastCheck() {
+  cancelLater(timer); timer = null;
+  try {
+    const day = await getData(`scores/${latest.gameDate}.json`);
+    const g = day?.games?.find((x) => String(x.id) === String(gameId));
+    const same = g && latest && g.status.state === 'live' && latest.status.state === 'live'
+      && g.away.score === latest.away.score && g.home.score === latest.home.score
+      && g.status.clock?.n === latest.status.clock?.n && Date.now() - fullAt < FULL_EVERY_MS;
+    if (!same) return load(true);
+    const data = overlay(latest, g);
+    if (!buf || buf.push(data, getDelay(gameId))) { latest = data; noteClock(data); }
+    await showDue();
+    timer = later(() => fastCheck(), LIVE_REFRESH_MS);
+  } catch { return load(true); }
+}
+
 async function load(quiet = false) {
   cancelLater(timer); timer = null;
   if (window.__radioShell) return; // this page now only hosts the radio; the page on screen is in the frame
@@ -316,7 +342,11 @@ async function load(quiet = false) {
     return;
   }
   try {
-    const data = await getData(`games/${gameId}.json`);
+    let data = await getData(`games/${gameId}.json`);
+    if (data?.status?.state === 'live') {
+      const day = await getData(`scores/${data.gameDate}.json`).catch(() => null);
+      data = overlay(data, day?.games?.find((x) => String(x.id) === String(gameId)));
+    }
     if (!data) {
       box.innerHTML = '<p class="msg">This box score isn\'t ready yet. Box scores appear once a game starts.</p>';
       return;
@@ -324,11 +354,12 @@ async function load(quiet = false) {
     if (!buf || buf.push(data, getDelay(gameId))) { latest = data; noteClock(data); }
     else latest ??= data; // a stale answer (older than what we have): keep showing the newer one
     await showDue();
-    if (data.status.state === 'live' || data.status.imminent) timer = later(() => load(true), LIVE_REFRESH_MS);
+    fullAt = Date.now();
+    if (data.status.state === 'live' || data.status.imminent) timer = later(() => fastCheck(), LIVE_REFRESH_MS);
     else if (data.status.state === 'pre' || data.status.settling) timer = later(() => load(true), 60_000);
   } catch (err) {
     if (!quiet) box.innerHTML = `<p class="msg">Couldn't load this box score: ${esc(err.message)}</p>`;
-    else timer = later(() => load(true), LIVE_REFRESH_MS);
+    else timer = later(() => load(true), 5_000);
   }
 }
 

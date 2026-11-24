@@ -28,7 +28,7 @@ export function getStatic(path, base = '') {
 }
 
 /** How long to wait before refreshing a page that shows live games. */
-export const LIVE_REFRESH_MS = live ? 5_000 : 60_000;
+export const LIVE_REFRESH_MS = live ? 2_000 : 60_000;
 
 // ── Timers that keep running in a background tab ──
 // Browsers slow down a hidden tab's setTimeout (Chrome: to once a minute after ~5 minutes hidden), which
