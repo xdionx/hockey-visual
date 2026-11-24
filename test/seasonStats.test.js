@@ -70,7 +70,9 @@ test('player profile from the landing feed', () => {
 test('game rows match from the box score and the play-by-play', async () => {
   const { gameFromDetail, fromPbp, gameObj } = await import('../src/seasonStats.js');
   const fromDetail = gameObj(gameFromDetail(normalizeGameDetail(raw)));
-  const pbpGame = gameObj(fromPbp(raw.pbp).game);
+  const pbpRow = fromPbp(raw.pbp).game;
+  const pbpGame = gameObj(pbpRow.slice(0, 14)); // the finishing and power-play fields (v9) come after these
+  assert.ok(Number.isInteger(gameObj(pbpRow).appo) && Number.isInteger(gameObj(pbpRow).hppo));
   assert.deepEqual(fromDetail, pbpGame);
   assert.equal(pbpGame.end, 'SO');
   assert.equal(pbpGame.n, 312);

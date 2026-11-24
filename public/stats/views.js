@@ -1,7 +1,7 @@
-// Momentum stats has two views: Stats (page.js, the default), Team deficiencies (deficiencies.js,
+// Momentum stats has four views: Stats (page.js, the default), Team deficiencies (deficiencies.js,
 // stats.html?view=teams) and League deficiencies (league.js, stats.html?view=league). Only the chosen view's module loads, so each view stays its own file.
 const params = new URLSearchParams(location.search);
-const view = ['teams', 'league'].includes(params.get('view')) ? params.get('view') : 'stats';
+const view = ['teams', 'league', 'compare'].includes(params.get('view')) ? params.get('view') : 'stats';
 
 document.querySelectorAll('[data-view]').forEach((a) => {
   const on = a.dataset.view === view;
@@ -16,7 +16,10 @@ document.querySelectorAll('[data-view]').forEach((a) => {
   });
 });
 document.body.dataset.view = view;
-if (view === 'league') {
+if (view === 'compare') {
+  document.title = 'Compare · Momentum stats';
+  import('./compare.js');
+} else if (view === 'league') {
   document.title = 'League deficiencies · Momentum stats';
   import('./league.js');
 } else if (view === 'teams') {
