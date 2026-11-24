@@ -411,6 +411,8 @@ function gameNames(game) {
 }
 
 function render(data) {
+  if (stripBusy()) { heldRender = data; return; } // finish the drag first
+  heldRender = null;
   saveStrips();
   $('#dateLabel').textContent = prettyDate(data.date);
   setTitle(data.date);
@@ -439,30 +441,70 @@ gamesEl.addEventListener('click', (e) => {
   if (current?.games) render(current);
 });
 
+// Mouse drag on a goal strip: follows the mouse 1:1 (one write per frame), then glides to a stop
+// after release, like a touch swipe. Live refreshes wait until the strip is still, so a rebuild
+// never yanks the strip out from under the mouse.
 let drag = null;
+let glide = null;
+let heldRender = null;
+const stripBusy = () => !!(drag?.moved || glide);
+function releaseRender() {
+  if (stripBusy() || !heldRender) return;
+  const data = heldRender;
+  heldRender = null;
+  render(data);
+}
+function stopGlide() { if (glide) { cancelAnimationFrame(glide.raf); glide.strip.classList.remove('dragging'); glide = null; } }
 gamesEl.addEventListener('pointerdown', (e) => {
   const strip = e.target.closest('.gstrip');
-  if (!strip || e.pointerType !== 'mouse' || e.button !== 0) return;
-  drag = { strip, x: e.clientX, left: strip.scrollLeft, moved: false };
+  stopGlide();
+  if (!strip || e.pointerType !== 'mouse' || e.button !== 0) { releaseRender(); return; }
+  drag = { strip, x: e.clientX, left: strip.scrollLeft, moved: false, samples: [], raf: 0, to: strip.scrollLeft };
 });
 window.addEventListener('pointermove', (e) => {
   if (!drag) return;
-  const dx = e.clientX - drag.x;
-  if (!drag.moved && Math.abs(dx) < 5) return;
-  drag.moved = true;
-  drag.strip.classList.add('dragging');
-  drag.strip.scrollLeft = drag.left - dx;
-});
+  if (!drag.moved) {
+    if (Math.abs(e.clientX - drag.x) < 5) return;
+    drag.moved = true;
+    drag.x = e.clientX; // start from here, so the strip doesn't jump by the 5px dead zone
+    drag.left = drag.strip.scrollLeft;
+    drag.strip.classList.add('dragging');
+  }
+  drag.to = drag.left - (e.clientX - drag.x);
+  drag.samples.push([e.timeStamp, e.clientX]);
+  if (drag.samples.length > 6) drag.samples.shift();
+  if (!drag.raf) drag.raf = requestAnimationFrame(() => { if (drag) { drag.raf = 0; drag.strip.scrollLeft = drag.to; } });
+}, { passive: true });
 window.addEventListener('pointerup', () => {
   if (!drag) return;
-  const { strip, moved } = drag;
+  const { strip, moved, samples, to } = drag;
+  cancelAnimationFrame(drag.raf);
   drag = null;
-  strip.classList.remove('dragging');
-  if (moved) { // a drag is not a click: swallow the click that follows so no video opens
-    const stop = (ev) => { ev.preventDefault(); ev.stopPropagation(); };
-    window.addEventListener('click', stop, { capture: true, once: true });
-    setTimeout(() => window.removeEventListener('click', stop, { capture: true }), 0);
-  }
+  if (!moved) { releaseRender(); return; }
+  strip.scrollLeft = to;
+  // a drag is not a click: swallow the click that follows so no video or player card opens
+  const stop = (ev) => { ev.preventDefault(); ev.stopPropagation(); };
+  window.addEventListener('click', stop, { capture: true, once: true });
+  setTimeout(() => window.removeEventListener('click', stop, { capture: true }), 0);
+  // Release speed from the last ~100ms of movement, in px per ms.
+  const recent = samples.filter((s) => samples[samples.length - 1][0] - s[0] < 100);
+  const [t0, x0] = recent[0] ?? [0, 0];
+  const [t1, x1] = recent[recent.length - 1] ?? [0, 0];
+  let v = t1 > t0 ? -(x1 - x0) / (t1 - t0) : 0;
+  const finish = () => { glide = null; strip.classList.remove('dragging'); releaseRender(); };
+  if (Math.abs(v) < 0.15 || matchMedia('(prefers-reduced-motion: reduce)').matches) { finish(); return; }
+  v = Math.max(-4, Math.min(4, v));
+  let last = performance.now();
+  const step = (now) => {
+    const dt = Math.min(32, now - last);
+    last = now;
+    const before = strip.scrollLeft;
+    strip.scrollLeft = before + v * dt;
+    v *= Math.pow(0.994, dt); // smooth ease-out
+    if (Math.abs(v) < 0.02 || strip.scrollLeft === before || !strip.isConnected) { finish(); return; }
+    glide.raf = requestAnimationFrame(step);
+  };
+  glide = { strip, raf: requestAnimationFrame(step) };
 });
 gamesEl.addEventListener('dragstart', (e) => { if (e.target.closest('.gstrip')) e.preventDefault(); });
 
