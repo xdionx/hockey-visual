@@ -384,3 +384,4 @@ a.gc:hover .gc-play, a.gc:focus-visible .gc-play { transform: scale(1.08); filte
 /* Goal strip: no fade over the last goal; scroll all the way to the right edge with a gap after the last tile. */
 .gstrip.at-end { mask-image: none; -webkit-mask-image: none; } /* fade only while more goals are off to the right */
 .gstrip::after { content: ""; flex: 0 0 14px; }
+.status.live .label::before { display: none; } /* no live dot before the period and clock */
