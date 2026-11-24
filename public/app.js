@@ -603,6 +603,33 @@ $('#prev').addEventListener('click', () => current && load(shiftDate(current.dat
 $('#next').addEventListener('click', () => current && load(shiftDate(current.date, 1)));
 $('#today').addEventListener('click', () => load());
 
+// Swipe the page sideways to change the day: left = next day, right = previous day.
+// Ignores swipes that start on horizontal scrollers (goal strips), inputs, or while the lightbox is open.
+{
+  let t = null;
+  const scrollsSideways = (el) => {
+    for (; el && el !== document.body; el = el.parentElement) {
+      if (el.scrollWidth > el.clientWidth + 2 && /(auto|scroll)/.test(getComputedStyle(el).overflowX)) return true;
+    }
+    return false;
+  };
+  document.addEventListener('touchstart', (e) => {
+    t = null;
+    if (e.touches.length !== 1 || lightbox.open || window.getSelection()?.toString()) return;
+    if (e.target.closest('input, select, textarea, dialog, .gstrip') || scrollsSideways(e.target)) return;
+    t = { x: e.touches[0].clientX, y: e.touches[0].clientY, at: Date.now() };
+  }, { passive: true });
+  document.addEventListener('touchend', (e) => {
+    if (!t) return;
+    const { x, y, at } = t; t = null;
+    const c = e.changedTouches[0];
+    const dx = c.clientX - x, dy = c.clientY - y;
+    if (Math.abs(dx) < 70 || Math.abs(dx) < Math.abs(dy) * 2 || Date.now() - at > 800 || !current) return;
+    load(shiftDate(current.date, dx < 0 ? 1 : -1));
+  }, { passive: true });
+  document.addEventListener('touchcancel', () => { t = null; }, { passive: true });
+}
+
 load(new URLSearchParams(location.search).get('date'));
 installPlayerLinks();
 startClocks();
