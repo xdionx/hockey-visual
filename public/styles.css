@@ -392,3 +392,6 @@ a.gc:hover .gc-play, a.gc:focus-visible .gc-play { transform: scale(1.08); filte
 .cd .status .strength { margin-left: 8px; }
 @media (max-width: 520px) { .cd .status .gtype + .venue { display: none; } }
 .cd .status .live-clock { text-transform: none; }
+/* Goal strip: no fade over the last goal; scroll all the way to the right edge with a gap after the last tile. */
+.gstrip { mask-image: none; -webkit-mask-image: none; }
+.gstrip::after { content: ""; flex: 0 0 14px; }
