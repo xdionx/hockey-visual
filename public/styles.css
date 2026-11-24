@@ -418,3 +418,7 @@ a.gc:hover .gc-play, a.gc:focus-visible .gc-play { transform: scale(1.08); filte
 .g-run { display: inline-flex; align-items: center; gap: 6px; padding: 1px 8px; border-radius: 999px; background: rgba(255, 255, 255, .07); font: 600 11px/1.5 Inter, sans-serif; letter-spacing: .03em; color: #8b97ab; font-variant-numeric: tabular-nums; }
 .g-run .g-sc { padding: 0 2px; font-weight: 700; color: #e2e8f0; }
 .g-run strong, .gt-who .g-run strong, .gc .gc-run .g-run strong { font: inherit; font-weight: 800; color: #fff; }
+
+/* Collapsed chips: an assist and its count never split across lines; the line wraps between players. */
+.gc .as { white-space: nowrap; }
+.gc .as:not(:last-child)::after { content: ","; }
