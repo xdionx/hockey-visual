@@ -41,6 +41,7 @@ function hero(p) {
       <span class="pc-team">${esc(p.teamName ?? '')}</span>
       <dl class="pc-facts">${facts.map(([k, v]) => `<div><dt>${k}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>
     </div>
+    ${p.teamLogo ? `<img class="pc-logo" src="${esc(p.teamLogo)}" alt="${esc(p.teamName ?? '')}" onerror="this.remove()">` : ''}
   </section>`;
 }
 
