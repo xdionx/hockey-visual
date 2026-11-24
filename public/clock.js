@@ -12,7 +12,14 @@ function anchor(id, clock, seenAt) {
   const key = `${clock.n}|${clock.s}|${clock.run}|${clock.int}`;
   const a = anchors.get(String(id));
   if (a?.key === key) return a.t;
-  const t = Math.min(Date.now(), seenAt ?? Date.now());
+  // Undelayed: start from when any page of this browser first saw the reading (shared clock log), so the
+  // Scores page and the box score count from the same moment instead of each from its own refresh.
+  let first = null;
+  if (seenAt == null) {
+    const e = readClockLog(id).findLast((r) => r[1] === clock.n && r[2] === clock.s && r[3] === (clock.run ? 1 : 0) && r[4] === (clock.int ? 1 : 0));
+    if (e) first = e[0];
+  }
+  const t = Math.min(Date.now(), seenAt ?? first ?? Date.now());
   anchors.set(String(id), { key, t });
   return t;
 }
