@@ -7,7 +7,7 @@ import '../horn.js'; // goal horns for games with a horn on, on every page
 import { loadSeason, currentSeason, fmt, typeToggle, getStatsType, setStatsType, GAME_TYPES } from '../player/store.js';
 import { installPlayerLinks, playerLink } from '../player/link.js';
 import { esc, makeSortable, teamColor } from '../game/core.js';
-import { leaderboard, minGames, FIRST_FULL_SEASON } from '../src/seasonStats.js';
+import { leaderboard, minGames, qsBoard, teamQualityStarts, QS_LOW_SHOTS, QS_MAX_GA, QS_MIN_SV, FIRST_FULL_SEASON } from '../src/seasonStats.js';
 import { seasonModel } from '../src/momentumModel.js';
 import { compare, BOOK_NAMES, EDGE_MIN } from '../src/odds.js';
 import { getStatic } from '../data.js';
@@ -171,7 +171,11 @@ function scatter(teams, key, playoffs = false) {
     <text class="ms-ax" transform="translate(11 ${pad.t + (H - pad.t - pad.b) / 2}) rotate(-90)" text-anchor="middle">${playoffs ? 'Win %' : 'Points %'}</text></svg></div>`;
 }
 
-function teamsCard(m) {
+const qsTip = (lgSv) => `A quality start is a game the starting goalie gives you a real chance to win: his save % is at least the league average this season${lgSv ? ` (${lgSv.toFixed(3).replace(/^0/, '')})` : ''}, or he faced under ${QS_LOW_SHOTS} shots, allowed ${QS_MAX_GA} goals or fewer and saved at least ${String(QS_MIN_SV).replace(/^0/, '')}. A goalie pulled mid-game is judged on the shots he faced; relief appearances don't count.`;
+
+function teamsCard(m, total) {
+  const tq = teamQualityStarts(total);
+  const lg = qsBoard(total).lgSv;
   if (!m.teams.length) return '';
   const po = !!m.playoffs;
   const rows = m.teams.slice().sort((a, b) => b.ptsPct - a.ptsPct).map((t) => `<tr style="--team:${teamColor(t.abbrev)}">
@@ -179,7 +183,8 @@ function teamsCard(m) {
     <td data-v="${t.ptsPct}"><b>${pct(t.ptsPct)}</b></td><td data-v="${t.gdPerGame}">${fmt.signed(t.gdPerGame, 2)}</td>
     <td class="pc-o" data-v="${t.ngShare ?? ''}">${pct(t.ngShare)}</td><td class="pc-o" data-v="${t.momShare}">${pct(t.momShare)}</td>
     <td data-v="${t.satShare}">${pct(t.satShare)}</td><td data-v="${t.momPerGame}" class="pc-o ${t.momPerGame >= 0 ? 'up' : 'down'}">${fmt.signed(t.momPerGame, 1)}</td>
-    <td class="${t.gaa > 0 ? 'up' : t.gaa < 0 ? 'down' : ''}" data-v="${t.gaa ?? ''}">${fmt.signed(t.gaa, 1)}</td></tr>`).join('');
+    <td class="${t.gaa > 0 ? 'up' : t.gaa < 0 ? 'down' : ''}" data-v="${t.gaa ?? ''}">${fmt.signed(t.gaa, 1)}</td>
+    ${tq[t.abbrev] ? `<td data-v="${tq[t.abbrev].qs}" title="${qsTip(lg)}">${tq[t.abbrev].qs}</td><td data-v="${tq[t.abbrev].qsPct}" title="${qsTip(lg)}">${pct(tq[t.abbrev].qsPct, 0)}</td>` : '<td class="pc-na">-</td><td class="pc-na">-</td>'}</tr>`).join('');
   return card('Teams', po ? 'momentum share against playoff wins' : 'momentum share against the standings', `
     <div class="ms-toggle" role="group" aria-label="Chart">
       <button type="button" data-x="ngShare" aria-pressed="true">Momentum, no goals <small>r ${r2(m.fit.ng)}</small></button>
@@ -191,8 +196,9 @@ function teamsCard(m) {
     <div class="pc-scroll"><table class="pc-table sortable"><thead><tr><th class="l" data-sort>Team</th><th data-sort>GP</th>${po
         ? '<th class="l" title="Playoff record: an overtime loss is a loss">W-L</th><th class="l" data-sort title="Overtime record: overtime wins - overtime losses (also counted in W-L)">OT W-L</th><th data-sort data-dir="desc" title="Share of playoff games won">Win %</th>'
         : '<th class="l" title="Wins, losses, and overtime plus shootout losses (OTL and SOL both earn a point, as in NHL standings)">W-L-OTL</th><th data-sort data-dir="desc">Pts %</th>'}<th data-sort title="Goal differential per game">GD/GP</th>
-      <th class="pc-o" data-sort title="Share of the momentum both teams built, goals left out">MOM% no goals</th><th class="pc-o" data-sort title="Share of all momentum, goals included">MOM%</th><th data-sort title="Share of shot attempts (Corsi for %)">SAT%</th><th class="pc-o" data-sort title="Momentum built minus momentum given up, per game">MOM +/− /GP</th><th data-sort title="Finishing: goals scored minus what average NHL shooters would score from the same shots. Not part of momentum.">Goals vs avg</th></tr></thead>
-      <tbody>${rows}</tbody></table></div>`, 'ms-teams');
+      <th class="pc-o" data-sort title="Share of the momentum both teams built, goals left out">MOM% no goals</th><th class="pc-o" data-sort title="Share of all momentum, goals included">MOM%</th><th data-sort title="Share of shot attempts (Corsi for %)">SAT%</th><th class="pc-o" data-sort title="Momentum built minus momentum given up, per game">MOM +/− /GP</th><th data-sort title="Finishing: goals scored minus what average NHL shooters would score from the same shots. Not part of momentum.">Goals vs avg</th><th data-sort title="${qsTip(lg)}">QS</th><th data-sort title="${qsTip(lg)}">QS%</th></tr></thead>
+      <tbody>${rows}</tbody></table></div>
+    <p class="pq-note">QS = quality starts: games where the team's starting goalie gave it a real chance to win. QS% is the share of starts (hover a header for the exact rule). Goalies count for their latest team.</p>`, 'ms-teams');
 }
 
 const PLAYER_COLS = [
@@ -402,6 +408,17 @@ function labCard(lab, view) {
     <details class="ms-fold"><summary>What each version changes</summary><ul class="ml-notes">${lab.versions.map((v) => `<li><b>${esc(v.name)}</b>: ${esc(v.note || '')}</li>`).join('')}</ul></details>`, 'ml-card');
 }
 
+// Goalies: quality starts and the share of starts that were one.
+function goalieCard(total, showAll) {
+  const { board, lgSv, minStarts } = qsBoard(total);
+  if (!board.length) return card('Goalies', 'quality starts', '<p class="pq-note">No quality start numbers in this season file yet. They fill in as the season is rebuilt.</p>', 'ms-goalie-card');
+  const shown = showAll ? board : board.slice(0, 30);
+  const rows = shown.map((r) => `<tr><td data-v="${r.rank}">${r.rank}</td><td class="l">${playerLink(r.id, r.n)}</td><td class="l">${esc(r.t)}</td><td>${r.gp}</td><td>${r.starts}</td><td class="pc-o" data-v="${r.qs}">${r.qs}</td><td class="pc-o" data-v="${r.qsPct}"><b>${pct(r.qsPct, 0)}</b></td><td data-v="${1 - r.sg / r.sa}">${fmt.sv(1 - r.sg / r.sa)}</td></tr>`).join('');
+  return card('Goalies', `quality starts, ${board.length} goalies with ${minStarts}+ starts`, `
+    <p class="ms-lede">A <b>quality start</b> is a game where the starting goalie gave his team a real chance to win. ${qsTip(lgSv)}</p>
+    <div class="pc-scroll"><table class="pc-table sortable"><thead><tr><th data-sort>#</th><th class="l" data-sort>Goalie</th><th class="l" data-sort>Team</th><th data-sort>GP</th><th data-sort>GS</th><th class="pc-o" data-sort title="Quality starts">QS</th><th class="pc-o" data-sort data-dir="desc" title="Quality starts divided by games started">QS%</th><th data-sort title="Season save %">SV%</th></tr></thead><tbody>${rows}</tbody></table></div>
+    ${board.length > shown.length ? `<button type="button" class="ms-more" data-gmore>Show all ${board.length}</button>` : ''}`, 'ms-goalie-card');
+}
 let state = null;
 
 function render() {
@@ -428,10 +445,11 @@ function render() {
     <div class="pc-cols">
       ${modelCard(m, season, sel.state, playoffs)}
       ${m.games ? card('Win % by share of the game', 'does a bigger edge mean more wins?', `${binsChart(m.bins)}<p class="pq-note">Every game counts twice, once from each side. A model that works climbs from left to right; a steeper climb means it separates winners from losers better.</p>${binsTable(m.bins)}`) : ''}
-      ${teamsCard(m)}
+      ${teamsCard(m, total)}
       ${playersCard(total, pos, showAll, state.team)}
       ${finishingCard(total, m, state.finView, state.finPos, state.finAll, state.finTeam)}
       ${scoringCard(total, state.scoPos, state.scoAll, state.scoTeam)}
+      ${goalieCard(total, state.gAll)}
       ${trendsCard(list)}
       ${regularOnly}
     </div>`;
@@ -521,6 +539,7 @@ main.addEventListener('click', async (e) => {
     redrawSco();
     return;
   }
+  if (e.target.closest('[data-gmore]')) { state.gAll = true; swapCard('.ms-goalie-card', goalieCard(selected().total, true)); return; }
   const p = e.target.closest('[data-pos]');
   if (p) { state.pos = p.dataset.pos || null; state.showAll = false; redrawPlayers(); return; }
   if (e.target.closest('[data-more]')) { state.showAll = true; redrawPlayers(); return; }
@@ -566,7 +585,7 @@ async function start() {
   const type = getStatsType();
   const [list, lab, odds] = await Promise.all([listOf(type), fetch('model-lab.json').then((r) => (r.ok ? r.json() : null)).catch(() => null), getStatic('odds.json').catch(() => null)]);
   const asked = Number(params.get('season'));
-  state = { type, list, lab, odds, labView: 'all', season: list.some((s) => s.season === asked) ? asked : defaultSeason(list, type), pos: null, showAll: false, finView: 'players', finPos: null, finAll: false, scoPos: null, scoAll: false };
+  state = { type, list, lab, odds, labView: 'all', season: list.some((s) => s.season === asked) ? asked : defaultSeason(list, type), pos: null, showAll: false, finView: 'players', finPos: null, finAll: false, scoPos: null, scoAll: false, gAll: false };
   const teams = teamsOf(selected()?.total);
   const want = (k) => { const t = (params.get(k) || '').toUpperCase(); return teams.includes(t) ? t : null; };
   state.team = want('team');

@@ -15,7 +15,8 @@ const main = document.querySelector('#player');
 installPlayerLinks();
 
 const initials = (n) => String(n ?? '?').split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase();
-const tile = (label, value, sub = '', cls = '') => `<div class="pq-t ${cls}"><span class="pq-v">${value}</span><span class="pq-k">${label}</span>${sub ? `<span class="pq-s">${sub}</span>` : ''}</div>`;
+const QS_TIP = (o) => `Quality start: save % at least the league average this season${o.lgSv ? ` (${fmt.sv(o.lgSv)})` : ''}, or under 20 shots with 2 goals or fewer allowed and a save % of .885+. A pulled starter is judged on the shots he faced; relief appearances don't count.`;
+const tile = (label, value, sub = '', cls = '', tip = '') => `<div class="pq-t ${cls}"${tip ? ` title="${tip.replace(/"/g, '&quot;')}"` : ''}><span class="pq-v">${value}</span><span class="pq-k">${label}</span>${sub ? `<span class="pq-s">${sub}</span>` : ''}</div>`;
 
 function hero(p) {
   const facts = [
@@ -59,6 +60,8 @@ function goalieOurs(p, ours, pick) {
       ${tile('Goals against', ours.ga, `avg goalie ${fmt.dec(ours.xgaAvg)} on the same shots`, 'pq-ours')}
       ${sa ? tile('SV% vs exp', svPts(ours.gsax / sa), `expected ${fmt.sv(xsv)} on these shots`, 'pq-ours') : ''}
       ${tile('Starts', ours.starts, `${ours.gp} games played`, 'pq-ours')}
+      ${ours.qs != null ? tile('Quality starts', ours.qs, `${rankBit(ours.qsRank) || 'good games started'}`, 'pq-ours', QS_TIP(ours)) : ''}
+      ${ours.qs != null ? tile('QS%', fmt.pct(ours.qsPct, 0), 'share of starts', 'pq-ours', QS_TIP(ours)) : ''}
       ${pick?.id ? tile('Pick edge', fmt.signed(W.goalie * pick.value, 2), 'goals a game in our pick when starting, vs an average goalie', 'pq-ours') : ''}
     </div>
     <p class="pq-note">GSAx is how many goals this goalie kept out beyond what an average NHL goalie would allow on the same shots (distance, angle and shot type, our own estimate). Goalie skill is real over a season, but in six seasons of tests save streaks, big saves and goalie pulls didn't swing games, so goalies get no in-game momentum.${pick?.id ? ' What does help is who starts: <b>Pick edge</b> is what the goalie\'s GSAx this season and last (shrunk toward average) adds to our pre-game pick on the Scores page.' : ''}</p>`;
@@ -150,11 +153,11 @@ function seasonsTable(p, rows, v) {
     return { gp, sat: have.reduce((a, r) => a + r.ours.row.sat, 0) / gp, mom: have.reduce((a, r) => a + r.ours.row.mom, 0) / gp, seasons: have.length, gaa: have.some((r) => r.ours.gaa != null) ? have.reduce((a, r) => a + (r.ours.gaa ?? 0), 0) : null, xgg };
   })();
   const goalieCells = (r) => {
-    if (r.season < FIRST_FULL_SEASON) return '<td class="pc-na" title="No full play-by-play before 2009-10">n/a</td><td class="pc-na">n/a</td>';
-    if (r.ours?.gsax == null) return `<td class="pc-na" title="${r.built ? 'No games in our data' : 'Still being built'}">${r.built ? '-' : '…'}</td><td class="pc-na">${r.built ? '-' : '…'}</td>`;
+    if (r.season < FIRST_FULL_SEASON) return '<td class="pc-na" title="No full play-by-play before 2009-10">n/a</td><td class="pc-na">n/a</td><td class="pc-na">n/a</td><td class="pc-na">n/a</td>';
+    if (r.ours?.gsax == null) return `<td class="pc-na" title="${r.built ? 'No games in our data' : 'Still being built'}">${r.built ? '-' : '…'}</td><td class="pc-na">${r.built ? '-' : '…'}</td><td class="pc-na">${r.built ? '-' : '…'}</td><td class="pc-na">${r.built ? '-' : '…'}</td>`;
     const part = !r.ours.complete && r.season !== p.currentSeason;
     const t = r.ours.gsaxRank ? ` title="${fmt.ord(r.ours.gsaxRank.rank)} of ${r.ours.gsaxRank.of} goalies with 5+ starts"` : '';
-    return `<td class="pc-o ${r.ours.gsax >= 0 ? 'up' : 'down'}${part ? ' pc-part' : ''}"${t}>${fmt.signed(r.ours.gsax, 1)}${part ? '*' : ''}</td><td class="pc-o${part ? ' pc-part' : ''}">${r.ours.svVsExp == null ? '-' : svPts(r.ours.svVsExp)}</td>`;
+    return `<td class="pc-o ${r.ours.gsax >= 0 ? 'up' : 'down'}${part ? ' pc-part' : ''}"${t}>${fmt.signed(r.ours.gsax, 1)}${part ? '*' : ''}</td><td class="pc-o${part ? ' pc-part' : ''}">${r.ours.svVsExp == null ? '-' : svPts(r.ours.svVsExp)}</td><td class="pc-o">${r.ours.qs ?? '-'}</td><td class="pc-o">${r.ours.qsPct == null ? '-' : fmt.pct(r.ours.qsPct, 0)}</td>`;
   };
   const ourCells = (r) => {
     if (p.goalie) return goalieCells(r);
@@ -169,17 +172,17 @@ function seasonsTable(p, rows, v) {
     return `<td class="pc-o"${t(r.ours.satRank)}>${fmt.dec(r.ours.satPerGame)}</td><td class="pc-o ${r.ours.momPerGame >= 0 ? 'up' : 'down'}"${t(r.ours.momRank)}>${fmt.signed(r.ours.momPerGame, 1)}</td>${fin}`;
   };
   const head = p.goalie
-    ? `<th class="l">Season</th><th class="l">Team</th><th>GP</th><th>W</th><th>L</th>${v.playoffs ? '' : '<th>OTL</th>'}<th>SV%</th><th>GAA</th><th>SO</th><th class="pc-o" title="Goals saved above expected (our model)">GSAx</th><th class="pc-o" title="Save % minus what an average goalie would stop on the same shots">SV% vs exp</th>`
+    ? `<th class="l">Season</th><th class="l">Team</th><th>GP</th><th>W</th><th>L</th>${v.playoffs ? '' : '<th>OTL</th>'}<th>SV%</th><th>GAA</th><th>SO</th><th class="pc-o" title="Goals saved above expected (our model)">GSAx</th><th class="pc-o" title="Save % minus what an average goalie would stop on the same shots">SV% vs exp</th><th class="pc-o" title="Quality starts: save % at least the league average, or under 20 shots with 2 goals or fewer and .885+">QS</th><th class="pc-o" title="Quality starts divided by games started">QS%</th>`
     : '<th class="l">Season</th><th class="l">Team</th><th>GP</th><th>G</th><th>A</th><th>P</th><th>+/-</th><th>PIM</th><th>TOI/GP</th><th class="pc-o" title="Own shot attempts per game (our model)">SAT/GP</th><th class="pc-o" title="Momentum impact per game (our model)">MOM/GP</th><th class="pc-o" title="Goals scored minus what an average NHL shooter would score from the same shots">Goals vs avg</th>';
   const line = (r, label = fmt.season(r.season), team = r.team, ours = ourCells(r)) => (p.goalie
     ? `<td class="l">${label}</td><td class="l">${esc(team)}</td><td>${r.gp}</td><td>${r.wins}</td><td>${r.losses}</td>${v.playoffs ? '' : `<td>${r.otLosses}</td>`}<td>${fmt.sv(r.savePct)}</td><td>${fmt.dec(r.gaa, 2)}</td><td>${r.shutouts}</td>${ours}`
     : `<td class="l">${label}</td><td class="l">${esc(team)}</td><td>${r.gp}</td><td>${r.goals}</td><td>${r.assists}</td><td><b>${r.points}</b></td><td>${fmt.signed(r.plusMinus, 0)}</td><td>${r.pim}</td><td>${fmt.toi(r.toiPerGame)}</td>${ours}`);
   const careerGoalie = (() => {
     const have = rows.filter((r) => r.ours?.gsax != null);
-    if (!have.length) return '<td></td><td></td>';
+    if (!have.length) return '<td></td><td></td><td></td><td></td>';
     const gsax = have.reduce((a, r) => a + r.ours.gsax, 0);
     const sa = have.reduce((a, r) => a + (r.shotsAgainst ?? 0), 0);
-    return `<td class="pc-o ${gsax >= 0 ? 'up' : 'down'}" title="Added up across the ${have.length} seasons we have">${fmt.signed(gsax, 1)}</td><td class="pc-o">${sa ? svPts(gsax / sa) : '-'}</td>`;
+    return `<td class="pc-o ${gsax >= 0 ? 'up' : 'down'}" title="Added up across the ${have.length} seasons we have">${fmt.signed(gsax, 1)}</td><td class="pc-o">${sa ? svPts(gsax / sa) : '-'}</td>${(() => { const q = have.filter((r) => r.ours.qs != null); const st = q.reduce((a, r) => a + r.ours.qsStarts, 0); const n = q.reduce((a, r) => a + r.ours.qs, 0); return st ? `<td class="pc-o">${n}</td><td class="pc-o">${fmt.pct(n / st, 0)}</td>` : '<td></td><td></td>'; })()}`;
   })();
   const careerCells = p.goalie ? careerGoalie : careerOurs ? `<td class="pc-o" title="Across the ${careerOurs.seasons} seasons we have">${fmt.dec(careerOurs.sat)}</td><td class="pc-o">${fmt.signed(careerOurs.mom, 1)}</td><td class="pc-o" title="Added up across the seasons we have">${fmt.signed(careerOurs.gaa, 1)}</td>` : '<td></td><td></td><td></td>';
   const career = v.career ? `<tr class="pc-tot">${line(v.career, v.playoffs ? 'Career playoffs' : 'Career', `${v.list.length} season${v.list.length === 1 ? '' : 's'}`, careerCells)}</tr>` : '';
