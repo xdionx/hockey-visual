@@ -69,7 +69,7 @@ export function startClocks() {
   background: #f59e0b; color: #111; font: 700 12px/1.6 Inter, system-ui, sans-serif; letter-spacing: .02em; white-space: nowrap; vertical-align: middle; }
 .timeout-chip.tv { background: #334155; color: #e8edf5; }
 .timeout-chip .to-ico { width: 13px; height: 13px; }
-.int-ico { width: 1.9em; height: 1.1em; margin-right: .3em; vertical-align: -.2em; flex: none; }`;
+.int-ico { transform: scaleX(-1); width: 1.9em; height: 1.1em; margin-right: .3em; vertical-align: -.2em; flex: none; }`;
   document.head.append(css);
 }
 
