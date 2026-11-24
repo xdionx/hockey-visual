@@ -296,6 +296,11 @@ function gameNames(g) {
 // goal or a new period, or every FULL_EVERY_MS to keep the stats current.
 const FULL_EVERY_MS = 30_000;
 let fullAt = 0;
+/** Score, clock, period and strength always come from the scores feed row, never from the box score. */
+function overlay(d, g) {
+  if (!g || d.status.state !== 'live' || g.status.state !== 'live') return d;
+  return { ...d, status: g.status, strength: g.strength ?? d.strength, away: { ...d.away, score: g.away.score }, home: { ...d.home, score: g.home.score } };
+}
 async function fastCheck() {
   cancelLater(timer); timer = null;
   try {
@@ -305,7 +310,7 @@ async function fastCheck() {
       && g.away.score === latest.away.score && g.home.score === latest.home.score
       && g.status.clock?.n === latest.status.clock?.n && Date.now() - fullAt < FULL_EVERY_MS;
     if (!same) return load(true);
-    const data = { ...latest, status: g.status, strength: g.strength ?? latest.strength };
+    const data = overlay(latest, g);
     if (!buf || buf.push(data, getDelay(gameId))) { latest = data; noteClock(data); }
     await showDue();
     timer = later(() => fastCheck(), LIVE_REFRESH_MS);
@@ -337,7 +342,11 @@ async function load(quiet = false) {
     return;
   }
   try {
-    const data = await getData(`games/${gameId}.json`);
+    let data = await getData(`games/${gameId}.json`);
+    if (data?.status?.state === 'live') {
+      const day = await getData(`scores/${data.gameDate}.json`).catch(() => null);
+      data = overlay(data, day?.games?.find((x) => String(x.id) === String(gameId)));
+    }
     if (!data) {
       box.innerHTML = '<p class="msg">This box score isn\'t ready yet. Box scores appear once a game starts.</p>';
       return;
