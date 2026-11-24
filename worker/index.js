@@ -37,7 +37,7 @@ export function ttlFor(state, gameDate, today, settling = false) {
 /** Scoreboard TTL: the shortest of its games (an empty date counts as finished). */
 export function scoreboardTtl(board, today) {
   const states = board.games.map((g) => g.status.state);
-  if (states.includes('live') || board.games.some((g) => g.status.imminent)) return 5 * SECOND;
+  if (states.includes('live') || board.games.some((g) => g.status.imminent)) return 2 * SECOND; // the scores feed is tiny and shared: keep it as fresh as the NHL's own ~15s updates allow
   if (states.includes('pre') || board.games.some((g) => g.status.settling)) return 60 * SECOND;
   return ttlFor('final', board.date, today);
 }
