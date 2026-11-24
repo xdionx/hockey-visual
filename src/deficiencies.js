@@ -211,7 +211,7 @@ function goalieOnIce(goalies) {
  * { rate, teams: [{ abbrev, gp, w, l, otl, ptsPct, ptsRank, areas: { play, finishing, goaltending }, trouble, strengths,
  *   checks: [...], players: [...], goalies: [...] }], n }
  */
-export function deficiencies(total) {
+export function deficiencies(total, { last = null } = {}) {
   const list = (total?.g ?? []).map(gameObj);
   if (!list.length) return null;
   const rate = leagueRate(total);
@@ -219,7 +219,14 @@ export function deficiencies(total) {
   const sbase = scoringBase(total);
   const pos = leagueBase(total, rate, minGp, sbase);
   const byTeam = teamGames(list);
-  const base = teamTable(list).map((t) => {
+  const seasonRows = teamTable(list);
+  const seasonBy = new Map(seasonRows.map((t) => [t.abbrev, t]));
+  // "Last N games": each team's own most recent N games make up its row, ranked against the other teams' last N.
+  const windowRows = last ? seasonRows.map((t) => {
+    const mine = list.filter((g) => g.away === t.abbrev || g.home === t.abbrev).sort((a, b) => a.n - b.n).slice(-last);
+    return teamTable(mine).find((x) => x.abbrev === t.abbrev) ?? t;
+  }) : seasonRows;
+  const base = windowRows.map((t) => {
     const fin = t.finGp ? { finishing: (t.ggF - t.xgF * rate) / t.finGp, goaltending: (t.xgA * rate - t.ggA) / t.finGp } : { finishing: null, goaltending: null };
     return {
       ...t,
@@ -258,7 +265,7 @@ export function deficiencies(total) {
     Object.assign(areas.goaltending, { goals: t.ggAPg, expected: t.xgAPg });
 
     const games = byTeam.get(t.abbrev) ?? [];
-    const checks = situational(games, t);
+    const checks = situational(games, last ? seasonBy.get(t.abbrev) : t);
     const players = skaterRows(total, t.abbrev, rate, minGp, pos, sbase);
     const trouble = AREAS.map(([k]) => areas[k]).filter((a) => a.trouble).sort((a, b) => a.value - b.value);
     const strengths = AREAS.map(([k]) => areas[k]).filter((a) => a.strength).sort((a, b) => b.value - a.value);
@@ -273,7 +280,7 @@ export function deficiencies(total) {
       areas, trouble, strengths, checks, players: dragging, goalies,
     };
   });
-  return { rate, n, minGp, pos: { F: { mom: pos.F.mom, below: pos.F.below }, D: { mom: pos.D.mom, below: pos.D.below } }, teams };
+  return { rate, n, minGp, last: last || null, pos: { F: { mom: pos.F.mom, below: pos.F.below }, D: { mom: pos.D.mom, below: pos.D.below } }, teams };
 }
 
 /**
