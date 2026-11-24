@@ -387,7 +387,11 @@ function gameHtml(game) {
 // A refresh rebuilds the cards, so remember where each strip was scrolled to.
 const stripPos = new Map();
 function saveStrips() { gamesEl.querySelectorAll('.cd').forEach((c) => { const st = c.querySelector('.gstrip'); if (st) stripPos.set(c.dataset.id, st.scrollLeft); }); }
-function restoreStrips() { gamesEl.querySelectorAll('.cd').forEach((c) => { const st = c.querySelector('.gstrip'); if (st && stripPos.has(c.dataset.id)) st.scrollLeft = stripPos.get(c.dataset.id); }); }
+function restoreStrips() { gamesEl.querySelectorAll('.cd').forEach((c) => { const st = c.querySelector('.gstrip'); if (st && stripPos.has(c.dataset.id)) st.scrollLeft = stripPos.get(c.dataset.id); }); markStripEnds(); }
+/** The right-edge fade means "more goals this way"; at the end the last tile shows crisp. */
+function markStripEnds() { gamesEl.querySelectorAll('.gstrip').forEach((st) => st.classList.toggle('at-end', st.scrollLeft + st.clientWidth >= st.scrollWidth - 2)); }
+gamesEl.addEventListener('scroll', (e) => { if (e.target.classList?.contains('gstrip')) markStripEnds(); }, true);
+window.addEventListener('resize', markStripEnds);
 
 /** Goal scorers and assists in one game, so their names link to player cards. */
 const namesCache = new Map();
