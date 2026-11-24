@@ -39,7 +39,7 @@ export function typeToggle(type, cls = '') {
 function qsRankOf(total, id) {
   const { board } = qsBoard(total);
   const hit = board.find((r) => r.id === Number(id));
-  return hit ? { rank: hit.rank, of: board.length } : null;
+  return hit ? { rank: hit.rank, of: board.length, tied: board.filter((r) => r.rank === hit.rank).length > 1 } : null;
 }
 
 function goalieRank(total, id) {

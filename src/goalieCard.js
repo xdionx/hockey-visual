@@ -46,7 +46,7 @@ export function leagueGoalies(total, minStarts = LEAGUE_MIN_STARTS) {
 export function rankAmong(values, v, higherBetter = true) {
   const vals = values.filter((x) => x != null);
   if (v == null || !vals.length) return null;
-  return { rank: 1 + vals.filter((x) => (higherBetter ? x > v : x < v)).length, of: vals.length };
+  return { rank: 1 + vals.filter((x) => (higherBetter ? x > v : x < v)).length, of: vals.length, tied: vals.filter((x) => x === v).length > 1 };
 }
 
 export const median = (values) => {

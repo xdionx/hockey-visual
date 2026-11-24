@@ -13,8 +13,9 @@ test('league table keeps goalies with enough starts and a league QS%', () => {
 });
 
 test('rankAmong ranks best first and skips nulls', () => {
-  assert.deepEqual(rankAmong([1, 2, 3, null], 3), { rank: 1, of: 3 });
-  assert.deepEqual(rankAmong([1, 2, 3], 1, false), { rank: 1, of: 3 });
+  assert.deepEqual(rankAmong([1, 2, 3, null], 3), { rank: 1, of: 3, tied: false });
+  assert.deepEqual(rankAmong([3, 3, 1], 3), { rank: 1, of: 3, tied: true });
+  assert.deepEqual(rankAmong([1, 2, 3], 1, false), { rank: 1, of: 3, tied: false });
   assert.equal(rankAmong([1, 2], null), null);
   assert.equal(median([3, 1, 2]), 2);
 });
