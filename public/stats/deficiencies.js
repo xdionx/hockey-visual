@@ -8,6 +8,7 @@ import { recentFile } from '../src/seasonStats.js';
 import { installPlayerLinks, playerLink } from '../player/link.js';
 import { esc, makeSortable, teamColor } from '../game/core.js';
 import { deficiencies, headline, onIceText, AREAS, ord } from '../src/deficiencies.js';
+import { tagChips, goalieZones } from './tags.js';
 
 installPlayerLinks();
 const main = document.querySelector('#stats');
@@ -89,10 +90,34 @@ function areaWhy(a, team, last) {
 }
 
 function playerRow(p) {
+  const flagOnly = p.cost > -0.05;
   return `<li class="td-player">
-    <div class="td-player-h"><span class="td-pn">${playerLink(p.id, p.name)} <small>${esc(p.pos)} · ${p.gp} ${p.goalie ? "starts" : "GP"}</small></span><span class="td-cost" title="Goals below a typical player at the position so far: momentum plus scoring, with early finishing luck mostly discounted">${fmt.signed(p.cost, 1)} goals</span></div>
+    <div class="td-player-h"><span class="td-pn">${playerLink(p.id, p.name)} <small>${esc(p.pos)} · ${p.gp} ${p.goalie ? "starts" : "GP"}</small></span>${flagOnly ? '<span class="td-flagonly" title="Flagged for a specific area, no total cost">area flag only</span>' : `<span class="td-cost" title="Goals below a typical player at the position so far: momentum plus scoring, with early finishing luck mostly discounted">${fmt.signed(p.cost, 1)} goals</span>`}</div>
+    ${tagChips(p.reasons)}
     <ul class="td-why">${p.reasons.map((r) => `<li>${r.text}</li>`).join('')}</ul>
   </li>`;
+}
+
+/** Second row of tiles: power play, penalty kill, discipline, faceoffs (goals per game where it makes sense). */
+function specialTiles(team) {
+  const sp = team.special;
+  if (!sp) return '';
+  const tile = (a, valueTxt, unit, why) => `<div class="td-area ${a.trouble ? 'td-bad' : ''}"><div class="td-area-k">${a.label}${a.trouble ? '<span class="td-tag td-tag-bad">Trouble spot</span>' : ''}</div>
+    <div class="td-area-v ${cls(a.key === 'disc' ? -a.value : a.value - (a.key === 'fo' ? a.league : 0))}">${valueTxt}<small> ${unit}</small></div><div class="td-area-r">${ord(a.rank)} of 32</div><ul class="td-why"><li>${why}</li></ul></div>`;
+  return `<div class="dx-areas2">
+    ${tile(sp.pp, gpg(sp.pp.value), 'goals / game', `${pct(sp.pp.rate, 0)} on ${sp.pp.opp} chances (league ${pct(sp.pp.league, 0)}).`)}
+    ${tile(sp.pk, gpg(sp.pk.value), 'goals / game', `${pct(sp.pk.rate, 0)} killed in ${sp.pk.opp} times short (league ${pct(sp.pk.league, 0)}).`)}
+    ${tile(sp.disc, fmt.dec(sp.disc.taken, 1), 'penalties / game', `Draws ${fmt.dec(sp.disc.drawn, 1)} a game, ${fmt.signed(sp.disc.value, 1)} net.`)}
+    ${sp.fo ? tile(sp.fo, pct(sp.fo.value, 1), 'won', `League average is ${pct(sp.fo.league, 1)}.`) : ''}
+  </div>`;
+}
+
+/** Goalies with the split of where their goals come from. */
+function goalieBlock(team) {
+  const gs = team.goalies.filter((g) => g.gs > 0 && g.areas);
+  if (!gs.length) return '';
+  const rows = gs.map((g) => `<li class="td-player"><div class="td-player-h"><span class="td-pn">${playerLink(g.id, g.name)} <small>G · ${g.gs} start${g.gs === 1 ? '' : 's'}</small></span><span class="td-cost ${cls(g.gsax)}" style="${g.gsax >= 0 ? 'color:#4ade80' : ''}">${fmt.signed(g.gsax, 1)} goals</span></div>${tagChips(g.flags.map((f) => ({ k: f.k })), g.gsax <= -1.5 ? ['gsax'] : [])}${goalieZones(g.areas)}${g.flags.length ? `<ul class="td-why">${g.flags.map((f) => `<li>${f.text}</li>`).join('')}</ul>` : ''}</li>`).join('');
+  return `<h3 class="pc-sub">Goalies <small>where the goals come from: outside vs inside the home plate${team.playersLast ? ', last 10 games' : ''}</small></h3><ul class="td-players" style="grid-template-columns:1fr">${rows}</ul>`;
 }
 
 function teamCard(r, team) {
@@ -107,6 +132,8 @@ function teamCard(r, team) {
     </div>
     <p class="td-lede">${esc(headline(team))}</p>
     <div class="td-areas">${AREAS.map(([k]) => areaTile(team.areas[k], team, r.n, r.last)).join('')}</div>
+    ${specialTiles(team)}
+    ${goalieBlock(team)}
     ${checks ? `<h3 class="pc-sub">Other warning signs${r.last ? ' <small>all games</small>' : ''}</h3><ul class="td-checks">${checks}</ul>` : ''}
     <h3 class="pc-sub">Underperforming so far <small>${r.last ? (team.playersLast ? `last ${r.last} games, so the numbers are small and noisy: ` : 'whole season, since this season has no per-game player data: ') : ''}goals below a typical player at the position this season; short-term, not a verdict on the player</small></h3>
     ${players.length ? `<ul class="td-players">${players.map(playerRow).join('')}</ul>` : '<p class="pq-note">No skater with enough games is this far below a typical player yet.</p>'}
@@ -123,11 +150,11 @@ function overview(r, selected) {
     const cell = (a) => `<td class="pc-o ${cls(a.value)}${a.trouble ? ' td-hot' : ''}" data-v="${a.value ?? ''}">${gpg(a.value)} <small>${ord(a.rank)}</small></td>`;
     return `<tr data-pick="${t.abbrev}" style="--team:${teamColor(t.abbrev)}"${t.abbrev === selected ? ' aria-selected="true"' : ''}>
       <td class="l ms-team"><button type="button" class="td-pick" data-pick="${t.abbrev}">${t.abbrev}</button></td><td data-v="${t.ptsPct}">${pct(t.ptsPct)}</td>
-      ${AREAS.map(([k]) => cell(t.areas[k])).join('')}<td class="l">${leak ? leak.label : '<span class="td-none">None</span>'}</td><td data-v="${t.players.length}">${t.players.length}</td></tr>`;
+      ${AREAS.map(([k]) => cell(t.areas[k])).join('')}${t.special ? cell(t.special.pp) + cell(t.special.pk) : '<td></td><td></td>'}<td class="l">${leak ? leak.label : '<span class="td-none">None</span>'}</td><td data-v="${t.players.filter((p) => p.cost <= -1.5).length}">${t.players.filter((p) => p.cost <= -1.5).length}</td></tr>`;
   }).join('');
   return `<section class="pc-card td-all"><h2>Where every team loses ground <small>goals per game against an average team${r.last ? `, last ${r.last} games` : ''}</small></h2>
     <div class="pc-scroll"><table class="pc-table sortable"><thead><tr><th class="l" data-sort>Team</th><th data-sort>Pts %</th>
-      ${AREAS.map(([, l], i) => `<th class="pc-o" data-sort title="Goals per game above (+) or below (−) an average team">${l}</th>`).join('')}<th class="l">Biggest leak</th><th data-sort title="Skaters 1.5+ goals below a typical player at the position this season">Underperforming</th></tr></thead>
+      ${AREAS.map(([, l], i) => `<th class="pc-o" data-sort title="Goals per game above (+) or below (−) an average team">${l}</th>`).join('')}<th class="pc-o" data-sort title="Goals per game vs the league power-play rate">Power play</th><th class="pc-o" data-sort title="Goals per game vs the league penalty-kill rate">Penalty kill</th><th class="l">Biggest leak</th><th data-sort title="Skaters 1.5+ goals below a typical player at the position this season">Underperforming</th></tr></thead>
       <tbody>${rows}</tbody></table></div>
     <p class="pq-note">Worst record first. Tap a team to see its card. Red cells are trouble spots: bottom third of the league, or a tenth of a goal a game below average.</p>
   </section>`;
@@ -142,7 +169,7 @@ function intro() {
       <li><b>Goaltending</b>: goals an average NHL goalie would allow on the shots faced, minus goals actually allowed.</li>
     </ul>
     <p>For players, the finishing part uses the separate <b>Scoring</b> stat, which adds <b>playmaking</b> to finishing: goals above what an average shooter would score from the same shots, plus assists above an average forward or defenseman (each assist worth about 3/4 of a goal). A player with few goals but plenty of assists isn't flagged as a poor finisher. Team finishing is unchanged, since every goal already has its assists.</p>
-    <p>Power play, penalty kill and back-to-backs aren't in the season files yet, so they aren't scored here.</p>
+    <p>Below those, <b>Power play</b> and <b>Penalty kill</b> are goals per game against the league rate, <b>Discipline</b> is penalties taken and drawn, and <b>Faceoffs</b> is the share of draws won. Players and goalies carry colored tags for the specific area that is weak: shot volume (shots on goal per attempt), penalties, faceoffs, and for goalies goals allowed outside or inside the home plate. Seasons before 2026-27 get these once rebuilt. Back-to-backs aren't scored yet.</p>
   </details></section>`;
 }
 
