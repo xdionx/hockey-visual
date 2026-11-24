@@ -351,14 +351,6 @@ function teamBlock(game, side, tc, big) {
 
 // The data delay button sits in the card footer while a game can still be on (radio + horn icons are in the team rows).
 const footExtra = (game) => (game.status.state === 'final' ? '' : delayButton(game, waitFor.get(game.id)));
-/** "⏱ 40s behind live" on a card whose data is held back. */
-function delayTag(game) {
-  const s = getDelay(game.id);
-  if (!s || !delayable(game)) return '';
-  const w = waitFor.get(game.id);
-  return `<span class="dly" title="Data delay for video/audio is on for this game">⏱ ${w ? `syncing, ${Math.ceil(w / 1000)}s` : `${delayLabel(s)} behind live`}</span>`;
-}
-
 /** Preseason and playoff games get a tag; they never count toward our season stats (regular season only). */
 const GAME_TYPES = { 1: ['pre', 'Preseason'], 3: ['po', 'Playoffs'] };
 function typeTag(game) {
@@ -382,7 +374,7 @@ function gameHtml(game) {
     game.video?.condensed ? videoLink(game.video.condensed, game.video.condensedId, `${game.away.abbrev} @ ${game.home.abbrev} · Condensed game`, 'Condensed') : '',
   ].join('');
   return `<article class="game cd ph-${phase(game)}" data-id="${game.id}" style="--away:${tc.away};--home:${tc.home}">
-    <div class="status ${game.status.state}"><span class="label">${clockSpan(game, statusText(game), seenFor.get(game.id))}${strengthBadge(game, tc)}</span><span class="venue">${typeTag(game)}${delayTag(game)}${esc(game.venue)}</span></div>
+    <div class="status ${game.status.state}"><span class="label">${clockSpan(game, statusText(game), seenFor.get(game.id), true)}${strengthBadge(game, tc)}</span><span class="hdr-r">${typeTag(game)}<span class="venue" title="${esc(game.venue)}">${esc(game.venue)}</span></span></div>
     <div class="tbs">${teamBlock(game, 'away', tc, true)}${teamBlock(game, 'home', tc, true)}</div>
     ${statLines(game, tc)}
     ${predictionLine(game, tc)}

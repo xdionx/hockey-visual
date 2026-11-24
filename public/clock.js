@@ -32,14 +32,14 @@ const ZAMBONI = '<svg class="int-ico" viewBox="0 0 160 92" role="img" aria-label
  * The status text for a game, as a span the ticker keeps counting down. label = what the page shows otherwise.
  * seenAt (ms) = when this reading should have reached the viewer (after any delay), if the page knows.
  */
-export function clockSpan(game, label, seenAt) {
+export function clockSpan(game, label, seenAt, short = false) {
   const live = game?.status?.state === 'live';
   const icon = live && (game.status.clock?.int || /Intermission/i.test(game.status.label ?? '')) ? ZAMBONI : '';
   const c = live && !inSim() ? game.status.clock : null;
   if (!c || c.s == null || !c.p) return icon + esc(label);
   const t = anchor(game.id, c, seenAt);
   const secs = clockNow(c, Date.now() - t);
-  return `${icon}<span class="live-clock" data-clk="${esc(JSON.stringify({ ...c, t }))}">${esc(clockLabel(c, secs))}</span>`;
+  return `${icon}<span class="live-clock" data-clk="${esc(JSON.stringify({ ...c, t, ...(short ? { short: 1 } : {}) }))}">${esc(lab(c, secs))}</span>`;
 }
 
 /** Icon + "BUF Timeout" / "TV Timeout" while a timeout is on (box score data only). */
@@ -50,11 +50,14 @@ export function timeoutChip(game) {
   return `<span class="timeout-chip${to.team ? '' : ' tv'}" title="${esc(text)}">${CLOCK_ICO}${esc(text)}</span>`;
 }
 
+/** The clock text; `short` (Scores cards) writes INT for Intermission. */
+const lab = (c, secs) => { const t = clockLabel(c, secs); return c.short ? t.replace('Intermission', 'INT') : t; };
+
 function tick() {
   const now = Date.now();
   for (const el of document.querySelectorAll('[data-clk]')) {
     let c; try { c = JSON.parse(el.dataset.clk); } catch { continue; }
-    const text = clockLabel(c, clockNow(c, now - c.t));
+    const text = lab(c, clockNow(c, now - c.t));
     if (el.textContent !== text) el.textContent = text;
   }
 }
