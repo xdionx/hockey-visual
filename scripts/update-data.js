@@ -22,7 +22,7 @@ import { getScoreboard, getGameDetailRaw } from '../src/nhlApi.js';
 import { normalizeGameDetail } from '../src/gameDetail.js';
 import { normalizeScoreboard } from '../src/normalize.js';
 import { shotAttempts } from '../src/sat.js';
-import { emptySeason, addGame, fromPbp, linesFromDetail, seasonOf, seasonFile, SEASON_VERSION } from '../src/seasonStats.js';
+import { emptyRecent, addRecent, recentFile, emptySeason, addGame, fromPbp, linesFromDetail, seasonOf, seasonFile, SEASON_VERSION } from '../src/seasonStats.js';
 import { getPlayByPlay } from '../src/nhlApi.js';
 import { parsePartner, mergeOdds } from '../src/odds.js';
 import { predictGame } from '../src/predict.js';
@@ -111,6 +111,7 @@ for (let date = from; date <= today; date = shift(date, 1)) {
 // in their own file (<season>-p.json). Preseason games never count.
 const season = seasonOf(today);
 const totals = { 2: emptySeason(season, 2), 3: emptySeason(season, 3) };
+const recent = emptyRecent(season);
 let linesFetched = 0;
 for (const f of (await readdir(join(outDir, 'games'))).filter((x) => x.endsWith('.json')).sort()) {
   const g = JSON.parse(await readFile(join(outDir, 'games', f), 'utf8').catch(() => 'null'));
@@ -131,7 +132,9 @@ for (const f of (await readdir(join(outDir, 'games'))).filter((x) => x.endsWith(
   const toi = new Map(linesFromDetail(g).map((l) => [l.id, l.toi]));
   // On-ice shot attempts and goals per skater come from the box score's shift charts (when the game had them).
   const oi = new Map(g.hasShifts ? ['away', 'home'].flatMap((side) => [...(g.players?.[side]?.forwards ?? []), ...(g.players?.[side]?.defense ?? [])]).filter((s) => s.onIce).map((s) => [s.id, s.onIce]) : []);
-  addGame(total, saved.lines.map((l) => ({ ...l, toi: toi.get(l.id) ?? null, oi: oi.get(l.id) })), saved.game ?? null);
+  const merged = saved.lines.map((l) => ({ ...l, toi: toi.get(l.id) ?? null, oi: oi.get(l.id) }));
+  addGame(total, merged, saved.game ?? null);
+  if (g.gameType === 2) addRecent(recent, merged, Number(String(g.id).slice(-4)));
 }
 await mkdir(join(outDir, 'seasons'), { recursive: true });
 for (const total of Object.values(totals)) {
@@ -142,6 +145,15 @@ for (const total of Object.values(totals)) {
     total.updated = new Date().toISOString();
     total.complete = false;
     await writeFile(file, `${JSON.stringify(total)}\n`);
+    changed++;
+  }
+}
+// Each team's last 10 games of player lines, for the Team deficiencies "Last 10 games" view.
+if (totals[2].games) {
+  const rf = join(outDir, 'seasons', recentFile(season));
+  const body = `${JSON.stringify(recent)}\n`;
+  if ((await readFile(rf, 'utf8').catch(() => null)) !== body) {
+    await writeFile(rf, body);
     changed++;
   }
 }
@@ -169,8 +181,9 @@ try {
     dateOf[g.id] = g.gameDate;
     if (g.gameType !== 2 || Date.parse(g.startTimeUTC) <= nowMs) continue;
     const p = predictGame({ total, prev, away: g.away.abbrev, home: g.home.abbrev, n: Number(String(g.id).slice(-4)), b2b: { away: played.has(g.away.abbrev), home: played.has(g.home.abbrev) } });
-    if (p) picks.set(g.id, p.away);
+    if (p) picks.set(g.id, p);
   }
+  const before = JSON.stringify({ ...saved, updated: 0 }); // mergeOdds edits the saved game objects in place, so compare with a copy
   const odds = mergeOdds(saved, snaps, picks, nowMs, dateOf);
   // Results for saved games that have finished (scores files are refreshed for the last two days).
   const finals = new Map();
@@ -178,11 +191,17 @@ try {
     if (!finals.has(g.date)) finals.set(g.date, JSON.parse(await readFile(join(outDir, 'scores', `${g.date}.json`), 'utf8').catch(() => 'null')));
   }
   for (const [id, g] of Object.entries(odds.games)) {
-    if (g.result) continue;
+    if (g.result && g.margin != null) continue;
+    if (!finals.has(g.date)) finals.set(g.date, JSON.parse(await readFile(join(outDir, 'scores', `${g.date}.json`), 'utf8').catch(() => 'null')));
     const f = finals.get(g.date)?.games?.find((x) => String(x.id) === id);
-    if (f?.status.state === 'final') g.result = f.linescore.totals.away > f.linescore.totals.home ? 'away' : 'home';
+    if (f?.status.state === 'final') {
+      const { away, home } = f.linescore.totals; // the shootout goal counts, so a shootout game is a one-goal margin
+      g.result = away > home ? 'away' : 'home';
+      g.margin = away - home;
+      g.goals = away + home;
+    }
   }
-  const same = saved && JSON.stringify({ ...odds, updated: 0 }) === JSON.stringify({ ...saved, updated: 0 });
+  const same = saved && JSON.stringify({ ...odds, updated: 0 }) === before;
   if (!same) { await writeFile(oddsFile, `${JSON.stringify(odds)}\n`); changed++; }
 } catch (err) {
   console.warn(`Odds step failed: ${err.message}`);

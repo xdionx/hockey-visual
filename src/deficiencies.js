@@ -7,7 +7,8 @@
 //   finishing   goals on a goalie minus what average NHL shooters would score from the same shots
 //   goaltending what average NHL goalies would allow on the shots faced minus goals actually allowed
 // Plus a few situational checks (home/road, the last 10 games, one-goal games) and the players behind it.
-import { gameObj, leagueRate, minGames, perGame, scoringBase } from './seasonStats.js';
+import { gameObj, leagueRate, minGames, perGame, scoringBase, recentTotal, recentAll } from './seasonStats.js';
+import { areaBase, skaterFlags, goalieAreas, goalieFlags, AREA_LABEL } from './areas.js';
 import { teamTable } from './momentumModel.js';
 import { IMPACT } from './impact.js';
 
@@ -85,7 +86,7 @@ export const FIN_TRUST_XG = 22;
 export const finTrust = (pg) => (pg.avgGoals == null ? 1 : pg.avgGoals / (pg.avgGoals + FIN_TRUST_XG));
 const scoreOf = (pg) => (pg.gaa == null ? 0 : finTrust(pg) * pg.gaa) + (pg.playVsAvg ?? 0);
 
-function skaterRows(total, team, rate, minGp, pos, sbase) {
+function skaterRows(total, team, rate, minGp, pos, sbase, abase = null) {
   const out = [];
   for (const [id, row] of Object.entries(total.players ?? {})) {
     if (row.t !== team || row.p === 'G' || row.gp < minGp) continue;
@@ -103,6 +104,7 @@ function skaterRows(total, team, rate, minGp, pos, sbase) {
       belowPct: pg.belowPct, posBelow: P.below,
       oi: row.oto ? { sec: row.oto, cf: row.ocf, ca: row.oca, gf: row.ogf, ga: row.oga } : null,
       momCost: momGoals * row.gp, finCost: finGoals * row.gp, cost: (momGoals + finGoals) * row.gp,
+      flags: abase ? skaterFlags(row, abase) : [],
     });
   }
   // Ice time rank within the team's forwards / defense (only when time on ice is known).
@@ -113,17 +115,20 @@ function skaterRows(total, team, rate, minGp, pos, sbase) {
   return out;
 }
 
+/** A real (not context-only) specific weakness: shot volume, penalties or faceoffs. */
+export const hardFlag = (p) => (p.flags ?? []).some((f) => !f.soft);
+
 /** Plain reasons a skater is costing the team, strongest first. Each: { k, cost (goals), text }. */
-export function skaterReasons(p) {
+export function skaterReasons(p, k = 1) {
   const out = [];
   const posName = isD(p.pos) ? 'defensemen' : 'forwards';
-  if (p.momCost <= -0.5) {
+  if (p.momCost <= -0.5 * k) {
     out.push({ k: 'mom', cost: p.momCost, text: `Momentum ${sign(p.momPg)} a game against ${sign(p.posMom)} for a typical ${isD(p.pos) ? 'defenseman' : 'forward'}${p.momPct != null && p.momPct <= 0.25 ? ` (bottom ${Math.max(1, Math.round(p.momPct * 100))}% of ${posName})` : ''}: about ${goals(-p.momCost)} of goal difference lost so far.` });
   }
   if (p.mnPct != null && p.mnPct <= 0.15) {
     out.push({ k: 'mn', cost: p.momCost, text: `Gives momentum away: ${sign(p.mnPg)} a game from penalties, giveaways and lost draws, more than ${Math.min(99, Math.round(p.mnMore * 100))}% of ${posName}.` });
   }
-  if (p.finCost <= -1 && p.goals != null && p.avgGoals != null) {
+  if (p.finCost <= -1 * k && p.goals != null && p.avgGoals != null) {
     const kind = isD(p.pos) ? 'defenseman' : 'forward';
     const hot = p.gaa >= 0;
     const finish = `${p.goals} goal${p.goals === 1 ? '' : 's'} on shots an average shooter would turn into ${p.avgGoals.toFixed(1)} (shooting ${pctTxt(p.shPct)} where ${pctTxt(p.xShPct)} is normal${hot ? ', so the goals are fine' : ''})`;
@@ -134,6 +139,7 @@ export function skaterReasons(p) {
   if (p.belowPct != null && p.posBelow != null && p.belowPct >= Math.max(0.28, p.posBelow + 0.1)) {
     out.push({ k: 'below', cost: 0, text: `Well below a typical ${isD(p.pos) ? 'defenseman' : 'forward'}'s game in ${pctTxt(p.belowPct, 0)} of games (most ${posName}: ${pctTxt(p.posBelow, 0)}).` });
   }
+  for (const f of p.flags ?? []) out.push({ k: f.k, cost: 0, text: f.text, soft: !!f.soft });
   if (out.length && p.toiRank && p.toiRank <= (isD(p.pos) ? 4 : 6)) {
     out.push({ k: 'toi', cost: 0, text: `Big minutes make it count: ${toi(p.toiPg)} a night, ${ord(p.toiRank)} among the team's ${posName}.` });
   }
@@ -147,13 +153,13 @@ export const ONICE_MIN_SEC = 150 * 60;
 export const ONICE_GAP = 0.10; // share of attempts, 10 points: depth lines normally trail the top lines by a few points
 export const ONICE_TOI = { F: 11.5 * 60, D: 14 * 60 }; // regulars only: top nine forwards, top two or three pairs
 export const ONICE_MAX = 3;
-export function onIceRows(players) {
+export function onIceRows(players, { minSec = ONICE_MIN_SEC, mateSec = 20 * 60 } = {}) {
   const share = (r) => r.oi.cf / (r.oi.cf + r.oi.ca);
   const per60 = (r) => ((r.oi.gf - r.oi.ga) * 3600) / r.oi.sec;
   const out = [];
   for (const r of players) {
-    if (!r.oi || r.oi.sec < ONICE_MIN_SEC || (r.toiPg ?? 0) < ONICE_TOI[isD(r.pos) ? 'D' : 'F']) continue;
-    const mates = players.filter((m) => m.id !== r.id && m.oi && isD(m.pos) === isD(r.pos) && m.oi.sec >= 20 * 60);
+    if (!r.oi || r.oi.sec < minSec || (r.toiPg ?? 0) < ONICE_TOI[isD(r.pos) ? 'D' : 'F']) continue;
+    const mates = players.filter((m) => m.id !== r.id && m.oi && isD(m.pos) === isD(r.pos) && m.oi.sec >= mateSec);
     const w = mates.reduce((a, m) => a + m.oi.sec, 0);
     if (!w) continue;
     const mateShare = mates.reduce((a, m) => a + share(m) * m.oi.sec, 0) / w;
@@ -173,14 +179,15 @@ export function onIceText(r) {
 }
 
 /** Goalies who started for the team, worst goals saved above expected first; with the team's record in their starts. */
-function goalieRows(total, team, rate, games = []) {
+function goalieRows(total, team, rate, games = [], abase = null) {
   return Object.entries(total.players ?? {})
     .filter(([, p]) => p.p === 'G' && p.t === team && (p.gs ?? 0) > 0 && p.xga != null)
     .map(([id, p]) => {
       const exp = p.xga * rate;
       const mine = games.filter((g) => g.gk === Number(id));
       const rest = games.filter((g) => g.gk !== Number(id) && g.gk != null);
-      return { id: Number(id), name: p.n, gs: p.gs ?? 0, gp: p.gp, ga: p.ga ?? 0, expGa: exp, gsax: exp - (p.ga ?? 0), withHim: points(mine), without: points(rest) };
+      return { id: Number(id), name: p.n, gs: p.gs ?? 0, gp: p.gp, ga: p.ga ?? 0, expGa: exp, gsax: exp - (p.ga ?? 0), withHim: points(mine), without: points(rest),
+        areas: abase ? goalieAreas(p, abase) : null, flags: abase ? goalieFlags(p, abase) : [] };
     })
     .sort((a, b) => b.gs - a.gs);
 }
@@ -189,18 +196,20 @@ export const GOALIE_MIN_STARTS = 3;
 export const GOALIE_COST = -1.5; // goals below an average goalie on the same shots
 
 /** Goalies for the "Underperforming so far" list: goals saved above expected, counted in full. */
-function goalieDragging(goalies) {
-  return goalies.filter((g) => g.gs >= GOALIE_MIN_STARTS && g.gsax <= GOALIE_COST).map((g) => {
+function goalieDragging(goalies, { minStarts = GOALIE_MIN_STARTS, cost = GOALIE_COST } = {}) {
+  return goalies.filter((g) => g.gs >= minStarts && (g.gsax <= cost || g.flags?.length)).map((g) => {
     const w = g.withHim;
     const rec = w.gp ? ` The team has ${w.w} win${w.w === 1 ? '' : 's'} in his ${w.gp} starts (${pctTxt(w.ptsPct, 0)} of points).` : '';
-    return { id: g.id, name: g.name, pos: 'G', gp: g.gs, cost: g.gsax, goalie: true,
-      reasons: [{ k: 'gsax', cost: g.gsax, text: `Goaltending: ${g.ga} goals against on shots an average goalie would allow ${g.expGa.toFixed(1)} on, in ${g.gs} start${g.gs === 1 ? '' : 's'}: ${goals(-g.gsax)} worse than an average goalie.${rec}` }] };
+    const reasons = [];
+    if (g.gsax <= cost) reasons.push({ k: 'gsax', cost: g.gsax, text: `Goaltending: ${g.ga} goals against on shots an average goalie would allow ${g.expGa.toFixed(1)} on, in ${g.gs} start${g.gs === 1 ? '' : 's'}: ${goals(-g.gsax)} worse than an average goalie.${rec}` });
+    for (const f of g.flags ?? []) reasons.push({ k: f.k, cost: 0, text: f.text });
+    return { id: g.id, name: g.name, pos: 'G', gp: g.gs, cost: g.gsax <= cost ? g.gsax : 0, goalie: true, areas: g.areas, reasons };
   }).sort((a, b) => a.cost - b.cost);
 }
 
 /** Goalies the team does worse with: a clearly lower share of points in his starts than in the others, and below an average goalie. */
-function goalieOnIce(goalies) {
-  return goalies.filter((g) => g.gsax <= GOALIE_COST && g.withHim.gp >= 4 && g.without.gp >= 4 && g.withHim.ptsPct <= g.without.ptsPct - 0.15).map((g) => ({
+function goalieOnIce(goalies, { cost = GOALIE_COST, minGames = 4 } = {}) {
+  return goalies.filter((g) => g.gsax <= cost && g.withHim.gp >= minGames && g.without.gp >= minGames && g.withHim.ptsPct <= g.without.ptsPct - 0.15).map((g) => ({
     id: g.id, name: g.name, pos: 'G', gp: g.gs, goalie: true, gap: g.withHim.ptsPct - g.without.ptsPct, tag: `${sign((g.withHim.ptsPct - g.without.ptsPct) * 100, 0)} pts %`,
     text: `The team earns ${pctTxt(g.withHim.ptsPct, 0)} of the points in his ${g.withHim.gp} starts, against ${pctTxt(g.without.ptsPct, 0)} in its other games, and he has let in ${goals(-g.gsax)} more than an average goalie would. Records in a few starts are partly luck.`,
   })).sort((a, b) => a.gap - b.gap);
@@ -211,15 +220,25 @@ function goalieOnIce(goalies) {
  * { rate, teams: [{ abbrev, gp, w, l, otl, ptsPct, ptsRank, areas: { play, finishing, goaltending }, trouble, strengths,
  *   checks: [...], players: [...], goalies: [...] }], n }
  */
-export function deficiencies(total) {
+export function deficiencies(total, { last = null, recent = null } = {}) {
   const list = (total?.g ?? []).map(gameObj);
   if (!list.length) return null;
   const rate = leagueRate(total);
   const minGp = Math.max(5, minGames(total));
   const sbase = scoringBase(total);
   const pos = leagueBase(total, rate, minGp, sbase);
+  const abase = areaBase(total);
+  const wAll = last && recent ? recentAll(recent, last) : null;
+  const wbase = wAll ? areaBase(wAll, { win: true }) : null;
   const byTeam = teamGames(list);
-  const base = teamTable(list).map((t) => {
+  const seasonRows = teamTable(list);
+  const seasonBy = new Map(seasonRows.map((t) => [t.abbrev, t]));
+  // "Last N games": each team's own most recent N games make up its row, ranked against the other teams' last N.
+  const windowRows = last ? seasonRows.map((t) => {
+    const mine = list.filter((g) => g.away === t.abbrev || g.home === t.abbrev).sort((a, b) => a.n - b.n).slice(-last);
+    return teamTable(mine).find((x) => x.abbrev === t.abbrev) ?? t;
+  }) : seasonRows;
+  const base = windowRows.map((t) => {
     const fin = t.finGp ? { finishing: (t.ggF - t.xgF * rate) / t.finGp, goaltending: (t.xgA * rate - t.ggA) / t.finGp } : { finishing: null, goaltending: null };
     return {
       ...t,
@@ -237,6 +256,51 @@ export function deficiencies(total) {
   const rk = Object.fromEntries(['play', 'finishing', 'goaltending', 'ptsPct', 'ngShare', 'satShare', 'ngForPg'].map((k) => [k, ranks(base, k)]));
   const rkAg = ranks(base.map((t) => ({ v: t.ngAgPg == null ? null : -t.ngAgPg })), 'v');
   const avgNgFor = base.reduce((a, t) => a + (t.ngForPg ?? 0), 0) / n;
+
+  // Special teams and discipline (v9 game rows): power play and penalty kill in goals per game against the league rate,
+  // penalties taken vs drawn, and faceoffs from the skaters' draws. Only for games that carry the fields.
+  const winGames = (ab) => { const mine = list.filter((g) => g.away === ab || g.home === ab).sort((a, b) => a.n - b.n); return last ? mine.slice(-last) : mine; };
+  const spRaw = new Map();
+  for (const t of base) {
+    const r = { n: 0, ppo: 0, ppg: 0, pko: 0, pkga: 0 };
+    for (const g of winGames(t.abbrev)) {
+      if (g.appo == null || g.hppo == null) continue;
+      const away = g.away === t.abbrev;
+      r.ppo += away ? g.appo : g.hppo; r.ppg += away ? g.apg : g.hpg; r.pko += away ? g.hppo : g.appo; r.pkga += away ? g.hpg : g.apg; r.n++;
+    }
+    spRaw.set(t.abbrev, r);
+  }
+  const spAll = [...spRaw.values()];
+  const lgPp = spAll.reduce((a, r) => a + r.ppo, 0) ? spAll.reduce((a, r) => a + r.ppg, 0) / spAll.reduce((a, r) => a + r.ppo, 0) : null;
+  const foSrc = wAll ?? total;
+  const foBy = {};
+  for (const pl of Object.values(foSrc.players ?? {})) {
+    if (pl.p === 'G' || pl.fw == null || !pl.t) continue;
+    const o = (foBy[pl.t] ??= { w: 0, l: 0 });
+    o.w += pl.fw; o.l += pl.fl ?? 0;
+  }
+  const lgFo = (() => { const w = Object.values(foBy).reduce((a, o) => a + o.w, 0); const l = Object.values(foBy).reduce((a, o) => a + o.l, 0); return w + l ? w / (w + l) : null; })();
+  const spRows = lgPp == null ? [] : base.map((t) => {
+    const r = spRaw.get(t.abbrev);
+    const fo = foBy[t.abbrev];
+    return { abbrev: t.abbrev, n: r.n, ppo: r.ppo, ppg: r.ppg, pko: r.pko, pkga: r.pkga,
+      pp: r.n ? (r.ppg - lgPp * r.ppo) / r.n : null, pk: r.n ? (lgPp * r.pko - r.pkga) / r.n : null,
+      net: r.n ? (r.pko - r.ppo) / r.n : null, taken: r.n ? r.pko / r.n : null, drawn: r.n ? r.ppo / r.n : null,
+      fo: fo && fo.w + fo.l ? fo.w / (fo.w + fo.l) : null, foN: fo ? fo.w + fo.l : 0 };
+  });
+  const rkSp = { pp: ranks(spRows, 'pp'), pk: ranks(spRows, 'pk'), fo: ranks(spRows.map((r) => ({ ...r, nnet: r.net == null ? null : -r.net })), 'fo') };
+  const rkNet = ranks(spRows.map((r) => ({ abbrev: r.abbrev, v: r.net == null ? null : -r.net })), 'v');
+  const specialFor = (ab) => {
+    const r = spRows.find((x) => x.abbrev === ab);
+    if (!r || !r.n) return null;
+    const rank = { pp: rkSp.pp(r.pp), pk: rkSp.pk(r.pk), net: rkNet(-r.net), fo: rkSp.fo(r.fo) };
+    return {
+      pp: { key: 'pp', label: 'Power play', value: r.pp, rank: rank.pp, trouble: r.pp <= -0.1 && rank.pp > (2 * n) / 3, opp: r.ppo, goals: r.ppg, rate: r.ppo ? r.ppg / r.ppo : null, league: lgPp },
+      pk: { key: 'pk', label: 'Penalty kill', value: r.pk, rank: rank.pk, trouble: r.pk <= -0.1 && rank.pk > (2 * n) / 3, opp: r.pko, against: r.pkga, rate: r.pko ? 1 - r.pkga / r.pko : null, league: 1 - lgPp },
+      disc: { key: 'disc', label: 'Discipline', value: r.net, rank: rank.net, trouble: r.net >= 0.4 && rank.net > (2 * n) / 3, taken: r.taken, drawn: r.drawn },
+      fo: r.fo == null || r.foN < 200 * (last ? 0.2 : 1) ? null : { key: 'fo', label: 'Faceoffs', value: r.fo, rank: rank.fo, trouble: lgFo != null && r.fo <= lgFo - 0.03 && rank.fo > (2 * n) / 3, league: lgFo },
+    };
+  };
 
   const teams = base.map((t) => {
     const areas = {};
@@ -258,38 +322,53 @@ export function deficiencies(total) {
     Object.assign(areas.goaltending, { goals: t.ggAPg, expected: t.xgAPg });
 
     const games = byTeam.get(t.abbrev) ?? [];
-    const checks = situational(games, t);
-    const players = skaterRows(total, t.abbrev, rate, minGp, pos, sbase);
-    const trouble = AREAS.map(([k]) => areas[k]).filter((a) => a.trouble).sort((a, b) => a.value - b.value);
-    const strengths = AREAS.map(([k]) => areas[k]).filter((a) => a.strength).sort((a, b) => b.value - a.value);
-    const goalies = goalieRows(total, t.abbrev, rate, games);
-    const dragging = [...players.map((p) => ({ ...p, reasons: skaterReasons(p) })).filter((p) => p.cost <= -1.5 && p.reasons.length), ...goalieDragging(goalies)]
+    const checks = situational(games, last ? seasonBy.get(t.abbrev) : t);
+    // Last-N view with per-game player lines: rebuild this team's players and goalies from just those games.
+    const win = last && recent ? recentTotal(recent, t.abbrev, last) : null;
+    const k = win ? 0.4 : 1; // thresholds in goals, scaled down for a short window
+    const src = win ?? total;
+    const wGames = win ? games.slice(-last) : games;
+    const players = skaterRows(src, t.abbrev, rate, win ? 3 : minGp, pos, sbase, win ? wbase : abase);
+    const trouble = AREAS.map(([k2]) => areas[k2]).filter((a) => a.trouble).sort((a, b) => a.value - b.value);
+    const strengths = AREAS.map(([k2]) => areas[k2]).filter((a) => a.strength).sort((a, b) => b.value - a.value);
+    const goalies = goalieRows(src, t.abbrev, rate, wGames, win ? wbase : abase);
+    const gOpt = win ? { minStarts: 2, cost: GOALIE_COST * k, minGames: 3 } : {};
+    const dragging = [...players.map((p) => ({ ...p, reasons: skaterReasons(p, k) })).filter((p) => (p.cost <= -1.5 * k || hardFlag(p)) && p.reasons.length), ...goalieDragging(goalies, gOpt)]
       .sort((a, b) => a.cost - b.cost);
-    const onIce = [...onIceRows(players.map((p) => ({ ...p })))
-      .filter((r) => r.gap <= -ONICE_GAP && r.cost < 0).slice(0, ONICE_MAX), ...goalieOnIce(goalies)];
+    const onIce = [...onIceRows(players.map((p) => ({ ...p })), win ? { minSec: 90 * 60, mateSec: 15 * 60 } : {})
+      .filter((r) => r.gap <= -ONICE_GAP && r.cost < 0).slice(0, ONICE_MAX), ...goalieOnIce(goalies, gOpt)];
     return {
       onIce,
       abbrev: t.abbrev, gp: t.gp, w: t.w, l: t.l, otl: t.otl, ptsPct: t.ptsPct, ptsRank: rk.ptsPct(t.ptsPct), gdPerGame: t.gdPerGame,
-      areas, trouble, strengths, checks, players: dragging, goalies,
+      areas, trouble, strengths, checks, players: dragging, goalies, playersLast: !!win, special: specialFor(t.abbrev),
     };
   });
-  return { rate, n, minGp, pos: { F: { mom: pos.F.mom, below: pos.F.below }, D: { mom: pos.D.mom, below: pos.D.below } }, teams };
+  return { rate, n, minGp, last: last || null, pos: { F: { mom: pos.F.mom, below: pos.F.below }, D: { mom: pos.D.mom, below: pos.D.below } }, teams };
 }
 
 /**
  * League deficiency list: every skater across the league who is costing their team, worst first.
  * Same numbers and wording as a team card. { minGp, n (skaters judged), players: [{ ...skater, team, reasons }] }
  */
-export function leaguePlayers(total, { minCost = 1.5 } = {}) {
+export function leaguePlayers(total, { minCost = 1.5, last = null, recent = null } = {}) {
   if (!total?.players) return null;
   const rate = leagueRate(total);
   const minGp = Math.max(5, minGames(total));
   const sbase = scoringBase(total);
   const pos = leagueBase(total, rate, minGp, sbase);
-  const teams = [...new Set(Object.values(total.players).filter((p) => p.p !== 'G' && p.t).map((p) => p.t))];
-  const all = teams.flatMap((t) => skaterRows(total, t, rate, minGp, pos, sbase).map((p) => ({ ...p, team: t })));
-  const players = all.map((p) => ({ ...p, reasons: skaterReasons(p) })).filter((p) => p.cost <= -minCost && p.reasons.length).sort((a, b) => a.cost - b.cost);
-  return { minGp, n: all.length, players };
+  // Last N games: every team's own last N, players and goalies rebuilt from just those games.
+  const win = last && recent ? recentAll(recent, last) : null;
+  const src = win ?? total;
+  const k = win ? 0.4 : 1; // thresholds in goals, scaled down for a short window
+  const abase = win ? areaBase(win, { win: true }) : areaBase(total);
+  const teams = [...new Set(Object.values(src.players).filter((p) => p.t).map((p) => p.t))];
+  const all = teams.flatMap((t) => skaterRows(src, t, rate, win ? 3 : minGp, pos, sbase, abase).map((p) => ({ ...p, team: t })));
+  const skaters = all.map((p) => ({ ...p, reasons: skaterReasons(p, k) })).filter((p) => (p.cost <= -minCost * k || hardFlag(p)) && p.reasons.length);
+  const gOpt = win ? { minStarts: 2, cost: GOALIE_COST * k } : {};
+  const goalieAll = teams.flatMap((t) => goalieRows(src, t, rate, [], abase).map((g) => ({ ...g, team: t })));
+  const goalies = goalieAll.flatMap((g) => goalieDragging([g], gOpt).map((p) => ({ ...p, team: g.team })));
+  const players = [...skaters, ...goalies].sort((a, b) => a.cost - b.cost);
+  return { minGp, n: all.length + goalieAll.filter((g) => g.gs >= (win ? 2 : GOALIE_MIN_STARTS)).length, last: last || null, windowed: !!win, players };
 }
 
 /** Home/road, the last 10 games and one-goal games: only returned when they stand out. */

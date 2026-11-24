@@ -67,3 +67,49 @@
 .lg-rank { display: inline-block; min-width: 22px; margin-right: 6px; color: var(--mute); font: 700 14px "Barlow Condensed", sans-serif; }
 .lg-team { color: #93c5fd; text-decoration: none; font-weight: 700; }
 @media (max-width: 640px) { .lg-list { grid-template-columns: 1fr; } }
+
+/* Area tags, goalie home-plate split, special teams tiles (stats/tags.js) */
+.dx-tags { display: flex; flex-wrap: wrap; gap: 5px; margin: 6px 0 2px; }
+.dx-tag { padding: 2px 8px; border-radius: 3px; font: 700 11.5px Inter, sans-serif; letter-spacing: .03em; background: #334155; color: #e2e8f0; }
+.a-fin { background: #7c2d12; color: #fed7aa; } .a-play { background: #1e3a8a; color: #bfdbfe; } .a-disc { background: #7f1d1d; color: #fecaca; }
+.a-low { background: #3f3f46; color: #e4e4e7; } .a-vol { background: #581c87; color: #e9d5ff; } .a-fo { background: #134e4a; color: #99f6e4; }
+.a-give { background: #1f2937; color: #94a3b8; border: 1px dashed #475569; } .a-oi { background: #713f12; color: #fde68a; } .a-g { background: #831843; color: #fbcfe8; }
+.dx-gzs { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 8px 0; }
+.dx-gz { padding: 8px 10px; background: #0e1626; border: 1px solid #1f2937; border-radius: 4px; }
+.dx-gz-h { display: flex; justify-content: space-between; font: 700 13px "Barlow Condensed", sans-serif; letter-spacing: .07em; text-transform: uppercase; color: var(--mute); }
+.dx-gz-h b { font-size: 20px; } .dx-gz-h b.up { color: #4ade80; } .dx-gz-h b.down { color: #f87171; }
+.dx-gz-s { font-size: 12.5px; color: #cbd5e1; margin: 4px 0 2px; } .dx-gz-s small { color: var(--mute); }
+.dx-areas2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; margin-top: 10px; }
+.dx-areas2 .td-area-v { font-size: 26px; } .dx-areas2 .td-area-k { font-size: 13px; }
+.td-flagonly { font-size: 12px; font-weight: 600; color: #94a3b8; }
+@media (max-width: 640px) { .dx-gzs { grid-template-columns: 1fr; } .dx-areas2 { grid-template-columns: 1fr 1fr; } }
+.dx-chip { padding: 6px 12px; border: 1px solid #1f2937; border-radius: 999px; background: #0b1220; color: #cbd5e1; font: 600 13px Inter, sans-serif; cursor: pointer; }
+.dx-chip b { color: #fff; margin-left: 4px; }
+.dx-chip.on { background: #e11d48; border-color: #e11d48; color: #fff; }
+
+/* Compare view (stats/compare.js) */
+.cm-ctl { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; margin: 10px 0; }
+.cm-ctl .ms-toggle { margin-bottom: 0; }
+.cm-scroll { overflow-x: auto; }
+.cm-t { width: 100%; border-collapse: collapse; font-size: 14px; font-variant-numeric: tabular-nums; }
+.cm-t th { background: #0b1220; text-align: right; padding: 8px; font: 700 12.5px "Barlow Condensed", sans-serif; letter-spacing: .07em; text-transform: uppercase; color: var(--mute); cursor: pointer; white-space: nowrap; border-bottom: 1px solid #1f2937; }
+.cm-t th.l, .cm-t td.l { text-align: left; }
+.cm-t th[aria-sort] { color: #38bdf8; }
+.cm-t td { padding: 7px 8px; text-align: right; border-bottom: 1px solid #131c2c; white-space: nowrap; }
+.cm-t td.l a, .cm-t td.l b { color: #e8edf5; text-decoration: none; font-weight: 700; }
+.cm-t td small { color: var(--mute); font-size: 11px; margin-left: 4px; }
+.cm-t td.v i { font-style: normal; display: block; }
+.cm-t td.v small { display: block; margin: 0; line-height: 1; }
+.cm-t td.so { white-space: normal; min-width: 250px; line-height: 1.9; }
+.cm-t tr:hover td { background: #111a2b; }
+.cm-ch { display: inline-block; margin-right: 4px; padding: 1px 6px; border-radius: 3px; font: 700 11px Inter, sans-serif; }
+.cm-ch.g { background: #14532d; color: #bbf7d0; } .cm-ch.b { background: #7f1d1d; color: #fecaca; }
+.cm-key { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 12px; color: var(--mute); margin: 6px 0; }
+.cm-key span { width: 26px; height: 10px; border-radius: 2px; }
+.cm-note { margin: 10px 0 0; color: var(--mute); font-size: 12.5px; line-height: 1.5; }
+@media (max-width: 640px) {
+  .cm-t { font-size: 12.5px; } .cm-t th, .cm-t td { padding: 6px 3px; }
+  .cm-t td.l small { display: block; margin: 0; } .cm-t th { font-size: 11px; letter-spacing: .01em; padding: 6px 2px; } .cm-t td { padding: 6px 2px; }
+  .cm-t td.l { max-width: 92px; overflow: hidden; text-overflow: ellipsis; }
+  body[data-view="compare"] .ms-hero h1 { font-size: 30px; }
+}

@@ -620,3 +620,34 @@ export function resultLabel(base, end) {
 
 /** A goalie's decision for this game, e.g. 'SOW' or 'OTL'. */
 export const decisionLabel = (game, d) => resultLabel(d, gameEnd(game));
+
+const fmtOdds = (n) => (n > 0 ? `+${n}` : n < 0 ? `−${-n}` : String(n));
+/**
+ * The book's line next to ours for one game (view from src/spread.js lineView): moneyline, puck line and total on one
+ * row, our win chance, expected margin and puck-line cover chance on the next, and whether we agree on the winner.
+ */
+export function lineCompareHtml(view, game) {
+  if (!view) return '';
+  const ab = (s) => esc(game[s].abbrev);
+  const short = view.book.toUpperCase();
+  const pc = (v) => `${Math.round(v * 100)}%`;
+  const goals = (g) => `${g < 0 ? '−' : ''}${Math.abs(g).toFixed(1)}`;
+  const o = view.ours;
+  const hasCover = view.market.cover != null;
+  // Every number is for the team the book makes the favorite, so the two rows read straight across.
+  const cell = (v, cls = '') => `<span class="ln-c${cls}">${v}</span>`;
+  const better = hasCover && o.layer === view.fav ? o.cover - view.market.cover : 0;
+  const tape = [
+    view.pl ? `${ab(view.pl.fav)} −1.5 (${fmtOdds(view.pl.favPrice)})` : null,
+    `ML ${fmtOdds(view.fav === 'away' ? view.ml.a : view.ml.h)}`,
+    view.total ? `O/U ${view.total}` : null,
+  ].filter(Boolean).join(' · ');
+  const title = `${view.name}'s closing prices with its margin removed, against our model, all for ${game[view.fav].abbrev}. The book's margin is what its moneyline implies through our own win-chance curve. Cover: the chance ${game[view.fav].abbrev} wins by 2+ goals (the puck line).`;
+  return `<div class="ln${view.agree ? ' agree' : ' differ'}" title="${esc(title)}">
+    <div class="ln-g">
+      <span class="ln-h ln-fav">${ab(view.fav)}</span>${cell('Win', ' ln-hd')}${cell('Margin', ' ln-hd')}${hasCover ? cell('Cover −1.5', ' ln-hd') : ''}
+      <span class="ln-h">${esc(short)}</span>${cell(pc(view.pFav))}${cell(`≈${goals(view.market.gapFav)}`)}${hasCover ? cell(pc(view.market.cover)) : ''}
+      <span class="ln-h">US</span>${cell(pc(o.pFav), ' ln-us')}${cell(goals(o.gapFav), ' ln-us')}${hasCover ? cell(pc(o.layer === view.fav ? o.cover : 1 - o.cover), ' ln-us') : ''}
+    </div>
+    <p class="ln-tape"><span class="ln-flag">${view.agree ? '✓ Agree' : `✗ We pick ${ab(view.ourFav)}`}</span>${esc(short)}: ${tape}</p></div>`;
+}

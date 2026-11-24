@@ -15,7 +15,8 @@
 //
 // `g` keeps one short row per game (see GAME_FIELDS) so the momentum stats page can test the model
 // against results: who won, team momentum with and without goals, team shot attempts.
-import { computeMomentum } from './momentum.js';
+import { computeMomentum, plateArea } from './momentum.js';
+import { penaltyKind } from './penalties.js';
 import { shotXg, finishingPct } from './xg.js';
 import { tierOf } from './impact.js';
 
@@ -28,7 +29,10 @@ import { tierOf } from './impact.js';
 // 6: scoring (g = all goals, a1 primary assists, a2 secondary assists; shootouts left out) for Scoring vs avg.
 // 7: home plate narrowed to 19 ft, inner 2x / outer 3.5x, wide shots 0.5x (momentum and on-ice weights).
 // 8: goalie shots against (sa) and goals on them (sg), plus one [shots, goals] entry per start (q), for quality starts.
-export const SEASON_VERSION = 8;
+// 9: deficiencies v2: skater penalties taken / drawn (pen, pd, pim), giveaways and takeaways (gv, tk), faceoffs (fw, fl);
+//    goalie shots and goals inside / outside the home plate (psa, pga, osa, oga) and soft goals (sf); game rows get
+//    power-play chances and goals for each side (appo, apg, hppo, hpg).
+export const SEASON_VERSION = 9;
 
 /** First season we keep on-ice shot attempts for (shift charts; the Team deficiencies tab starts here too). */
 export const FIRST_SHIFT_SEASON = 20202021;
@@ -38,6 +42,8 @@ export const FIRST_FULL_SEASON = 20092010;
 
 const t = (v) => (v && typeof v === 'object' ? v.default : v) ?? '';
 const round1 = (n) => Math.round(n * 10) / 10;
+/** A goal from outside the home plate on a shot worth less than this is a soft goal. */
+export const SOFT_XG = 0.06;
 const ATTEMPTS = new Set(['goal', 'shot-on-goal', 'missed-shot', 'blocked-shot']);
 
 /**
@@ -47,7 +53,7 @@ const ATTEMPTS = new Set(['goal', 'shot-on-goal', 'missed-shot', 'blocked-shot']
  * goalie (axg, hxg) and goals scored on a goalie (agg, hgg). addGame fills the last four from the player
  * lines, so rows saved before they existed simply leave them out.
  */
-export const GAME_FIELDS = ['n', 'away', 'home', 'ag', 'hg', 'am', 'hm', 'an', 'hn', 'as', 'hs', 'end', 'ags', 'hgs', 'axg', 'hxg', 'agg', 'hgg', 'asog', 'hsog'];
+export const GAME_FIELDS = ['n', 'away', 'home', 'ag', 'hg', 'am', 'hm', 'an', 'hn', 'as', 'hs', 'end', 'ags', 'hgs', 'axg', 'hxg', 'agg', 'hgg', 'asog', 'hsog', 'appo', 'apg', 'hppo', 'hpg'];
 const FIN_AT = GAME_FIELDS.indexOf('axg');
 export const gameObj = (row) => Object.fromEntries(GAME_FIELDS.map((k, i) => [k, row[i]]));
 
@@ -56,7 +62,7 @@ const teamSum = (lines, team, k) => lines.reduce((n, l) => n + (l.team === team 
 
 /** A game row with team finishing appended (from the skaters' xg/xgg), when the lines carry it. */
 export function withFinishing(game, lines) {
-  if (!game || game.length >= GAME_FIELDS.length || !lines.some((l) => l.pos !== 'G' && l.xg != null)) return game;
+  if (!game || game.length > FIN_AT || !lines.some((l) => l.pos !== 'G' && l.xg != null)) return game;
   const [a, h] = [game[1], game[2]];
   const r2 = (n) => Math.round(n * 100) / 100;
   return [...game.slice(0, FIN_AT), ...Array(Math.max(0, FIN_AT - game.length)).fill(null), r2(teamSum(lines, a, 'xg')), r2(teamSum(lines, h, 'xg')),
@@ -164,6 +170,33 @@ export function fromPbp(pbp) {
     if (e.typeDescKey !== 'goal' || e.periodDescriptor?.periodType === 'SO') continue;
     bump(e.details?.scoringPlayerId, 'g'); bump(e.details?.assist1PlayerId, 'a1'); bump(e.details?.assist2PlayerId, 'a2');
   }
+  // Discipline, puck handling and faceoffs per skater, and power-play chances and goals per team (v9).
+  const disc = new Map();
+  const dd = (id) => { if (!id) return null; let o = disc.get(id); if (!o) disc.set(id, (o = { pen: 0, pd: 0, pim: 0, gv: 0, tk: 0, fw: 0, fl: 0 })); return o; };
+  const pp = { away: { ppo: 0, ppg: 0 }, home: { ppo: 0, ppg: 0 } };
+  const sideOf = new Map([[pbp.awayTeam?.id, 'away'], [pbp.homeTeam?.id, 'home']]);
+  for (const e of pbp.plays) {
+    const d = e.details ?? {};
+    if (e.typeDescKey === 'giveaway') { const o = dd(d.playerId); if (o) o.gv++; }
+    else if (e.typeDescKey === 'takeaway') { const o = dd(d.playerId); if (o) o.tk++; }
+    else if (e.typeDescKey === 'faceoff') { const w = dd(d.winningPlayerId); const l = dd(d.losingPlayerId); if (w) w.fw++; if (l) l.fl++; }
+    else if (e.typeDescKey === 'penalty') {
+      const k = penaltyKind(d);
+      if (k === 'penalty-shot' || k === 'fight' || k === 'misconduct' || k === 'game-misconduct') continue;
+      const own = sideOf.get(d.eventOwnerTeamId);
+      if (own) pp[own === 'away' ? 'home' : 'away'].ppo++; // chances for the other side
+      if (k === 'bench') continue; // served by another player: no skater charged
+      const c = dd(d.committedByPlayerId); if (c) { c.pen++; c.pim += d.duration ?? 0; }
+      const dr = dd(d.drawnByPlayerId); if (dr) dr.pd++;
+    } else if (e.typeDescKey === 'goal' && e.periodDescriptor?.periodType !== 'SO' && e.situationCode) {
+      // situationCode: away goalie, away skaters, home skaters, home goalie. A goal with the shooter's side up a skater (3+ left) is a power-play goal.
+      const sc = String(e.situationCode);
+      const own = sideOf.get(d.eventOwnerTeamId);
+      const mine = Number(own === 'away' ? sc[1] : sc[2]);
+      const theirs = Number(own === 'away' ? sc[2] : sc[1]);
+      if (own && mine > theirs && theirs >= 3) pp[own].ppg++;
+    }
+  }
   // A dressed backup goalie who never went in didn't play (the NHL doesn't count that as a game).
   const inNet = new Set(pbp.plays.map((e) => e.details?.goalieInNetId).filter(Boolean));
   // Goals against and expected goals against per goalie, and who started for each team.
@@ -178,12 +211,18 @@ export function fromPbp(pbp) {
     const team = teamOf.get(d.goalieInNetId);
     if (team != null && starters[team] == null) starters[team] = d.goalieInNetId;
     // Shots against and goals on them (every shot with a goalie in net, shootouts left out) for quality starts.
-    const f = faced.get(d.goalieInNetId) ?? { sa: 0, sg: 0 };
+    const f = faced.get(d.goalieInNetId) ?? { sa: 0, sg: 0, psa: 0, pga: 0, osa: 0, oga: 0, sf: 0 };
     f.sa++;
     if (e.typeDescKey === 'goal') f.sg++;
     faced.set(d.goalieInNetId, f);
     const p = shotXg({ x: d.xCoord, y: d.yCoord, shotType: d.shotType });
     if (p == null) continue;
+    // Inside the home plate vs outside it (v9), and goals on shots worth under 6%: goals he isn't expected to allow.
+    const area = plateArea(d.xCoord, d.yCoord);
+    const inside = area === 'inner' || area === 'outer';
+    const goal = e.typeDescKey === 'goal';
+    f[inside ? 'psa' : 'osa']++;
+    if (goal) { f[inside ? 'pga' : 'oga']++; if (!inside && p < SOFT_XG) f.sf++; }
     const g = gk.get(d.goalieInNetId) ?? { ga: 0, xga: 0 };
     g.xga += p;
     if (e.typeDescKey === 'goal') g.ga++;
@@ -193,13 +232,13 @@ export function fromPbp(pbp) {
     const base = { id: r.playerId, name: `${t(r.firstName)} ${t(r.lastName)}`.trim(), team: abbrev[r.teamId] ?? '', pos: r.positionCode };
     if (r.positionCode === 'G') {
       const g = gk.get(r.playerId) ?? { ga: 0, xga: 0 };
-      const f = faced.get(r.playerId) ?? { sa: 0, sg: 0 };
-      return { ...base, toi: null, ga: g.ga, xga: Math.round(g.xga * 100) / 100, sa: f.sa, sg: f.sg, st: starters[r.teamId] === r.playerId ? 1 : 0 };
+      const f = faced.get(r.playerId) ?? { sa: 0, sg: 0, psa: 0, pga: 0, osa: 0, oga: 0, sf: 0 };
+      return { ...base, toi: null, ga: g.ga, xga: Math.round(g.xga * 100) / 100, sa: f.sa, sg: f.sg, psa: f.psa, pga: f.pga, osa: f.osa, oga: f.oga, sf: f.sf, st: starters[r.teamId] === r.playerId ? 1 : 0 };
     }
     const m = momentum[r.playerId];
     const a = att.get(r.playerId) ?? { sat: 0, sog: 0, xg: 0, xgg: 0 };
     const pt = pts.get(r.playerId) ?? { g: 0, a1: 0, a2: 0 };
-    return { ...base, sat: a.sat, sog: a.sog, xg: Math.round(a.xg * 100) / 100, xgg: a.xgg, g: pt.g, a1: pt.a1, a2: pt.a2, mom: m?.impact ?? 0, mp: m?.pos ?? 0, mn: m?.neg ?? 0, toi: null };
+    return { ...base, sat: a.sat, sog: a.sog, xg: Math.round(a.xg * 100) / 100, xgg: a.xgg, g: pt.g, a1: pt.a1, a2: pt.a2, mom: m?.impact ?? 0, mp: m?.pos ?? 0, mn: m?.neg ?? 0, toi: null, ...(disc.get(r.playerId) ?? { pen: 0, pd: 0, pim: 0, gv: 0, tk: 0, fw: 0, fl: 0 }) };
   });
   const a = pbp.awayTeam?.abbrev;
   const h = pbp.homeTeam?.abbrev;
@@ -207,7 +246,11 @@ export function fromPbp(pbp) {
     mom.totalsNoGoals.away, mom.totalsNoGoals.home, teamSat(lines, a), teamSat(lines, h),
     pbp.gameOutcome?.lastPeriodType ?? pbp.plays.at(-1)?.periodDescriptor?.periodType ?? 'REG',
     starters[pbp.awayTeam?.id] ?? null, starters[pbp.homeTeam?.id] ?? null];
-  return { lines, game };
+  // Finishing fields (axg..hsog) come from the lines, then the power-play chances and goals (v9).
+  const row = withFinishing(game, lines);
+  while (row.length < GAME_FIELDS.indexOf('appo')) row.push(null);
+  row.push(pp.away.ppo, pp.away.ppg, pp.home.ppo, pp.home.ppg);
+  return { lines, game: row };
 }
 
 export function emptySeason(season, gameType = 2) {
@@ -251,6 +294,9 @@ export function addGame(total, lines, game = null) {
         p.a1 = (p.a1 ?? 0) + l.a1;
         p.a2 = (p.a2 ?? 0) + (l.a2 ?? 0);
       }
+      if (l.pen != null) {
+        for (const k of ['pen', 'pd', 'pim', 'gv', 'tk', 'fw', 'fl']) p[k] = (p[k] ?? 0) + (l[k] ?? 0);
+      }
       p.mom = round1((p.mom ?? 0) + (l.mom ?? 0));
       p.mp = round1((p.mp ?? 0) + (l.mp ?? 0));
       p.mn = round1((p.mn ?? 0) + (l.mn ?? 0));
@@ -261,10 +307,59 @@ export function addGame(total, lines, game = null) {
       if (l.sa != null) {
         p.sa = (p.sa ?? 0) + l.sa;
         p.sg = (p.sg ?? 0) + (l.sg ?? 0);
+        if (l.psa != null) for (const k of ['psa', 'pga', 'osa', 'oga', 'sf']) p[k] = (p[k] ?? 0) + (l[k] ?? 0);
         if (l.st) (p.q ??= []).push([l.sa, l.sg ?? 0]); // one [shots against, goals against] per start
       }
     }
     if (l.toi != null) p.toi = (p.toi ?? 0) + l.toi;
+  }
+  return total;
+}
+
+// Each team's last few games of player lines, kept in their own file (data/seasons/<season>-recent.json) so the
+// Team deficiencies "Last 10 games" view can rebuild player rows for a window. Replayed through addGame, so the
+// numbers match the season file's. Only the current season is kept (the Action rebuilds it every run).
+export const RECENT_GAMES = 10;
+export const recentFile = (season) => `${season}-recent.json`;
+export const emptyRecent = (season) => ({ season: Number(season), v: 1, names: {}, teams: {} });
+const LINE_KEYS = ['id', 'pos', 'mom', 'mp', 'mn', 'sat', 'sog', 'xg', 'xgg', 'g', 'a1', 'a2', 'toi', 'ga', 'xga', 'sa', 'sg', 'st', 'pen', 'pd', 'pim', 'gv', 'tk', 'fw', 'fl', 'psa', 'pga', 'osa', 'oga', 'sf'];
+
+/** Adds one game's lines (as given to addGame) to each team's list, keeping its latest RECENT_GAMES games. */
+export function addRecent(recent, lines, n) {
+  const byTeam = new Map();
+  for (const l of lines) {
+    if (!l.team) continue;
+    if (l.name) recent.names[l.id] = l.name;
+    const o = {};
+    for (const k of LINE_KEYS) if (l[k] != null) o[k] = l[k];
+    if (l.oi) o.oi = l.oi;
+    (byTeam.get(l.team) ?? byTeam.set(l.team, []).get(l.team)).push(o);
+  }
+  for (const [team, l] of byTeam) {
+    const list = (recent.teams[team] ??= []);
+    list.push({ n, l });
+    list.sort((a, b) => a.n - b.n);
+    while (list.length > RECENT_GAMES) list.shift();
+  }
+  return recent;
+}
+
+/** A season-shaped total (players only) for a team's last `last` games, or null when the file has none. */
+export function recentTotal(recent, team, last = RECENT_GAMES) {
+  const games = (recent?.teams?.[team] ?? []).slice(-last);
+  if (!games.length) return null;
+  const total = emptySeason(recent.season);
+  for (const g of games) addGame(total, g.l.map((l) => ({ ...l, name: recent.names?.[l.id] ?? '', team })));
+  return total;
+}
+
+/** One season-shaped total for every team's last `last` games (players only), or null when the file has none. */
+export function recentAll(recent, last = RECENT_GAMES) {
+  const teams = Object.keys(recent?.teams ?? {});
+  if (!teams.length) return null;
+  const total = emptySeason(recent.season);
+  for (const team of teams) {
+    for (const g of (recent.teams[team] ?? []).slice(-last)) addGame(total, g.l.map((l) => ({ ...l, name: recent.names?.[l.id] ?? '', team })));
   }
   return total;
 }

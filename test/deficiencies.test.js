@@ -80,3 +80,34 @@ test('goalies who let in far more than an average goalie show up in both lists',
   assert.ok(a.onIce.some((p) => p.goalie && p.name === 'Bad'));
   assert.ok(!a.players.some((p) => p.name === 'Good'));
 });
+
+test('last-N view ranks teams on only their most recent games', () => {
+  const r = deficiencies(total, { last: 2 });
+  const a = r.teams.find((t) => t.abbrev === 'AAA');
+  const b = r.teams.find((t) => t.abbrev === 'BBB');
+  assert.equal(r.last, 2);
+  assert.equal(a.gp, 2);
+  assert.equal(b.gp, 2);
+  assert.equal(deficiencies(total).last, null);
+  assert.equal(deficiencies(total).teams[0].gp, 4);
+  // A single-game window follows only that game's results.
+  const one = deficiencies(total, { last: 1 }).teams.find((t) => t.abbrev === 'BBB');
+  assert.equal(one.gp, 1);
+  assert.equal(one.w, 1);
+});
+
+test('last-N view rebuilds players from the per-game lines', async () => {
+  const { emptyRecent, addRecent, recentTotal } = await import('../src/seasonStats.js');
+  const recent = emptyRecent(20262027);
+  const sk = (id, team, mom, extra = {}) => ({ id, name: `P${id}`, team, pos: 'C', sat: 5, sog: 3, mom, mp: Math.max(0, mom), mn: Math.min(0, mom), xg: 0.5, xgg: 0, g: 0, a1: 0, a2: 0, toi: 1100, ...extra });
+  for (let n = 1; n <= 12; n++) addRecent(recent, [sk(10, 'AAA', -3), sk(11, 'BBB', 3)], n);
+  assert.equal(recent.teams.AAA.length, 10);
+  assert.equal(recent.teams.AAA[0].n, 3);
+  const win = recentTotal(recent, 'AAA', 5);
+  assert.equal(win.players[10].gp, 5);
+  assert.equal(win.players[10].n, 'P10');
+  const r = deficiencies(total, { last: 2, recent: { ...recent, teams: { AAA: recent.teams.AAA, BBB: recent.teams.BBB } } });
+  const a = r.teams.find((t) => t.abbrev === 'AAA');
+  assert.equal(a.playersLast, true);
+  assert.equal(deficiencies(total, { last: 2 }).teams[0].playersLast, false);
+});
