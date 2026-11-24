@@ -269,8 +269,11 @@ const strengthTags = (g) => g.tags.map((t) => STRENGTH[t]).filter(Boolean);
 function runningScore(game, g) {
   if (g.period === 'SO' || !g.score) return '';
   const side = sideOf(game, g.team);
-  const ab = (s) => (s === side ? `<strong>${esc(game[s].abbrev)}</strong>` : esc(game[s].abbrev));
-  return `<span class="g-run">${ab('away')}<b class="g-sc">${g.score.away}\u2013${g.score.home}</b>${ab('home')}</span>`;
+  const part = (s) => {
+    const t = `${esc(game[s].abbrev)} ${g.score[s]}`;
+    return s === side ? `<strong>${t}</strong>` : t;
+  };
+  return `<span class="g-run">${part('away')}\u2013${part('home')}</span>`;
 }
 
 /** A goal chip for the scrolling strip: scorer, when, assists; opens the clip. */
