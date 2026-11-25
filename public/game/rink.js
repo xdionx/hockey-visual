@@ -43,6 +43,7 @@ export function endZone() {
 
 /** Everything inside the boards for the full rink. `home` ({abbrev, logo, color}) puts that team's center ice on the circle. */
 export function rinkSurface(home) {
+  if (home && FULL_ICE.has(home.abbrev) && !home.drawn) return fullIce(home.abbrev);
   const r = RINK;
   const nz = [-r.neutralDot.x, r.neutralDot.x].flatMap((x) => [-r.neutralDot.y, r.neutralDot.y].map((y) => `<circle class="dot" cx="${x}" cy="${y}" r="${r.neutralDot.dot}"/>`)).join('');
   const bc = r.blueInner + r.blueWidth / 2;
@@ -54,18 +55,19 @@ export function rinkSurface(home) {
     <g>${endZone()}</g><g transform="rotate(180)">${endZone()}</g>`;
 }
 
-/** Teams with a real center-ice image in public/centerice/<ABBREV>.png (cropped from theFaceoff.net's 2026-27 artwork, (c) theFaceoff.net). */
-export const CENTER_ICE = new Set(['BOS']);
-export const CENTER_ICE_CREDIT = 'Center ice artwork \u00a9 theFaceoff.net';
+/** Teams with their full 2026-27 ice graphic in public/centerice/<ABBREV>.jpg (theFaceoff.net artwork, cropped to the boards). */
+export const FULL_ICE = new Set(['BOS']);
+export const ICE_CREDIT = 'Ice artwork \u00a9 theFaceoff.net';
 
-/** Center ice for the home team: its own graphic when we have one, else a team-color ring and logo stand-in. */
+/** The home team's whole surface as the shot map background; it replaces the drawn lines (same 200 x 85 ft frame). */
+export function fullIce(abbrev) {
+  return `<image href="centerice/${abbrev}.jpg" x="-100" y="-42.5" width="200" height="85" preserveAspectRatio="none"/>`;
+}
+
+/** Center ice for the home team when there is no full graphic: a team-color ring and logo stand-in. */
 export function centerIce(home) {
   if (!home) return '';
   const r = RINK.centerRadius;
-  if (CENTER_ICE.has(home.abbrev)) {
-    const d = 17.5;
-    return `<g class="center-ice"><image href="centerice/${home.abbrev}.png" x="${-d}" y="${-d}" width="${2 * d}" height="${2 * d}"/></g>`;
-  }
   const color = home.color ?? '#64748b';
   const logo = home.logo ? `<image href="${home.logo}" x="${-r + 2.5}" y="${-r + 2.5}" width="${2 * r - 5}" height="${2 * r - 5}" preserveAspectRatio="xMidYMid meet"/>` : '';
   return `<g class="center-ice"><circle cx="0" cy="0" r="${r}" fill="${color}" opacity=".16"/><circle cx="0" cy="0" r="${r - 1.2}" fill="none" stroke="${color}" stroke-width="1.6" opacity=".8"/>${logo}</g>`;
