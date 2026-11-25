@@ -1,5 +1,5 @@
 // Box score page: loads one game's data/games/<id>.json and renders it in the chosen design.
-// Switch views with the bar at the top, keys 0-4, or ?design=<name> in the URL.
+// Switch views with the bar at the top, keys 0-4, a sideways swipe on a phone, or ?design=<name> in the URL.
 import { hornIcons, watchGoals, radioOpen, resetGoals } from '../horn.js';
 import { getDelay, delayBuffer, delayButton, onDelayChange, delayable, delayScores } from '../delay.js';
 import { noteClock, startClocks, clockSpan, timeoutChip } from '../clock.js';
@@ -66,6 +66,48 @@ document.addEventListener('keydown', (e) => {
   const d = /^\d$/.test(e.key) ? DESIGNS[Number(e.key)] : null;
   if (d) setDesign(d.id);
 });
+
+// Swipe sideways on a phone to change view: left = next view in the bar, right = previous.
+// Only swipes that start in the middle two thirds of the screen count, so the edges stay free for the
+// browser's back/forward gestures. Mostly-vertical swipes, sideways scrollers (tables, charts), inputs,
+// and an open video lightbox are left alone.
+{
+  let t = null;
+  const scrollsSideways = (el) => {
+    for (; el && el !== document.body; el = el.parentElement) {
+      if (el.scrollWidth > el.clientWidth + 2 && /(auto|scroll)/.test(getComputedStyle(el).overflowX)) return true;
+    }
+    return false;
+  };
+  document.addEventListener('touchstart', (e) => {
+    t = null;
+    if (e.touches.length !== 1 || document.querySelector('dialog[open]') || window.getSelection()?.toString()) return;
+    const { clientX: x, clientY: y } = e.touches[0];
+    const w = window.innerWidth;
+    if (x < w / 6 || x > (w * 5) / 6) return;
+    if (e.target.closest('input, select, textarea, dialog') || scrollsSideways(e.target)) return;
+    t = { x, y, at: Date.now() };
+  }, { passive: true });
+  document.addEventListener('touchend', (e) => {
+    if (!t) return;
+    const { x, y, at } = t; t = null;
+    const c = e.changedTouches[0];
+    const dx = c.clientX - x, dy = c.clientY - y;
+    if (Math.abs(dx) < 70 || Math.abs(dx) < Math.abs(dy) * 2 || Date.now() - at > 800) return;
+    const i = DESIGNS.findIndex((d) => d.id === design);
+    const next = DESIGNS[i + (dx < 0 ? 1 : -1)];
+    if (!next) return;
+    setDesign(next.id);
+    if (switcher.getBoundingClientRect().top < 0) scrollTo(0, 0);
+    // The bar scrolls sideways on a phone: bring the new view's button into sight.
+    const btn = switcher.querySelector(`[data-design="${next.id}"]`);
+    if (btn) {
+      const r = btn.getBoundingClientRect(), s = switcher.getBoundingClientRect();
+      switcher.scrollBy({ left: r.left + r.width / 2 - (s.left + s.width / 2), behavior: 'smooth' });
+    }
+  }, { passive: true });
+  document.addEventListener('touchcancel', () => { t = null; }, { passive: true });
+}
 
 function setDesign(id) {
   design = id;
