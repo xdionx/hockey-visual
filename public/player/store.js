@@ -47,6 +47,17 @@ function goalieRank(total, id) {
   return g?.rank ? { rank: g.rank, of: g.of } : null;
 }
 
+/** Rank by average game rating among same-role players (skaters or goalies) with enough rated games. */
+function ratingRankOf(total, id, row) {
+  const g = row.p === 'G';
+  const min = Math.min(5, Math.max(1, Math.ceil(Math.max(0, ...Object.values(total.players).map((p) => p.rn ?? 0)) / 4)));
+  if ((row.rn ?? 0) < min) return null;
+  const vals = Object.values(total.players).filter((p) => (p.p === 'G') === g && (p.rn ?? 0) >= min).map((p) => p.rt / p.rn);
+  const mine = row.rt / row.rn;
+  const r3 = (v) => Math.round(v * 1000);
+  return { rank: 1 + vals.filter((v) => r3(v) > r3(mine)).length, of: vals.length };
+}
+
 export const currentSeason = () => seasonOf(new Date(Date.now() - 10 * 3600_000).toISOString().slice(0, 10));
 
 /** Our numbers for one player in one season file: per-game averages plus league ranks. */
@@ -67,6 +78,7 @@ export function ourStats(total, id) {
     scoreRank: row.p === 'G' || avg?.scoringVsAvg == null || (row.xg ?? 0) < FIN_MIN_XG ? null : rankOf(total, id, 'scoringVsAvg', { ...opts, minXg: FIN_MIN_XG }),
     gsaxRank: row.p === 'G' && avg?.gsax != null ? goalieRank(total, id) : null,
     qsRank: row.p === 'G' && avg?.qsPct != null ? qsRankOf(total, id) : null,
+    ratingRank: row.rn ? ratingRankOf(total, id, row) : null,
     minGp: opts.minGp,
     games: total.games,
     complete: !!total.complete,

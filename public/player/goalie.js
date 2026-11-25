@@ -210,7 +210,9 @@ export function goalieSections(ctx) {
   const verdict = `<div class="gc-verdict ${bad}"><b>${headline}.</b> ${sg(b.gsax)} goals against an average goalie on the same shots${b.n ? ` over ${b.n} starts` : ''} (${playoffs ? 'this playoff run' : b.label}${season && gl ? `, ${ofN(gl)}` : ''}). ${b.sv != null && b.expSv != null ? `Save % ${sv3(b.sv)} against an expected ${sv3(b.expSv)}.` : ''}<div class="gc-chips">${chips}</div>${where ? `<p>${where}</p>` : ''}${bars}</div>`;
 
   const spider = radarChart(pts, n);
-  const out = [spider ? `<div class="gc-top">${verdict}${spider}</div>` : verdict];
+  const rk0 = season && me && me.rating != null ? rankAmong(lg.rows.map((g) => g.rating), me.rating, true) : null;
+  const hl = `<div class="hl-strip"><div class="hl-c" tabindex="0" title="Average game score (0-10) from our scorecards. 6.0 is an average night."><span class="hl-k">Game score</span><span class="hl-v">${rk0 ? me.rating.toFixed(1) : '-'}</span><span class="hl-s">${rk0 ? `${ofN(rk0)} of ${rk0.of} · avg of ${me.rated} games` : 'builds as games are rated'}</span></div><div class="hl-c" tabindex="0" title="Goals saved above expected"><span class="hl-k">GSAx</span><span class="hl-v">${sg(b.gsax)}</span><span class="hl-s">${season && gl ? `${ofN(gl)} of ${gl.of}` : b.label}</span></div></div>`;
+  const out = [hl, spider ? `<div class="gc-top">${verdict}${spider}</div>` : verdict];
   // Average game rating (our scorecard score; 6.0 = an average night), ranked among goalies with 5+ starts.
   const ratingTile = () => {
     if (!season || !me || me.rating == null) return '';

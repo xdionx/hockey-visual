@@ -19,6 +19,7 @@ const FMT = {
 const fv = (x) => FMT[x.kind] ?? FMT.dec;
 const sec = (id, title, sub, html) => `<section class="pc-card gc-sec" id="${id}"><h2>${title}${sub ? ` <small>${sub}</small>` : ''}</h2>${html}</section>`;
 const fig = (inner) => `<div class="gc-fig">${inner}</div>`;
+const none = () => '<p class="pq-note">No game-by-game data for this view.</p>';
 const wait = () => '<p class="pq-note gc-wait">Loading every game…</p>';
 
 export const NAV = [['sk-sum', 'Summary'], ['sk-rate', 'Ratings'], ['sk-sco', 'Scoring'], ['sk-drv', 'Driving play'], ['sk-sho', 'Shooting'], ['sk-def', 'Defense'], ['sk-dis', 'Discipline'], ['sk-lg', 'NHL rank'], ['sk-hist', 'History'], ['sk-last', 'Last 10 games']];
@@ -79,7 +80,8 @@ function summary(card) {
 
 // ── per-game charts ──
 function gameBars(games, get, label, color) {
-  if (!games?.length) return wait();
+  if (!games) return wait();
+  if (!games.length) return none();
   const Wd = 560, Hh = 170, pad = 30, mid = (Hh - 24) / 2;
   const bw = (Wd - pad - 10) / games.length;
   const mx = Math.max(1, ...games.map((g) => Math.abs(get(g))));
@@ -89,7 +91,8 @@ function gameBars(games, get, label, color) {
   }).join('')}<text x="${pad}" y="${Hh - 4}">first game</text><text x="${Wd - 60}" y="${Hh - 4}">latest</text></svg>`;
 }
 const pointsBars = (games) => {
-  if (!games?.length) return wait();
+  if (!games) return wait();
+  if (!games.length) return none();
   const Wd = 560, Hh = 150, pad = 30, bw = (Wd - pad - 10) / games.length;
   const mx = Math.max(2, ...games.map((g) => g.g + g.a));
   return `<svg viewBox="0 0 ${Wd} ${Hh}" role="img" aria-label="Goals and assists by game">${games.map((g, i) => {
@@ -100,10 +103,10 @@ const pointsBars = (games) => {
 
 
 /** Rating by game: bars from 6.0 (an average night), green above, red below. */
-function ratingBars(games) {
+function ratingBars(games, loaded) {
   const rated = (games ?? []).filter((g) => g.rating != null);
   if (!games) return wait();
-  if (!rated.length) return '<p class="pq-note gc-wait">Loading every game…</p>';
+  if (!rated.length) return loaded ? '<p class="pq-note">Game ratings are not available for these games yet.</p>' : wait();
   const Wd = 560, Hh = 170, pad = 30, base = 6, lo = Math.min(3, ...rated.map((g) => g.rating)), hi = Math.max(9, ...rated.map((g) => g.rating));
   const Y = (v) => 10 + ((hi - v) * (Hh - 34)) / (hi - lo);
   const bw = (Wd - pad - 10) / games.length;
@@ -114,7 +117,8 @@ function ratingBars(games) {
 
 /** Running scoring vs average across the season: goals above an average shooter plus 3/4 of assists above average, game by game. */
 function runningChart(games, rate, base) {
-  if (!games?.length) return wait();
+  if (!games) return wait();
+  if (!games.length) return none();
   let c = 0;
   const pts = games.map((g) => (c += (g.g - (g.line.xg ?? 0) * rate) + 0.75 * (g.a - base)));
   const Wd = 560, Hh = 170, pad = 34;
@@ -211,7 +215,7 @@ export async function loadSeasonClips(p, season, gameType = 2) {
       }
     }
   };
-  await Promise.all(Array.from({ length: 6 }, worker));
+  await Promise.all(Array.from({ length: 12 }, worker));
   return out.sort((a, b) => (a.date ?? '').localeCompare(b.date ?? '') || a.time.localeCompare(b.time));
 }
 
@@ -236,7 +240,7 @@ export async function loadSkaterGames(p, v) {
       out.push({ id, n: g.n, home, opp: home ? g.away : g.home, line: l, g: l.g ?? 0, a: (l.a1 ?? 0) + (l.a2 ?? 0), mom: l.mom ?? 0, sat: l.sat ?? 0, tier: tierOf(l, l.pos === 'D' ? 'D' : 'F'), date: null });
     }
   };
-  await Promise.all(Array.from({ length: 6 }, worker));
+  await Promise.all(Array.from({ length: 12 }, worker));
   out.sort((a, b) => a.n - b.n);
   return out;
 }
@@ -265,12 +269,16 @@ export async function loadClips(p, games) {
       }
     }
   };
-  await Promise.all(Array.from({ length: 6 }, worker));
+  await Promise.all(Array.from({ length: 12 }, worker));
   out.shots = shots;
   return out.sort((a, b) => (a.date ?? '').localeCompare(b.date ?? '') || a.n - b.n || a.time.localeCompare(b.time));
 }
 
 /** The grouped sections. games / clips are null until loaded. */
+const hlCell = (label, value, sub, tip) => `<div class="hl-c" title="${esc(tip)}" tabindex="0"><span class="hl-k">${label}</span><span class="hl-v">${value}</span><span class="hl-s">${sub}</span></div>`;
+/** The two numbers that drive the site, big, at the top of the card. */
+export function headlineStrip(cells) { return `<div class="hl-strip">${cells.join('')}</div>`; }
+
 export function skaterSections({ card, now: nowIn, games, clips, tab, all, playoffs, range = 0, seasons = [], season = '', clipSeason = '' }) {
   const { m, row, pg } = card;
   const gl = games ? (range ? games.slice(-range) : games) : null;
@@ -280,6 +288,11 @@ export function skaterSections({ card, now: nowIn, games, clips, tab, all, playo
   const out = [];
   const spiderHtml = spider(card.spider);
   const defHtml = card.defBars.length ? `<figure class="gc-defbars"><figcaption>Defense: percentile vs NHL ${card.group === 'D' ? 'defensemen' : 'forwards'}, 100 = best</figcaption>${bars(card.defBars)}</figure>` : '<p class="pq-note">Defense numbers need more ice time.</p>';
+  const gs = m.rating, mo = m.play;
+  out.push(headlineStrip([
+    hlCell('Game score', gs ? gs.value.toFixed(1) : '-', gs ? `${ofN(gs.rank)} of ${gs.of} · avg of ${card.row.rn} games` : 'builds as games are rated', 'Average game score (0-10) from our scorecards. 6.0 is an average night, 9+ is a huge game.'),
+    hlCell('Momentum / GP', mo ? sg(mo.value) : '-', mo ? `${ofN(mo.rank)} of ${mo.of}` : '', 'Momentum per game: our play-by-play model of the shifts in pressure the player creates or gives up.'),
+  ]));
   out.push(`<div class="gc-top" id="sk-sum">${summary(card)}<div>${spiderHtml}${defHtml}</div></div>`, stripSection(card));
   const seasonWord = playoffs ? 'playoff run' : 'season';
   const rated = (gl ?? []).filter((g) => g.rating != null);
@@ -292,7 +305,7 @@ export function skaterSections({ card, now: nowIn, games, clips, tab, all, playo
     ${worst ? plain('Worst game', worst.rating.toFixed(1), `${worst.home ? 'vs' : '@'} ${esc(worst.opp)}`, 'His lowest-rated game this season.') : ''}
     ${rated.length ? plain('7+ games', fmt.pct(rated.filter((g) => g.rating >= 7).length / rated.length, 0), 'rated 7.0 or better', 'Share of his games rated 7.0 or better.') : ''}
     ${rated.length ? plain('Under 5', fmt.pct(rated.filter((g) => g.rating < 5).length / rated.length, 0), 'rated below 5.0', 'Share of his games rated below 5.0.') : ''}</div>
-    ${fig(`<h4 class="sk-h">Rating by game <small>green above 6.0, red below</small></h4>${ratingBars(gl?.length ? gl : null)}`)}`));
+    ${fig(`<h4 class="sk-h">Rating by game <small>green above 6.0, red below</small></h4>${ratingBars(gl, !!clips)}`)}`));
   out.push(sec('sk-sco', 'Scoring', 'goals, assists and what they are worth', `<div class="pq-grid pc-grid">
     ${plain('G', now?.goals ?? row.g ?? '-')}${plain('A', now?.assists ?? '-')}${plain('P', now?.points ?? '-')}
     ${rtile(m.scoring, sg(pg.scoringVsAvg), 'Scoring vs avg', 'per game rank')}${rtile(m.fin, sg(pg.gaa), 'Goals vs avg', 'finishing')}
