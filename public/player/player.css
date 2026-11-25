@@ -122,13 +122,30 @@ body.pc-page { --page: #0a0e17; --ink: #e8edf5; --mute: #8b95a7; --line: #1f2937
 .pt-part rect { opacity: .45; }
 .pc-table td.pc-part { color: #64748b !important; font-weight: 400; }
 
+/* Narrow screens (phones and portrait tablets): compact header. Photo and name side by side, team logo in the
+   corner, bio facts in a full-width band underneath, so the season tiles come up sooner. */
+@media (max-width: 960px) {
+  .pc-hero { display: grid; grid-template-columns: 150px minmax(0, 1fr) auto; grid-template-areas: "mug kick logo" "mug name name" "mug team team" "facts facts facts"; align-items: end; gap: 0 16px; min-height: 0; padding: 16px 20px 0; }
+  .pc-id { display: contents; }
+  .pc-mug { grid-area: mug; width: 150px; height: 150px; align-self: end; margin-top: 4px; }
+  .pc-kicker { grid-area: kick; align-self: center; }
+  .pc-hero h1 { grid-area: name; font-size: 30px; line-height: 0.95; overflow-wrap: anywhere; }
+  .pc-hero h1 b { display: block; font-size: 46px; }
+  .pc-team { grid-area: team; align-self: start; padding-bottom: 14px; }
+  .pc-logo { grid-area: logo; width: 72px; height: 72px; margin: 0; align-self: start; }
+  .pc-facts { grid-area: facts; margin: 0 -20px; padding: 10px 20px 12px; gap: 8px 22px; background: rgba(0, 0, 0, .22); border-top: 1px solid rgba(255, 255, 255, .12); }
+}
 @media (max-width: 640px) {
-  .pc-hero { flex-direction: column; text-align: center; padding: 20px 16px 0; gap: 12px; position: relative; }
-  .pc-mug { width: 240px; height: 220px; align-self: center; order: 2; }
-  .pc-id { order: 1; padding: 20px 0 0; }
-  .pc-logo { position: absolute; top: 12px; right: 12px; width: 64px; height: 64px; margin: 0; }
-  .pc-hero h1 { font-size: 40px; }
-  .pc-facts { justify-content: center; }
+  .pc-hero { grid-template-columns: 104px minmax(0, 1fr) auto; gap: 0 12px; padding: 12px 14px 0; }
+  .pc-mug { width: 104px; height: 104px; font-size: 40px !important; }
+  .pc-kicker { font-size: 13px; }
+  .pc-hero h1 { font-size: 21px; }
+  .pc-hero h1 b { font-size: 32px; }
+  .pc-team { font-size: 13px; padding-bottom: 10px; }
+  .pc-logo { width: 44px; height: 44px; }
+  .pc-facts { margin: 0 -14px; padding: 8px 14px 10px; gap: 6px 16px; }
+  .pc-facts dt { font-size: 11px; }
+  .pc-facts dd { font-size: 13px; }
   .pc-card { padding: 12px; }
 }
 
