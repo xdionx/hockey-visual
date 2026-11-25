@@ -7,6 +7,7 @@ import { computeMomentum, onIceAttempts, inHomePlate } from './momentum.js';
 import { penaltyKind, SEVERITY_SCORE } from './penalties.js';
 import { strengthOf, penaltyRunning, gameElapsed } from './strength.js';
 import { goalieExpected, shooterExpected, finishingPct, shotXg } from './xg.js';
+import { goalieExpectedCtx } from './goalieXg.js';
 
 const t = (v) => (v && typeof v === 'object' ? v.default : v) ?? '';
 const clockTime = (s) => (s ?? '').replace(/^0(?=\d:)/, '');
@@ -50,12 +51,17 @@ export function skaterGameScore(s) {
   return { total: round(total), parts: Object.fromEntries(Object.entries(parts).map(([k, v]) => [k, round(v)])) };
 }
 
+/** League goals per shot on goal, used when a game has no play-by-play to say how hard the shots were. */
+const FALLBACK_GOAL_RATE = 0.1;
+
 /**
- * Goalie game score: -0.75 per goal against, +0.1 per save, and +0.35 for every goal saved above
- * what the shots were expected to produce (so a goalie who faced hard shots gets credit).
+ * Goalie game score: goals saved above expected (GSAx). Expected goals come from src/goalieXg.js, which prices each
+ * shot by location, shot type, power play, 3v3 and rebound, so a goalie who faced hard shots earns more per save and
+ * routine saves earn little. A league-average start scores 0 (rating 6.0). No flat credit per save.
  */
 export function goalieGameScore(g) {
-  return round(-0.75 * g.goalsAgainst + 0.1 * g.saves + 0.35 * (g.gsax ?? 0));
+  const gsax = g.gsax ?? FALLBACK_GOAL_RATE * (g.shotsAgainst ?? 0) - (g.goalsAgainst ?? 0);
+  return round(gsax);
 }
 
 /**
@@ -601,7 +607,7 @@ export function normalizeGameDetail({ box, landing = null, rightRail = null, pbp
   const series = rightRail?.seasonSeriesWins;
   const status = gameStatus(box);
   const shots = shotList(pbp, box.awayTeam.id, roster);
-  const expected = goalieExpected(shots);
+  const expected = pbp ? goalieExpectedCtx(pbp) : goalieExpected(shots);
   const finish = pbp ? shooterExpected(shots) : null;
   const lastPlay = (pbp?.plays ?? []).at(-1);
   const strength = status.state === 'live'
