@@ -16,8 +16,8 @@ export const RINK = {
   trapezoid: { goalLineHalf: 11, boardsHalf: 14 },         // 22 ft at the goal line, 28 ft at the end boards
 };
 
-/** Home plate (net posts -> 19 ft out -> top of the circles). Kept as data so it can be resized without touching the drawing. */
-export const HOME_PLATE = [[89, -4], [69, -19], [54, -19], [54, 19], [69, 19], [89, 4]];
+/** Home plate (8 ft either side of the net at the goal line -> 19 ft out -> top of the circles). Kept as data so it can be resized without touching the drawing. */
+export const HOME_PLATE = [[89, -8], [69, -19], [54, -19], [54, 19], [69, 19], [89, 8]];
 
 const f = (n) => +n.toFixed(3);
 
