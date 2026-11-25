@@ -54,10 +54,19 @@ export function rinkSurface(home) {
     <g>${endZone()}</g><g transform="rotate(180)">${endZone()}</g>`;
 }
 
-/** Center ice for the home team: team-color ring and logo inside the center circle (a drawn stand-in for the team's own graphic). */
+/** Teams with a real center-ice image in public/centerice/<ABBREV>.png (cropped from theFaceoff.net's 2026-27 artwork, (c) theFaceoff.net). */
+export const CENTER_ICE = new Set(['BOS']);
+export const CENTER_ICE_CREDIT = 'Center ice artwork \u00a9 theFaceoff.net';
+
+/** Center ice for the home team: its own graphic when we have one, else a team-color ring and logo stand-in. */
 export function centerIce(home) {
   if (!home) return '';
-  const color = home.color ?? '#64748b', r = RINK.centerRadius;
+  const r = RINK.centerRadius;
+  if (CENTER_ICE.has(home.abbrev)) {
+    const d = 17.5;
+    return `<g class="center-ice"><image href="centerice/${home.abbrev}.png" x="${-d}" y="${-d}" width="${2 * d}" height="${2 * d}"/></g>`;
+  }
+  const color = home.color ?? '#64748b';
   const logo = home.logo ? `<image href="${home.logo}" x="${-r + 2.5}" y="${-r + 2.5}" width="${2 * r - 5}" height="${2 * r - 5}" preserveAspectRatio="xMidYMid meet"/>` : '';
   return `<g class="center-ice"><circle cx="0" cy="0" r="${r}" fill="${color}" opacity=".16"/><circle cx="0" cy="0" r="${r - 1.2}" fill="none" stroke="${color}" stroke-width="1.6" opacity=".8"/>${logo}</g>`;
 }

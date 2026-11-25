@@ -1137,3 +1137,5 @@ main { padding: 0 0 48px; }
 .ln.agree .ln-flag { color: #4ade80; }
 .ln.differ .ln-flag { color: #fbbf24; }
 .pg-card .ln { margin-top: 12px; }
+
+.a-credit { margin: 4px 0 0; font-size: 10px; color: var(--a-mute, #7c8aa0); text-align: right; }
