@@ -88,6 +88,13 @@ async function build(path) {
   }
   m = path.match(/^\/players\/(\d{7,8})\.json$/);
   if (m) return { body: normalizePlayer(await nhl(`player/${m[1]}/landing`)), ttl: 30 * 60 };
+  m = path.match(/^\/log\/(\d{7,8})\/(\d{8})\/([23])\.json$/);
+  if (m) {
+    // The games a player scored or assisted in that season, for the player card's past-season clips.
+    const j = await nhl(`player/${m[1]}/game-log/${m[2]}/${m[3]}`);
+    const games = (j.gameLog ?? []).filter((g) => g.goals || g.assists).map((g) => ({ id: g.gameId, date: g.gameDate, home: g.homeRoadFlag === 'H', opp: g.opponentAbbrev, g: g.goals, a: g.assists }));
+    return { body: { games }, ttl: 60 * 60 };
+  }
   m = path.match(/^\/sat\/(\d{10})\.json$/);
   if (m) {
     const pbp = await nhl(`gamecenter/${m[1]}/play-by-play`);
