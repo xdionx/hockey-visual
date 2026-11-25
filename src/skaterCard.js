@@ -109,11 +109,12 @@ export function skaterCard(total, id, opts = {}) {
     const vals = pool.map((r) => r.v[key]);
     const rank = rankIn(vals, mine, hi);
     const mates = pool.filter((r) => r.team === me.team && r.group === me.group);
+    const others = mates.filter((r) => r.id !== me.id); // best / lowest teammate never names the player himself
     const teamRank = mates.length > 1 ? rankIn(mates.map((r) => r.v[key]), mine, hi) : null;
     const sorted = [...vals].sort((a, b) => a - b);
     m[key] = { ...METRIC[key], value: mine, vals, rank, pct: pctOf(rank), of: pool.length, avg: sorted[Math.floor(sorted.length / 2)], mean: vals.reduce((a, b) => a + b, 0) / vals.length,
-      teamRank, teamOf: mates.length, team: me.team, best: mates.length > 1 ? mates.reduce((a, b) => ((hi ? b.v[key] > a.v[key] : b.v[key] < a.v[key]) ? b : a)) : null,
-      worst: mates.length > 1 ? mates.reduce((a, b) => ((hi ? b.v[key] < a.v[key] : b.v[key] > a.v[key]) ? b : a)) : null };
+      teamRank, teamOf: mates.length, team: me.team, best: others.length ? others.reduce((a, b) => ((hi ? b.v[key] > a.v[key] : b.v[key] < a.v[key]) ? b : a)) : null,
+      worst: others.length ? others.reduce((a, b) => ((hi ? b.v[key] < a.v[key] : b.v[key] > a.v[key]) ? b : a)) : null };
   }
   const SPIDER = ['scoring', 'fin', 'play', 'sat', 'xg', 'pen'];
   const spider = SPIDER.filter((k) => m[k]).map((k) => ({ key: k, label: m[k].label, pct: Math.round(m[k].pct * 100), value: m[k].value, rank: m[k].rank, tip: m[k].tip }));
@@ -146,6 +147,6 @@ export function skaterCard(total, id, opts = {}) {
 export function hoverText(x, fmtV) {
   if (!x) return '';
   const lines = [x.label, x.tip, `Value¦${fmtV(x.value)}`, `NHL rank¦${x.rank.tied ? 'T' : ''}${ord(x.rank.rank)} of ${x.of}`, `NHL AVG¦${fmtV(x.mean)}`];
-  if (x.teamRank) lines.push(`${x.team} rank¦${x.teamRank.tied ? 'T' : ''}${ord(x.teamRank.rank)} of ${x.teamOf} at his position`, `Best teammate¦${x.best.name} ${fmtV(x.best.v[x.key])}`, `Lowest teammate¦${x.worst.name} ${fmtV(x.worst.v[x.key])}`);
+  if (x.teamRank) lines.push(`${x.team} rank¦${x.teamRank.tied ? 'T' : ''}${ord(x.teamRank.rank)} of ${x.teamOf}`, `Best teammate¦${x.best.name} ${fmtV(x.best.v[x.key])}`, `Lowest teammate¦${x.worst.name} ${fmtV(x.worst.v[x.key])}`);
   return lines.join('\n');
 }
