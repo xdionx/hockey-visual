@@ -18,6 +18,7 @@
 import { computeMomentum, plateArea } from './momentum.js';
 import { penaltyKind } from './penalties.js';
 import { shotXg, finishingPct } from './xg.js';
+import { goalieShots } from './goalieXg.js';
 import { tierOf } from './impact.js';
 
 // Bump when how a game line is computed changes (momentum weights, what counts as an attempt):
@@ -28,12 +29,13 @@ import { tierOf } from './impact.js';
 //    goals against vs expected (ga, xga, gs = games started), and each game's starting goalies (ags, hgs).
 // 6: scoring (g = all goals, a1 primary assists, a2 secondary assists; shootouts left out) for Scoring vs avg.
 // 10: home plate 8 ft wide at the goal line (was 4).
+// 11: goalie expected goals (xga) and game rating use src/goalieXg.js (power play, rebound, shot type, area).
 // 7: home plate narrowed to 19 ft, inner 2x / outer 3.5x, wide shots 0.5x (momentum and on-ice weights).
 // 8: goalie shots against (sa) and goals on them (sg), plus one [shots, goals] entry per start (q), for quality starts.
 // 9: deficiencies v2: skater penalties taken / drawn (pen, pd, pim), giveaways and takeaways (gv, tk), faceoffs (fw, fl);
 //    goalie shots and goals inside / outside the home plate (psa, pga, osa, oga) and perimeter goals (sf); game rows get
 //    power-play chances and goals for each side (appo, apg, hppo, hpg).
-export const SEASON_VERSION = 10;
+export const SEASON_VERSION = 11;
 
 /** First season we keep on-ice shot attempts for (shift charts; the Team deficiencies tab starts here too). */
 export const FIRST_SHIFT_SEASON = 20202021;
@@ -204,6 +206,7 @@ export function fromPbp(pbp) {
   const gk = new Map();
   const faced = new Map();
   const starters = {};
+  const ctxXg = new Map([...goalieShots(pbp)].map((x) => [x.e, x.p])); // goalie expected goals per shot (src/goalieXg.js)
   const teamOf = new Map((pbp.rosterSpots ?? []).map((r) => [r.playerId, r.teamId]));
   for (const e of [...pbp.plays].sort((x, y) => (x.sortOrder ?? 0) - (y.sortOrder ?? 0))) {
     if ((e.typeDescKey !== 'goal' && e.typeDescKey !== 'shot-on-goal') || e.periodDescriptor?.periodType === 'SO') continue;
@@ -225,7 +228,7 @@ export function fromPbp(pbp) {
     f[inside ? 'psa' : 'osa']++;
     if (goal) { f[inside ? 'pga' : 'oga']++; if (!inside && p < SOFT_XG) f.sf++; }
     const g = gk.get(d.goalieInNetId) ?? { ga: 0, xga: 0 };
-    g.xga += p;
+    g.xga += ctxXg.get(e) ?? p;
     if (e.typeDescKey === 'goal') g.ga++;
     gk.set(d.goalieInNetId, g);
   }

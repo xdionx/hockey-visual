@@ -366,3 +366,20 @@ test('rating: linear between 4 and 9, softened (not capped) past either end', as
   assert.equal(rating(-5.07), 1.8); // 7 goals against
   assert.ok(rating(3) > rating(2.9) && rating(-3) < rating(-2.9)); // still strictly ordered at the ends
 });
+
+test('goalie game score is goals saved above expected: no flat credit per save, a league-average start is 0', async () => {
+  const { goalieGameScore } = await import('../src/gameDetail.js');
+  assert.equal(goalieGameScore({ gsax: 0, saves: 30, goalsAgainst: 3 }), 0);
+  assert.equal(goalieGameScore({ gsax: 1.234 }), 1.23);
+  assert.equal(goalieGameScore({ shotsAgainst: 30, goalsAgainst: 3 }), 0); // no play-by-play: league goal rate of 10%
+});
+
+test('goalie xG: power plays, rebounds and slap shots are harder than the base model says, tips easier', async () => {
+  const { goalieShotXg } = await import('../src/goalieXg.js');
+  const base = { x: 70, y: 5, shotType: 'wrist', shooterSkaters: 5, goalieSkaters: 5 };
+  const p0 = goalieShotXg(base, 2025);
+  assert.ok(goalieShotXg({ ...base, shooterSkaters: 5, goalieSkaters: 4 }, 2025) > p0);
+  assert.ok(goalieShotXg({ ...base, rebound: true }, 2025) > p0);
+  assert.ok(goalieShotXg({ ...base, shotType: 'tip-in' }, 2025) < goalieShotXg({ ...base, shotType: 'wrist' }, 2025));
+  assert.ok(p0 > 0 && p0 < 1);
+});
