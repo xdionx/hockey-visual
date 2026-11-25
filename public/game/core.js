@@ -1,4 +1,5 @@
 // Shared helpers for the box score designs.
+import { rinkSurface, HOME_PLATE } from './rink.js';
 
 export const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
@@ -284,27 +285,14 @@ export function initVideo(root) {
 let rinkId = 0;
 /** Start rink ids over for each render so a live refresh produces the same ids. */
 export function resetRinkIds() { rinkId = 0; }
-export function rinkMarkup() {
+export function rinkMarkup(home) {
   const id = `rink-clip-${++rinkId}`;
-  const circles = [-69, 69].flatMap((x) => [-22, 22].map((y) => `<circle class="circle" cx="${x}" cy="${y}" r="15"/><circle class="dot" cx="${x}" cy="${y}" r="1"/>`)).join('');
-  const dots = [-20, 20].flatMap((x) => [-22, 22].map((y) => `<circle class="dot" cx="${x}" cy="${y}" r="1"/>`)).join('');
   return `
     <clipPath id="${id}"><rect x="-100" y="-42.5" width="200" height="85" rx="28" ry="28"/></clipPath>
     <g class="rink" clip-path="url(#${id})">
-      <rect class="ice" x="-100" y="-42.5" width="200" height="85"/>
-      <line class="red" x1="0" y1="-42.5" x2="0" y2="42.5"/>
-      <line class="blue" x1="-25" y1="-42.5" x2="-25" y2="42.5"/>
-      <line class="blue" x1="25" y1="-42.5" x2="25" y2="42.5"/>
-      <line class="goal-line" x1="-89" y1="-42.5" x2="-89" y2="42.5"/>
-      <line class="goal-line" x1="89" y1="-42.5" x2="89" y2="42.5"/>
-      <circle class="circle" cx="0" cy="0" r="15"/>
-      ${circles}${dots}
-      <path class="crease" d="M -89 -4 L -85 -4 A 4 4 0 0 1 -85 4 L -89 4 Z"/>
-      <path class="crease" d="M 89 -4 L 85 -4 A 4 4 0 0 0 85 4 L 89 4 Z"/>
-      <rect class="net" x="-92" y="-3" width="3" height="6"/>
-      <rect class="net" x="89" y="-3" width="3" height="6"/>
-      <path class="plate" d="M -89 -4 L -69 -19 L -54 -19 L -54 19 L -69 19 L -89 4"/>
-      <path class="plate" d="M 89 -4 L 69 -19 L 54 -19 L 54 19 L 69 19 L 89 4"/>
+      ${rinkSurface(home)}
+      <path class="plate" d="M ${HOME_PLATE.map(([x, y]) => `${-x} ${-y}`).join(' L ')}"/>
+      <path class="plate" d="M ${HOME_PLATE.map(([x, y]) => `${x} ${y}`).join(' L ')}"/>
       <path class="plate-split" d="M -79 -11.5 L -79 11.5 M 79 -11.5 L 79 11.5"/>
     </g>
     <rect class="boards" x="-100" y="-42.5" width="200" height="85" rx="28" ry="28"/>`;
