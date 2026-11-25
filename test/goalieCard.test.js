@@ -53,7 +53,7 @@ test('a start is built from the game file: clips matched by period and time, pla
   assert.equal(startFromGame(game, 5), null);
 });
 
-test('spider percentiles rank him among league goalies, soft goals flipped', async () => {
+test('spider percentiles rank him among league goalies, perimeter goals flipped', async () => {
   const lg = { rows: [1, 2, 3, 4, 5].map((i) => ({ id: i, gsaxPerGame: i, sv: i / 10, qsPct: i / 10, inSv: i / 10, outSv: i / 10, softPer: 5 - i })) };
   const best = radarPoints(lg, 5);
   assert.equal(best.length, 6);

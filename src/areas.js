@@ -93,14 +93,14 @@ export function goalieAreas(row, base) {
   return { out: zone(row.osa ?? 0, row.oga ?? 0, base.outRate), inn: zone(row.psa ?? 0, row.pga ?? 0, base.inRate), soft: row.sf ?? 0, gs: row.gs ?? 0 };
 }
 
-/** Flags for a goalie: soft goals outside the plate, struggling inside it. */
+/** Flags for a goalie: perimeter goals outside the plate, struggling inside it. */
 export function goalieFlags(row, base) {
   const a = goalieAreas(row, base);
   const w = base.win;
   if (!a || (row.gs ?? 0) < MIN.goalieStarts[w]) return [];
   const out = [];
   if (a.out.ok && a.out.vs <= GOALIE_OUT_COST[w] && a.out.z <= GOALIE_Z) {
-    out.push({ k: 'out', label: 'Soft goals outside the plate', z: a.out.z, text: `Outside the home plate: ${a.out.ga} goals on ${a.out.sa} shots (${pct(a.out.sv, 1)} saved; average goalie ${pct(a.out.avgSv, 1)}), ${fmt1(-a.out.vs)} more than an average goalie would allow. ${a.soft} of his goals came from outside the plate on shots worth under 6%, goals he is not supposed to allow.` });
+    out.push({ k: 'out', label: 'Perimeter goals', z: a.out.z, text: `Outside the home plate: ${a.out.ga} goals on ${a.out.sa} shots (${pct(a.out.sv, 1)} saved; average goalie ${pct(a.out.avgSv, 1)}), ${fmt1(-a.out.vs)} more than an average goalie would allow. ${a.soft} of his goals came from outside the plate on shots worth under 6%, goals he is not supposed to allow.` });
   }
   if (a.inn.ok && a.inn.vs <= GOALIE_OUT_COST[w] && a.inn.z <= GOALIE_Z) {
     out.push({ k: 'inn', label: 'Struggles inside the plate', z: a.inn.z, text: `Inside the home plate: ${a.inn.ga} goals on ${a.inn.sa} shots (${pct(a.inn.sv, 1)} saved; average goalie ${pct(a.inn.avgSv, 1)}), ${fmt1(-a.inn.vs)} more than an average goalie would allow.` });
@@ -108,4 +108,4 @@ export function goalieFlags(row, base) {
   return out;
 }
 
-export const AREA_LABEL = { fin: 'Finishing', mom: 'Driving play', mn: 'Giving it away', below: 'Low impact', vol: 'Shot volume', disc: 'Penalties', fo: 'Faceoffs', give: 'Giveaways', oi: 'On-ice', gsax: 'Goaltending', out: 'Soft goals outside the plate', inn: 'Struggles inside the plate' };
+export const AREA_LABEL = { fin: 'Finishing', mom: 'Driving play', mn: 'Giving it away', below: 'Low impact', vol: 'Shot volume', disc: 'Penalties', fo: 'Faceoffs', give: 'Giveaways', oi: 'On-ice', gsax: 'Goaltending', out: 'Perimeter goals', inn: 'Struggles inside the plate' };

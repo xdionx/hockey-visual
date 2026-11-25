@@ -20,7 +20,7 @@ export const COLS = {
     ['sv', 'Save %', 'Sv%', 'pct1', 1, 'Save percentage'],
     ['out', 'Outside plate', 'Out', 'signed1', 1, 'Goals saved vs average on shots from outside the home plate'],
     ['inn', 'Inside plate', 'In', 'signed1', 1, 'Goals saved vs average on shots in the home plate'],
-    ['soft', 'Soft goals', 'Soft', 'dec2', -1, 'Goals from outside the plate on shots worth under 6%, per start'],
+    ['soft', 'Perimeter goals', 'Perim.', 'dec2', -1, 'Goals from outside the plate on shots worth under 6%, per start'],
   ],
   teams: [
     ['pts', 'Pts %', 'Pts', 'pct0', 1, 'Share of points'],

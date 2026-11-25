@@ -30,7 +30,7 @@ import { tierOf } from './impact.js';
 // 7: home plate narrowed to 19 ft, inner 2x / outer 3.5x, wide shots 0.5x (momentum and on-ice weights).
 // 8: goalie shots against (sa) and goals on them (sg), plus one [shots, goals] entry per start (q), for quality starts.
 // 9: deficiencies v2: skater penalties taken / drawn (pen, pd, pim), giveaways and takeaways (gv, tk), faceoffs (fw, fl);
-//    goalie shots and goals inside / outside the home plate (psa, pga, osa, oga) and soft goals (sf); game rows get
+//    goalie shots and goals inside / outside the home plate (psa, pga, osa, oga) and perimeter goals (sf); game rows get
 //    power-play chances and goals for each side (appo, apg, hppo, hpg).
 export const SEASON_VERSION = 9;
 
@@ -42,7 +42,7 @@ export const FIRST_FULL_SEASON = 20092010;
 
 const t = (v) => (v && typeof v === 'object' ? v.default : v) ?? '';
 const round1 = (n) => Math.round(n * 10) / 10;
-/** A goal from outside the home plate on a shot worth less than this is a soft goal. */
+/** A goal from outside the home plate on a shot worth less than this is a perimeter goal. */
 export const SOFT_XG = 0.06;
 const ATTEMPTS = new Set(['goal', 'shot-on-goal', 'missed-shot', 'blocked-shot']);
 
