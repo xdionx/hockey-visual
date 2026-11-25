@@ -56,7 +56,7 @@ export function rinkSurface(home) {
 }
 
 /** Teams with their full 2026-27 ice graphic in public/centerice/<ABBREV>.jpg (theFaceoff.net artwork, cropped to the boards). */
-export const FULL_ICE = new Set(['ANA', 'BOS', 'BUF', 'CAR', 'CBJ', 'CGY', 'CHI', 'COL', 'DAL', 'DET', 'EDM', 'FLA', 'LAK', 'MIN', 'MTL', 'NJD', 'NSH', 'NYI', 'NYR', 'OTT', 'PHI', 'PIT', 'SEA', 'SJS', 'STL', 'TBL', 'TOR', 'UTA', 'VAN', 'WPG', 'WSH']);
+export const FULL_ICE = new Set(['ANA', 'BOS', 'BUF', 'CAR', 'CBJ', 'CGY', 'CHI', 'COL', 'DAL', 'DET', 'EDM', 'FLA', 'LAK', 'MIN', 'MTL', 'NJD', 'NSH', 'NYI', 'NYR', 'OTT', 'PHI', 'PIT', 'SEA', 'SJS', 'STL', 'TBL', 'TOR', 'UTA', 'VAN', 'VGK', 'WPG', 'WSH']);
 /** One-off ice for special games, matched on date and teams (key = file name in public/centerice/). */
 const SPECIAL_ICE = [
   { key: 'HERITAGE-2026', date: '2026-10-25', home: 'WPG', away: 'MTL' },
