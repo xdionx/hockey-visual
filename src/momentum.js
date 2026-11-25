@@ -25,13 +25,15 @@
 import { penaltyKind } from './penalties.js';
 
 /**
- * "Home plate": the most dangerous scoring area. From the goal posts (4 ft either side of centre) the
+ * "Home plate": the most dangerous scoring area. From 8 ft either side of centre at the goal line the
  * edges run out to PLATE_HALF_WIDTH feet from centre at PLATE_SHOULDER feet from centre ice, then straight
  * out to the top of the faceoff circles (54 ft). Works on either end (rink feet, centre ice = 0).
+ * Nov 2026: 8 ft each side at the goal line (was 4, the posts): the strip 4-8 ft out scores 16% of shots on goal, as dangerous as the outer plate.
  * Nov 2026 (v6): narrowed from 22 ft (the faceoff dots) to 19 ft each side, which tested slightly better.
  */
 export const HOME_PLATE_BONUS = 1.5;
 export const PLATE_HALF_WIDTH = 19;
+export const PLATE_GOAL_LINE_WIDTH = 8; // plate half-width at the goal line (Nov 2026: was 4, the posts)
 export const PLATE_SHOULDER = 69; // where the angled edges meet the straight sides
 export const PLATE_INNER_X = 79; // inner plate: within 10 ft of the goal line
 export function inHomePlate(x, y) {
@@ -39,7 +41,7 @@ export function inHomePlate(x, y) {
   const ax = Math.abs(x);
   const ay = Math.abs(y);
   if (ax > 89 || ax < 54) return false;
-  if (ax >= PLATE_SHOULDER) return ay <= 4 + ((89 - ax) * (PLATE_HALF_WIDTH - 4)) / (89 - PLATE_SHOULDER);
+  if (ax >= PLATE_SHOULDER) return ay <= PLATE_GOAL_LINE_WIDTH + ((89 - ax) * (PLATE_HALF_WIDTH - PLATE_GOAL_LINE_WIDTH)) / (89 - PLATE_SHOULDER);
   return ay <= PLATE_HALF_WIDTH;
 }
 /** Shot-location area: 'inner' and 'outer' plate, 'wide' (outside the circles' width / the point wings), or 'other'. */

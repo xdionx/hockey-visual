@@ -246,7 +246,7 @@ export function goalieSections(ctx) {
       tile('Inside vs avg', sg(inVs), 'goals', cls(inVs)), tile('Outside vs avg', sg(outVs), 'goals', cls(outVs)),
       tile('Perimeter goals', b.soft ?? 0, b.n ? `${((b.soft ?? 0) / b.n).toFixed(2)} per start` : '', (b.soft ?? 0) >= nStarts * 0.5 ? 'down' : ''),
       tile('Shots inside plate', fmt.pct(b.inSa / b.sa, 0), 'share of shots faced'),
-    ].join('')}</div><h3 class="pc-sub">Save % against the NHL AVG, by area</h3>${fig(zoneChart(b, lg.inRate, lg.outRate))}<p class="pq-note">White tick = NHL AVG save % on shots from that area. Home plate = the slot (19 ft either side of the net, out to the top of the circles).</p>`
+    ].join('')}</div><h3 class="pc-sub">Save % against the NHL AVG, by area</h3>${fig(zoneChart(b, lg.inRate, lg.outRate))}<p class="pq-note">White tick = NHL AVG save % on shots from that area. Home plate = the slot (8 ft either side of the net at the goal line, widening to 19 ft, out to the top of the circles).</p>`
       : unavailable(playoffs ? 'Shot areas and the shot map are built for regular seasons.' : rowHasPlate || b.last ? 'No shots in this stretch.' : 'Shot areas are not built for this season yet; they fill in as the backfill rebuilds it.')}</div></div>`));
   // 4 Consistency
   const lgQs = lg.lgQsPct != null ? `NHL AVG ${fmt.pct(lg.lgQsPct, 0)}` : '';
