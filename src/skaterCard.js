@@ -135,7 +135,7 @@ export function skaterCard(total, id, opts = {}) {
   else if (def >= 0.9) headline = 'Defensive anchor';
   else if (off < 0.2 && def < 0.2) headline = 'Struggling at both ends';
   else headline = 'Balanced / depth';
-  return { id: me.id, name: me.name, team: me.team, pos: me.pos, group: me.group, gp: me.gp, row: me.row, pg: me.pg, areas: me.areas, m, spider, defBars, strengths, weak,
+  return { prod: productionRanks(total, id), id: me.id, name: me.name, team: me.team, pos: me.pos, group: me.group, gp: me.gp, row: me.row, pg: me.pg, areas: me.areas, m, spider, defBars, strengths, weak,
     isWin: !!opts.win, adjusted: tbl.adjusted, adj: me.adj, summary: { headline, off, def, offTier: off == null ? null : tierName(off), defTier: def == null ? null : tierName(def) }, rate: tbl.rate, sbase: tbl.sbase,
     pool: all.filter((r) => r.group === me.group && r.v.def != null).map((r) => ({ id: r.id, name: r.name, x: ((r.row.g ?? 0) + (r.row.a1 ?? 0) + (r.row.a2 ?? 0)) / r.gp, y: r.v.def })) };
 }
@@ -149,4 +149,34 @@ export function hoverText(x, fmtV) {
   const lines = [x.label, x.tip, `Value¦${fmtV(x.value)}`, `NHL rank¦${x.rank.tied ? 'T' : ''}${ord(x.rank.rank)} of ${x.of}`, `NHL AVG¦${fmtV(x.mean)}`];
   if (x.teamRank) lines.push(`${x.team} rank¦${x.teamRank.tied ? 'T' : ''}${ord(x.teamRank.rank)} of ${x.teamOf}`, `Best teammate¦${x.best.name} ${fmtV(x.best.v[x.key])}`, `Lowest teammate¦${x.worst.name} ${fmtV(x.worst.v[x.key])}`);
   return lines.join('\n');
+}
+
+/**
+ * NHL and team ranks for the box-score numbers (goals, assists, points, penalty minutes, ice time per game).
+ * Every skater with a game counts for the totals; ice time per game needs a few games. Returns null for a player not in the file.
+ * Each entry: { nhl: {rank, of, tied}, team: {rank, of, tied, team} | null }.
+ */
+export function productionRanks(total, id) {
+  const players = total?.players;
+  const row = players?.[String(id)];
+  if (!row || row.p === 'G') return null;
+  const skaters = Object.entries(players).filter(([, r]) => r.p !== 'G' && r.gp > 0);
+  const minGp = Math.max(5, minGames(total));
+  const keys = {
+    g: (r) => r.g ?? 0,
+    a: (r) => (r.a1 ?? 0) + (r.a2 ?? 0),
+    p: (r) => (r.g ?? 0) + (r.a1 ?? 0) + (r.a2 ?? 0),
+    pim: (r) => r.pim ?? 0,
+    toi: (r) => (r.toi && r.gp >= minGp ? r.toi / r.gp : null),
+  };
+  const out = {};
+  for (const [k, f] of Object.entries(keys)) {
+    const mine = f(row);
+    if (mine == null) continue;
+    const pool = skaters.filter(([, r]) => f(r) != null);
+    const nhl = rankIn(pool.map(([, r]) => f(r)), mine, true);
+    const mates = pool.filter(([, r]) => r.t === row.t);
+    out[k] = { nhl, team: mates.length > 1 && row.t ? { ...rankIn(mates.map(([, r]) => f(r)), mine, true), team: row.t } : null };
+  }
+  return out;
 }

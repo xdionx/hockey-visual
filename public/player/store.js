@@ -1,6 +1,7 @@
 // Loads player profiles (live data Worker) and season totals (static files the GitHub Action saves),
 // with small in-memory caches so opening the same card twice is instant.
 import { getData, getStatic } from '../data.js';
+import { productionRanks } from '../src/skaterCard.js';
 import { perGame, scoringBase, rankOf, seasonOf, seasonFile, minGames, leagueRate, leagueSavePct, qsBoard, REGULAR, PLAYOFFS } from '../src/seasonStats.js';
 import { goalieLine } from '../src/matchup.js';
 
@@ -78,6 +79,7 @@ export function ourStats(total, id) {
     scoreRank: row.p === 'G' || avg?.scoringVsAvg == null || (row.xg ?? 0) < FIN_MIN_XG ? null : rankOf(total, id, 'scoringVsAvg', { ...opts, minXg: FIN_MIN_XG }),
     gsaxRank: row.p === 'G' && avg?.gsax != null ? goalieRank(total, id) : null,
     qsRank: row.p === 'G' && avg?.qsPct != null ? qsRankOf(total, id) : null,
+    prod: productionRanks(total, id),
     ratingRank: row.rn ? ratingRankOf(total, id, row) : null,
     minGp: opts.minGp,
     games: total.games,
