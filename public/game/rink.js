@@ -43,7 +43,7 @@ export function endZone() {
 
 /** Everything inside the boards for the full rink. `home` ({abbrev, logo, color}) puts that team's center ice on the circle. */
 export function rinkSurface(home) {
-  if (home && FULL_ICE.has(home.abbrev) && !home.drawn) return fullIce(home.abbrev);
+  if (home?.ice && !home.drawn) return fullIce(home.ice);
   const r = RINK;
   const nz = [-r.neutralDot.x, r.neutralDot.x].flatMap((x) => [-r.neutralDot.y, r.neutralDot.y].map((y) => `<circle class="dot" cx="${x}" cy="${y}" r="${r.neutralDot.dot}"/>`)).join('');
   const bc = r.blueInner + r.blueWidth / 2;
@@ -57,6 +57,16 @@ export function rinkSurface(home) {
 
 /** Teams with their full 2026-27 ice graphic in public/centerice/<ABBREV>.jpg (theFaceoff.net artwork, cropped to the boards). */
 export const FULL_ICE = new Set(['ANA', 'BOS', 'BUF', 'CAR', 'CBJ', 'CGY', 'CHI', 'COL', 'DAL', 'DET', 'EDM', 'FLA', 'LAK', 'MIN', 'MTL', 'NJD', 'NSH', 'NYI', 'NYR', 'OTT', 'PHI', 'PIT', 'SEA', 'SJS', 'STL', 'TBL', 'TOR', 'UTA', 'VAN', 'WPG', 'WSH']);
+/** One-off ice for special games, matched on date and teams (key = file name in public/centerice/). */
+const SPECIAL_ICE = [{ key: 'HERITAGE-2026', date: '2026-10-25', home: 'WPG', away: 'MTL' }];
+
+/** Which ice graphic to use for a game: its special ice, else the home team's, else none. */
+export function iceKey(game) {
+  const sp = SPECIAL_ICE.find((x) => x.home === game.home.abbrev && x.away === game.away.abbrev && String(game.gameDate ?? '').startsWith(x.date));
+  if (sp) return sp.key;
+  return FULL_ICE.has(game.home.abbrev) ? game.home.abbrev : null;
+}
+
 export const ICE_CREDIT = 'Ice artwork \u00a9 theFaceoff.net';
 
 /** The home team's whole surface as the shot map background; it replaces the drawn lines (same 200 x 85 ft frame). */
