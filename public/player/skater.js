@@ -21,7 +21,7 @@ const sec = (id, title, sub, html) => `<section class="pc-card gc-sec" id="${id}
 const fig = (inner) => `<div class="gc-fig">${inner}</div>`;
 const wait = () => '<p class="pq-note gc-wait">Loading every game…</p>';
 
-export const NAV = [['sk-sum', 'Summary'], ['sk-sco', 'Scoring'], ['sk-drv', 'Driving play'], ['sk-sho', 'Shooting'], ['sk-def', 'Defense'], ['sk-dis', 'Discipline'], ['sk-lg', 'NHL rank'], ['sk-hist', 'History'], ['sk-last', 'Last 10 games']];
+export const NAV = [['sk-sum', 'Summary'], ['sk-rate', 'Ratings'], ['sk-sco', 'Scoring'], ['sk-drv', 'Driving play'], ['sk-sho', 'Shooting'], ['sk-def', 'Defense'], ['sk-dis', 'Discipline'], ['sk-lg', 'NHL rank'], ['sk-hist', 'History'], ['sk-last', 'Last 10 games']];
 export const navHtml = () => `<nav class="gc-nav" aria-label="Sections">${NAV.map(([id, l]) => `<a href="#${id}">${l}</a>`).join('')}</nav>`;
 
 /** A ranked tile: value, label, "15th NHL" line, tinted in the top / bottom 10%, hover explains. */
@@ -98,6 +98,19 @@ const pointsBars = (games) => {
   }).join('')}<line class="gc-zero" x1="${pad}" x2="${Wd - 6}" y1="${Hh - 20}" y2="${Hh - 20}"/><text x="${pad}" y="${Hh - 4}">goals green, assists blue</text></svg>`;
 };
 
+
+/** Rating by game: bars from 6.0 (an average night), green above, red below. */
+function ratingBars(games) {
+  const rated = (games ?? []).filter((g) => g.rating != null);
+  if (!games) return wait();
+  if (!rated.length) return '<p class="pq-note gc-wait">Loading every game…</p>';
+  const Wd = 560, Hh = 170, pad = 30, base = 6, lo = Math.min(3, ...rated.map((g) => g.rating)), hi = Math.max(9, ...rated.map((g) => g.rating));
+  const Y = (v) => 10 + ((hi - v) * (Hh - 34)) / (hi - lo);
+  const bw = (Wd - pad - 10) / games.length;
+  return `<svg viewBox="0 0 ${Wd} ${Hh}" role="img" aria-label="Game rating by game"><line class="gc-zero" x1="${pad}" x2="${Wd - 6}" y1="${Y(base)}" y2="${Y(base)}"/><text x="2" y="${Y(base) + 3}">6.0</text>
+    ${games.map((g, i) => (g.rating == null ? '' : `<rect x="${pad + i * bw + 1}" y="${Math.min(Y(g.rating), Y(base))}" width="${Math.max(2, bw - 2)}" height="${Math.max(1.5, Math.abs(Y(g.rating) - Y(base)))}" rx="2" fill="${g.rating >= base ? UP : DOWN}"><title>Game ${g.n} ${g.home ? 'vs' : '@'} ${esc(g.opp)}: rating ${g.rating.toFixed(1)}</title></rect>`)).join('')}
+    <text x="${pad}" y="${Hh - 4}">first game</text><text x="${Wd - 40}" y="${Hh - 4}">latest</text></svg>`;
+}
 
 /** Running scoring vs average across the season: goals above an average shooter plus 3/4 of assists above average, game by game. */
 function runningChart(games, rate, base) {
@@ -240,6 +253,10 @@ export async function loadClips(p, games) {
       const game = await getData(`games/${g.id}.json`).catch(() => null);
       if (!game) continue;
       g.date = game.gameDate;
+      for (const side of ['away', 'home']) {
+        const me = ['forwards', 'defense'].flatMap((k) => game.players?.[side]?.[k] ?? []).find((x) => x.id === p.id);
+        if (me) { g.rating = me.rating ?? null; g.gameScore = me.gameScore ?? null; }
+      }
       for (const sh of game.shots ?? []) if (sh.shooterId === p.id && sh.x != null) shots.push({ gid: g.id, x: sh.x, y: sh.y, kind: sh.kind, type: sh.shotType, plate: sh.homePlate, opp: g.opp, home: g.home, date: game.gameDate, period: sh.period, time: sh.time });
       for (const s of game.scoring ?? []) {
         const goal = s.scorer?.id === p.id;
@@ -265,6 +282,17 @@ export function skaterSections({ card, now: nowIn, games, clips, tab, all, playo
   const defHtml = card.defBars.length ? `<figure class="gc-defbars"><figcaption>Defense: percentile vs NHL ${card.group === 'D' ? 'defensemen' : 'forwards'}, 100 = best</figcaption>${bars(card.defBars)}</figure>` : '<p class="pq-note">Defense numbers need more ice time.</p>';
   out.push(`<div class="gc-top" id="sk-sum">${summary(card)}<div>${spiderHtml}${defHtml}</div></div>`, stripSection(card));
   const seasonWord = playoffs ? 'playoff run' : 'season';
+  const rated = (gl ?? []).filter((g) => g.rating != null);
+  const best = rated.length ? rated.reduce((a, b) => (b.rating > a.rating ? b : a)) : null;
+  const worst = rated.length ? rated.reduce((a, b) => (b.rating < a.rating ? b : a)) : null;
+  const ratedN = card.row.rn ?? 0;
+  out.push(sec('sk-rate', 'Game ratings', 'our scorecard score for every game: 6.0 is an average night', `<div class="pq-grid pc-grid">
+    ${m.rating ? rtile(m.rating, m.rating.value.toFixed(1), 'Avg rating', `${ratedN} games`) : plain('Avg rating', '-', ratedN ? `needs ${card.isWin ? 3 : 5} games` : 'builds as games are rated')}
+    ${best ? plain('Best game', best.rating.toFixed(1), `${best.home ? 'vs' : '@'} ${esc(best.opp)}`, 'His highest-rated game this season.') : ''}
+    ${worst ? plain('Worst game', worst.rating.toFixed(1), `${worst.home ? 'vs' : '@'} ${esc(worst.opp)}`, 'His lowest-rated game this season.') : ''}
+    ${rated.length ? plain('7+ games', fmt.pct(rated.filter((g) => g.rating >= 7).length / rated.length, 0), 'rated 7.0 or better', 'Share of his games rated 7.0 or better.') : ''}
+    ${rated.length ? plain('Under 5', fmt.pct(rated.filter((g) => g.rating < 5).length / rated.length, 0), 'rated below 5.0', 'Share of his games rated below 5.0.') : ''}</div>
+    ${fig(`<h4 class="sk-h">Rating by game <small>green above 6.0, red below</small></h4>${ratingBars(gl?.length ? gl : null)}`)}`));
   out.push(sec('sk-sco', 'Scoring', 'goals, assists and what they are worth', `<div class="pq-grid pc-grid">
     ${plain('G', now?.goals ?? row.g ?? '-')}${plain('A', now?.assists ?? '-')}${plain('P', now?.points ?? '-')}
     ${rtile(m.scoring, sg(pg.scoringVsAvg), 'Scoring vs avg', 'per game rank')}${rtile(m.fin, sg(pg.gaa), 'Goals vs avg', 'finishing')}
@@ -309,5 +337,5 @@ export function lastGamesSection(games, playoffs) {
   if (!games) return sec('sk-last', 'Last 10 games', '', wait());
   const last = games.slice(-10).reverse();
   if (!last.length) return '';
-  return sec('sk-last', 'Last 10 games', 'newest first', `<div class="pc-scroll"><table class="pc-table"><thead><tr><th class="l">Game</th><th>G</th><th>A</th><th>SOG</th><th>SAT</th><th>MOM</th><th>Impact</th></tr></thead><tbody>${last.map((g) => `<tr><td class="l">${g.home ? 'vs' : '@'} ${esc(g.opp)}</td><td>${g.g}</td><td>${g.a}</td><td>${g.line.sog ?? 0}</td><td>${g.sat}</td><td class="${g.mom >= 0 ? 'up' : 'down'}">${sg(g.mom)}</td><td class="${g.tier > 0 ? 'up' : g.tier < 0 ? 'down' : ''}">${g.tier > 0 ? 'Above avg' : g.tier < 0 ? 'Below avg' : 'Average'}</td></tr>`).join('')}</tbody></table></div>`);
+  return sec('sk-last', 'Last 10 games', 'newest first', `<div class="pc-scroll"><table class="pc-table"><thead><tr><th class="l">Game</th><th>G</th><th>A</th><th>SOG</th><th>SAT</th><th>MOM</th><th>Impact</th><th>Rating</th></tr></thead><tbody>${last.map((g) => `<tr><td class="l">${g.home ? 'vs' : '@'} ${esc(g.opp)}</td><td>${g.g}</td><td>${g.a}</td><td>${g.line.sog ?? 0}</td><td>${g.sat}</td><td class="${g.mom >= 0 ? 'up' : 'down'}">${sg(g.mom)}</td><td class="${g.tier > 0 ? 'up' : g.tier < 0 ? 'down' : ''}">${g.tier > 0 ? 'Above avg' : g.tier < 0 ? 'Below avg' : 'Average'}</td><td>${g.rating != null ? `<b class="${g.rating >= 6 ? 'up' : 'down'}">${g.rating.toFixed(1)}</b>` : '-'}</td></tr>`).join('')}</tbody></table></div>`);
 }

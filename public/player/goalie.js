@@ -211,11 +211,17 @@ export function goalieSections(ctx) {
 
   const spider = radarChart(pts, n);
   const out = [spider ? `<div class="gc-top">${verdict}${spider}</div>` : verdict];
+  // Average game rating (our scorecard score; 6.0 = an average night), ranked among goalies with 5+ starts.
+  const ratingTile = () => {
+    if (!season || !me || me.rating == null) return '';
+    const rk = rankAmong(lg.rows.map((g) => g.rating), me.rating, true);
+    return `<div class="pq-t pq-ours" title="Average game rating from our scorecards: 6.0 is an average night. ${esc(ofN(rk))} of ${rk.of} goalies."><span class="pq-v">${me.rating.toFixed(1)}</span><span class="pq-k">Avg rating</span><span class="pq-s">${ofN(rk)} · ${me.rated} games</span></div>`;
+  };
   // 1 Results
   const n0 = now;
   out.push(sec('gc-res', 'Results', 'what the NHL box score says', `<div class="pq-grid pc-grid">${n && b.last
     ? [plain('Starts', b.n), plain('QS', `${b.qs}/${b.n}`), plain('SV%', sv3(b.sv), '', 'hl'), plain('GAA', (b.ga / b.n).toFixed(2)), plain('Shutouts', b.so), plain('Shots against', b.sa)].join('')
-    : [plain('GP', n0?.gp ?? 0), plain('W', n0?.wins ?? '-'), plain('L', n0?.losses ?? '-'), ...(playoffs ? [] : [plain('OTL', n0?.otLosses ?? '-')]), plain('SV%', sv3(n0?.savePct), '', 'hl'), plain('GAA', fmt.dec(n0?.gaa, 2)), plain('SO', n0?.shutouts ?? '-'), plain('Shots against', n0?.shotsAgainst ?? '-'), plain('TOI/GP', fmt.toi(n0?.toiPerGame))].join('')}</div>`));
+    : [plain('GP', n0?.gp ?? 0), plain('W', n0?.wins ?? '-'), plain('L', n0?.losses ?? '-'), ...(playoffs ? [] : [plain('OTL', n0?.otLosses ?? '-')]), plain('SV%', sv3(n0?.savePct), '', 'hl'), plain('GAA', fmt.dec(n0?.gaa, 2)), plain('SO', n0?.shutouts ?? '-'), plain('Shots against', n0?.shotsAgainst ?? '-'), plain('TOI/GP', fmt.toi(n0?.toiPerGame)), ratingTile()].join('')}</div>`));
   // 2 Saves vs expected
   out.push(sec('gc-exp', 'Saves vs expected', 'goals kept out beyond an average goalie on the same shots', `
     <div class="pq-grid pc-grid">${[

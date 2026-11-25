@@ -23,3 +23,24 @@ test('skaterCard gives ranks, summary and defense vs teammates', () => {
   assert.equal(skaterCard(total, 999), null);
   assert.ok(skaterCard(total, 1).weak.some((x) => x.key === 'play'));
 });
+
+import { emptySeason, addGame, perGame } from '../src/seasonStats.js';
+import { areaBase, skaterFlags } from '../src/areas.js';
+import { compareRows } from '../src/compare.js';
+
+test('game ratings add up per player and feed averages, flags and Compare', () => {
+  const total = emptySeason(20262027);
+  for (let g = 0; g < 10; g++) {
+    const lines = [];
+    for (let i = 1; i <= 16; i++) lines.push({ id: i, name: `P${i}`, team: i % 2 ? 'AAA' : 'BBB', pos: 'C', sat: 3, sog: 2, xg: 0.2, xgg: 0, g: 0, a1: 0, a2: 0, mom: 0, pen: 0, pd: 0, pim: 0, gv: 0, tk: 0, fw: 5, fl: 5, rating: i === 1 ? 3.5 : 6 + (i % 3) * 0.3 });
+    addGame(total, lines);
+  }
+  const r = total.players['1'];
+  assert.equal(r.rn, 10);
+  assert.equal(r.rt, 35);
+  assert.equal(perGame(r).ratingAvg, 3.5);
+  const flags = skaterFlags(r, areaBase(total));
+  assert.ok(flags.some((f) => f.k === 'rate' && f.soft), 'a far-below-average rating is flagged softly');
+  const rows = compareRows(total);
+  assert.equal(rows.skaters.find((x) => x.id === 1).v.rating, 3.5);
+});

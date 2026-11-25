@@ -210,6 +210,7 @@ const PLAYER_COLS = [
   ['sogPerGame', 'SOG/GP', 'Shots on goal per game'],
   ['momPer60', 'MOM/60', 'Momentum per 60 minutes on ice (seasons with time on ice only)'],
   ['satPer60', 'SAT/60', 'Shot attempts per 60 minutes on ice'],
+  ['ratingAvg', 'RTG', 'Average game rating from our scorecards (6.0 is an average night). Current season only; players need 5 rated games.'],
 ];
 
 function playersCard(total, pos, showAll, team) {
@@ -218,11 +219,13 @@ function playersCard(total, pos, showAll, team) {
   const board = byTeam(league, team);
   const has60 = board.some((r) => r.momPer60 != null);
   const tiers = board.some((r) => r.abovePct != null);
-  const cols = PLAYER_COLS.filter(([k]) => has60 || !k.endsWith('60'));
+  const hasRtg = board.some((r) => r.ratingAvg != null && r.ratingGames >= 5);
+  const cols = PLAYER_COLS.filter(([k]) => (has60 || !k.endsWith('60')) && (k !== 'ratingAvg' || hasRtg));
   const shown = showAll ? board : board.slice(0, 50);
   const val = (r, k) => {
-    const v = r[k];
+    const v = k === 'ratingAvg' && r.ratingGames < 5 ? null : r[k];
     if (v == null) return '<td class="pc-na">-</td>';
+    if (k === 'ratingAvg') return `<td class="pc-o ${v >= 6 ? 'up' : 'down'}" data-v="${v}">${v.toFixed(1)}</td>`;
     const signed = k.startsWith('mom');
     const cls = k === 'momPerGame' ? ` pc-o ${v >= 0 ? 'up' : 'down'}` : signed ? ' pc-o' : '';
     return `<td class="${cls.trim()}" data-v="${v}">${signed ? fmt.signed(v, 2) : fmt.dec(v, 2)}</td>`;

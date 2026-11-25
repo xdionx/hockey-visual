@@ -37,6 +37,7 @@ export function leagueGoalies(total, minStarts = LEAGUE_MIN_STARTS) {
       inSv: has && r.psa ? 1 - (r.pga ?? 0) / r.psa : null,
       outSv: has && r.osa ? 1 - (r.oga ?? 0) / r.osa : null,
       softPer: has && r.gs ? (r.sf ?? 0) / r.gs : null,
+      rating: (r.rn ?? 0) >= 3 ? r.rt / r.rn : null, rated: r.rn ?? 0,
     });
   }
   return { rows, lgQsPct: starts ? qs / starts : null, lgSv, rate, inRate: base.inRate, outRate: base.outRate };
