@@ -56,7 +56,7 @@ export function rinkSurface(home) {
 }
 
 /** Teams with their full 2026-27 ice graphic in public/centerice/<ABBREV>.jpg (theFaceoff.net artwork, cropped to the boards). */
-export const FULL_ICE = new Set(['BOS']);
+export const FULL_ICE = new Set(['ANA', 'BOS', 'BUF', 'CAR', 'CBJ', 'CGY', 'CHI', 'COL', 'DAL', 'DET']);
 export const ICE_CREDIT = 'Ice artwork \u00a9 theFaceoff.net';
 
 /** The home team's whole surface as the shot map background; it replaces the drawn lines (same 200 x 85 ft frame). */
