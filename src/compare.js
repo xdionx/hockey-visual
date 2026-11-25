@@ -14,6 +14,7 @@ export const COLS = {
     ['pen', 'Penalties', 'Pen', 'signed2', 1, 'Penalties drawn minus taken per game'],
     ['fo', 'Faceoffs', 'FO', 'pct0', 1, 'Faceoff win % (centers only)'],
     ['give', 'Giveaways', 'Give', 'dec1', -1, 'Giveaways per game (context only)'],
+    ['rating', 'Game rating', 'Rtg', 'dec1', 1, 'Average game rating: our scorecard score (6.0 is an average night). Blends the other areas, so it is context for Overall.'],
   ],
   goalies: [
     ['gsax', 'Saved vs exp.', 'GSAx', 'signed1', 1, 'Goals saved above an average goalie on the same shots'],
@@ -34,7 +35,7 @@ export const COLS = {
   ],
 };
 // Columns that do not count toward Overall or the standout chips.
-const CONTEXT = new Set(['give', 'pts']);
+const CONTEXT = new Set(['give', 'pts', 'rating']);
 
 /** Rows for every qualifying skater / goalie / team: { id, name, team, pos, group, gp, v: { key: value|null } }. */
 export function compareRows(total, { last = null, recent = null, recentTotal = null } = {}) {
@@ -55,14 +56,14 @@ export function compareRows(total, { last = null, recent = null, recentTotal = n
       const pg = perGame(row, rate, sbase);
       const a = goalieAreas(row, base);
       goalies.push({ id: Number(id), name: row.n, team: row.t, pos: 'G', group: 'G', gp: row.gs, v: {
-        gsax: pg.gsax ?? null, sv: row.sa ? 1 - (row.sg ?? row.ga) / row.sa : null, out: a?.out.ok ? a.out.vs : null, inn: a?.inn.ok ? a.inn.vs : null, soft: a && row.gs ? a.soft / row.gs : null } });
+        gsax: pg.gsax ?? null, sv: row.sa ? 1 - (row.sg ?? row.ga) / row.sa : null, out: a?.out.ok ? a.out.vs : null, inn: a?.inn.ok ? a.inn.vs : null, soft: a && row.gs ? a.soft / row.gs : null, rating: (row.rn ?? 0) >= (win ? 3 : 5) ? row.rt / row.rn : null } });
       continue;
     }
     if (row.gp < minGp) continue;
     const pg = perGame(row, rate, sbase);
     const a = skaterAreas(row, base);
     skaters.push({ id: Number(id), name: row.n, team: row.t, pos: row.p, group: row.p === 'D' ? 'D' : 'F', gp: row.gp, v: {
-      fin: row.xg != null ? pg.gaa : null, vol: a.vol?.share ?? null, mom: pg.momPerGame, pen: a.pen?.perGame ?? null, fo: a.fo?.pct ?? null, give: a.give?.perGame ?? null } });
+      fin: row.xg != null ? pg.gaa : null, vol: a.vol?.share ?? null, mom: pg.momPerGame, pen: a.pen?.perGame ?? null, fo: a.fo?.pct ?? null, give: a.give?.perGame ?? null, rating: (row.rn ?? 0) >= (win ? 3 : 5) ? row.rt / row.rn : null } });
   }
   const d = deficiencies(total, win ? { last, recent } : {});
   const teams = (d?.teams ?? []).map((t) => ({ id: t.abbrev, name: t.abbrev, team: t.abbrev, pos: '', group: 'T', gp: t.gp, v: {

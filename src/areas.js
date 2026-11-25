@@ -17,6 +17,8 @@ export const MIN = {
   goalieStarts: [3, 2],
 };
 export const VOL_Z = -2;
+export const MIN_RATED = [5, 3]; // games rated before a rating counts [season, last-N window]
+export const RATING_Z = -1.5;
 export const PEN_NET = [5, 3];
 export const FO_Z = -2;
 export const GOALIE_Z = -1.5;
@@ -30,8 +32,16 @@ export function areaBase(total, { win = false } = {}) {
   const vol = (rows) => (sum(rows, 'sat') ? sum(rows, 'sog') / sum(rows, 'sat') : null);
   const centers = byPos((p) => p.p === 'C');
   const fo = sum(centers, 'fw') + sum(centers, 'fl');
+  // Average game rating by group (players with enough rated games): mean and spread, for the low-rating flag.
+  const ratings = (f) => Object.values(total?.players ?? {}).filter((p) => f(p) && (p.rn ?? 0) >= MIN_RATED[win ? 1 : 0]).map((p) => p.rt / p.rn);
+  const stat = (v) => {
+    if (v.length < 8) return null;
+    const mean = v.reduce((a, b) => a + b, 0) / v.length;
+    return { mean, sd: Math.sqrt(v.reduce((a, b) => a + (b - mean) ** 2, 0) / v.length) };
+  };
   return {
     win: win ? 1 : 0,
+    rate: { F: stat(ratings((p) => p.p !== 'G' && p.p !== 'D')), D: stat(ratings((p) => p.p === 'D')), G: stat(ratings((p) => p.p === 'G')) },
     has: sk.length > 0,
     volF: vol(byPos((p) => p.p !== 'D')),
     volD: vol(byPos((p) => p.p === 'D')),
@@ -79,7 +89,19 @@ export function skaterFlags(row, base) {
   if (a.give && a.give.base && a.give.perGame >= 1.4 * a.give.base && a.give.takePerGame <= 0.25 * a.give.perGame) {
     out.push({ k: 'give', label: 'Giveaways', soft: true, text: `Gives it away ${a.give.perGame.toFixed(1)} a game against ${a.give.takePerGame.toFixed(1)} takeaways (typical: ${a.give.base.toFixed(1)}). Context only: rinks count giveaways differently and heavy puck carriers give away more.` });
   }
+  const rt = ratingFlag(row, base, isD(row.p) ? 'D' : 'F', kind);
+  if (rt) out.push(rt);
   return out;
+}
+
+/** Soft flag: game rating averages well below the group's (z of the player averages). Explanatory only, not a goals cost. */
+function ratingFlag(row, base, g, kind) {
+  const b = base.rate?.[g];
+  if (!b || !b.sd || (row.rn ?? 0) < MIN_RATED[base.win]) return null;
+  const avg = row.rt / row.rn;
+  const z = (avg - b.mean) / b.sd;
+  if (z > RATING_Z) return null;
+  return { k: 'rate', label: 'Game rating', z, soft: true, text: `Game ratings run low: averages ${avg.toFixed(1)} over ${row.rn} games (typical ${kind}: ${b.mean.toFixed(1)}). The rating blends scoring, shots, defense, discipline, faceoffs, on-ice results and momentum.` };
 }
 
 /** A goalie's goals allowed outside / inside the home plate against an average goalie on the same shots. */
@@ -105,7 +127,9 @@ export function goalieFlags(row, base) {
   if (a.inn.ok && a.inn.vs <= GOALIE_OUT_COST[w] && a.inn.z <= GOALIE_Z) {
     out.push({ k: 'inn', label: 'Struggles inside the plate', z: a.inn.z, text: `Inside the home plate: ${a.inn.ga} goals on ${a.inn.sa} shots (${pct(a.inn.sv, 1)} saved; average goalie ${pct(a.inn.avgSv, 1)}), ${fmt1(-a.inn.vs)} more than an average goalie would allow.` });
   }
+  const rt = ratingFlag(row, base, 'G', 'goalie');
+  if (rt) out.push(rt);
   return out;
 }
 
-export const AREA_LABEL = { fin: 'Finishing', mom: 'Driving play', mn: 'Giving it away', below: 'Low impact', vol: 'Shot volume', disc: 'Penalties', fo: 'Faceoffs', give: 'Giveaways', oi: 'On-ice', gsax: 'Goaltending', out: 'Perimeter goals', inn: 'Struggles inside the plate' };
+export const AREA_LABEL = { fin: 'Finishing', mom: 'Driving play', mn: 'Giving it away', below: 'Low impact', vol: 'Shot volume', disc: 'Penalties', fo: 'Faceoffs', give: 'Giveaways', rate: 'Game rating', oi: 'On-ice', gsax: 'Goaltending', out: 'Perimeter goals', inn: 'Struggles inside the plate' };

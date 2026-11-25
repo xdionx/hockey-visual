@@ -155,7 +155,9 @@ for (const f of (await readdir(join(outDir, 'games'))).filter((x) => x.endsWith(
   const toi = new Map(linesFromDetail(g).map((l) => [l.id, l.toi]));
   // On-ice shot attempts and goals per skater come from the box score's shift charts (when the game had them).
   const oi = new Map(g.hasShifts ? ['away', 'home'].flatMap((side) => [...(g.players?.[side]?.forwards ?? []), ...(g.players?.[side]?.defense ?? [])]).filter((s) => s.onIce).map((s) => [s.id, s.onIce]) : []);
-  const merged = saved.lines.map((l) => ({ ...l, toi: toi.get(l.id) ?? null, oi: oi.get(l.id) }));
+  // Each player's rating for the game (skaters and goalies who played), from the saved box score.
+  const rating = new Map(['away', 'home'].flatMap((side) => ['forwards', 'defense', 'goalies'].flatMap((k) => g.players?.[side]?.[k] ?? [])).filter((x) => x.rating != null && (x.played ?? true)).map((x) => [x.id, x.rating]));
+  const merged = saved.lines.map((l) => ({ ...l, toi: toi.get(l.id) ?? null, oi: oi.get(l.id), rating: rating.get(l.id) }));
   addGame(total, merged, saved.game ?? null);
   if (g.gameType === 2) addRecent(recent, merged, Number(String(g.id).slice(-4)));
 }

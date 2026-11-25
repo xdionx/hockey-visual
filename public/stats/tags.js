@@ -2,7 +2,7 @@
 import { AREA_LABEL } from '../src/areas.js';
 import { fmt } from '../player/store.js';
 
-const CLS = { fin: 'a-fin', mom: 'a-play', mn: 'a-disc', below: 'a-low', vol: 'a-vol', disc: 'a-disc', fo: 'a-fo', give: 'a-give', oi: 'a-oi', gsax: 'a-g', out: 'a-g', inn: 'a-g' };
+const CLS = { fin: 'a-fin', mom: 'a-play', mn: 'a-disc', below: 'a-low', vol: 'a-vol', disc: 'a-disc', fo: 'a-fo', give: 'a-give', rate: 'a-low', oi: 'a-oi', gsax: 'a-g', out: 'a-g', inn: 'a-g' };
 
 /** Colored chips for the areas a player or goalie is flagged in (one per area, in order). */
 export function tagChips(reasons, extra = []) {

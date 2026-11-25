@@ -18,6 +18,7 @@ export const METRICS = [
   ['pen', 'Penalties', 'disc', true, 'signed2', false, 'Penalties drawn minus penalties taken per game.'],
   ['def', 'Defense', 'def', true, 'signed', false, 'Goals prevented at 5v5: shot attempts the other team takes while he is on the ice, adjusted for who he plays with and against, turned into goals. Overlaps with puck possession; season-long even in the last 10 view.'],
   ['fo', 'Faceoffs', 'fo', true, 'pct', false, 'Faceoff win % (centers only).'],
+  ['rating', 'Avg rating', 'rate', true, 'dec1', false, 'Average game rating from our scorecards: 6.0 is an average night, 9+ is a huge game. It blends scoring, shots, defense, discipline, faceoffs, on-ice results and momentum.'],
   ['give', 'Giveaways', 'ctx', false, 'dec1', true, 'Giveaways per game. Context only: puck carriers give it away more because they have it more.'],
 ];
 export const METRIC = Object.fromEntries(METRICS.map((m) => [m[0], { key: m[0], label: m[1], group: m[2], hi: m[3], kind: m[4], ctx: m[5], tip: m[6] }]));
@@ -81,6 +82,7 @@ export function skaterTable(total, { win = false, def: defFile = null } = {}) {
       def,
       fo: a.fo?.pct ?? null,
       give: a.give?.perGame ?? null,
+      rating: (row.rn ?? 0) >= (win ? 3 : 5) ? row.rt / row.rn : null,
     } });
   }
   return { rows: out, rate, sbase, adjusted: !!defFile };

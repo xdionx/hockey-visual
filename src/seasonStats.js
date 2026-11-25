@@ -311,6 +311,11 @@ export function addGame(total, lines, game = null) {
         if (l.st) (p.q ??= []).push([l.sa, l.sg ?? 0]); // one [shots against, goals against] per start
       }
     }
+    // Our game rating (the scorecard's 0-10 style score, src/gameDetail.js rating()): total and games rated.
+    if (l.rating != null) {
+      p.rt = Math.round(((p.rt ?? 0) + l.rating) * 10) / 10;
+      p.rn = (p.rn ?? 0) + 1;
+    }
     if (l.toi != null) p.toi = (p.toi ?? 0) + l.toi;
   }
   return total;
@@ -322,7 +327,7 @@ export function addGame(total, lines, game = null) {
 export const RECENT_GAMES = 10;
 export const recentFile = (season) => `${season}-recent.json`;
 export const emptyRecent = (season) => ({ season: Number(season), v: 1, names: {}, teams: {} });
-const LINE_KEYS = ['id', 'pos', 'mom', 'mp', 'mn', 'sat', 'sog', 'xg', 'xgg', 'g', 'a1', 'a2', 'toi', 'ga', 'xga', 'sa', 'sg', 'st', 'pen', 'pd', 'pim', 'gv', 'tk', 'fw', 'fl', 'psa', 'pga', 'osa', 'oga', 'sf'];
+const LINE_KEYS = ['id', 'pos', 'mom', 'mp', 'mn', 'sat', 'sog', 'xg', 'xgg', 'g', 'a1', 'a2', 'toi', 'ga', 'xga', 'sa', 'sg', 'st', 'pen', 'pd', 'pim', 'gv', 'tk', 'fw', 'fl', 'psa', 'pga', 'osa', 'oga', 'sf', 'rating'];
 
 /** Adds one game's lines (as given to addGame) to each team's list, keeping its latest RECENT_GAMES games. */
 export function addRecent(recent, lines, n) {
@@ -507,6 +512,8 @@ export function perGame(row, rate = 1, base = null, lgSv = null) {
     abovePct: skater && row.tg ? (row.ab ?? 0) / row.tg : null,
     belowPct: skater && row.tg ? (row.bl ?? 0) / row.tg : null,
     // The same against an average NHL shooter that season (what the pages show).
+    ratingAvg: row.rn ? row.rt / row.rn : null,
+    ratingGames: row.rn ?? 0,
     ...(skater ? finishingLine(row.xgg ?? 0, row.xg, row.sog ?? 0, rate) : { shPct: null, xShPct: null, gaa: null }),
     ...scoringLine(row, skater && row.xg != null ? (row.xgg ?? 0) - row.xg * rate : null, base),
     // Goalies: goals saved above what an average NHL goalie would allow on the same shots (xGA x league rate).
