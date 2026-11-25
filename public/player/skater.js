@@ -73,10 +73,10 @@ function summary(card) {
   const { summary: s, m } = card;
   const tierLine = (name, pct, tier, det) => `<div class="sk-row"><b>${name}</b> <span class="sk-tier ${pct == null ? '' : pct >= 0.7 ? 'up' : pct < 0.4 ? 'down' : ''}">${tier ?? 'not enough ice time yet'}</span>${det ? ` <span class="sk-det">${det}</span>` : ''}</div>`;
   const offDet = ['scoring', 'play'].filter((k) => m[k]).map((k) => `${m[k].label.toLowerCase()} ${ofN(m[k].rank)}`).join(', ');
-  const defDet = m.def ? `${sg(m.def.value)} goals prevented at 5v5, ${ofN(m.def.rank)} among ${card.group === 'D' ? 'defensemen' : 'forwards'}` : '';
+  const defDet = m.def ? (card.split ? `defending ${sg(m.def.value)} goals/82 ${ofN(m.def.rank)}${m.puck ? `, puck control ${ofN(m.puck.rank)}` : ''}` : `${sg(m.def.value)} goals prevented at 5v5, ${ofN(m.def.rank)} among ${card.group === 'D' ? 'defensemen' : 'forwards'}`) : '';
   const flags = card.row ? '' : '';
   return `<div class="gc-verdict ${s.headline.startsWith('Struggling') ? 'bad' : ''}"><b>${esc(s.headline)}.</b>
-    ${tierLine('Offense', s.off, s.offTier, offDet)}${tierLine('Defense', s.def, s.defTier, defDet)}
+    ${tierLine('Offense', s.off, s.offTier, offDet)}${tierLine(card.split ? 'Defending' : 'Defense', s.def, s.defTier, defDet)}
     ${card.strengths.length ? `<div class="sk-sub">Strengths</div><div class="gc-chips">${card.strengths.map((x) => chip(x, true)).join('')}</div>` : ''}
     ${card.weak.length ? `<div class="sk-sub">Weak spots</div><div class="gc-chips">${card.weak.map((x) => chip(x, false)).join('')}</div>` : ''}${flags}</div>`;
 }
@@ -171,9 +171,9 @@ function twoWay(card) {
   return `<svg viewBox="0 0 ${Wd} ${Hh}" role="img" aria-label="Two-way map: points per game against goals prevented">
     <line x1="${pad}" x2="${Wd - 6}" y1="${Y(0)}" y2="${Y(0)}" stroke="#2a3b58" stroke-dasharray="4 4"/><line x1="${X(mx)}" x2="${X(mx)}" y1="10" y2="${Hh - 24}" stroke="#2a3b58" stroke-dasharray="4 4"/>
     <text x="${pad + 4}" y="22">defense-first</text><text x="${Wd - 70}" y="22">both</text><text x="${pad + 4}" y="${Hh - 28}">neither</text><text x="${Wd - 100}" y="${Hh - 28}">offense-first</text>
-    ${pool.map((q) => (q.id === card.id ? '' : `<circle cx="${X(q.x)}" cy="${Y(q.y)}" r="3" fill="#8b95a7" opacity=".45"><title>${esc(q.name)}: ${q.x.toFixed(2)} P/GP, ${sg(q.y)} goals prevented</title></circle>`)).join('')}
-    ${pool.filter((q) => q.id === card.id).map((q) => `<circle cx="${X(q.x)}" cy="${Y(q.y)}" r="7" fill="#fbbf24" stroke="#fff" stroke-width="1.5"><title>${esc(q.name)}: ${q.x.toFixed(2)} P/GP, ${sg(q.y)} goals prevented</title></circle>`).join('')}
-    <text x="${pad}" y="${Hh - 6}">points per game →</text><text x="2" y="${Hh - 28}" transform="rotate(-90 8 ${Hh / 2})" style="text-anchor:middle">goals prevented →</text></svg>`;
+    ${pool.map((q) => (q.id === card.id ? '' : `<circle cx="${X(q.x)}" cy="${Y(q.y)}" r="3" fill="#8b95a7" opacity=".45"><title>${esc(q.name)}: ${q.x.toFixed(2)} P/GP, ${sg(q.y)} ${card.split ? "Defending" : "goals prevented"}</title></circle>`)).join('')}
+    ${pool.filter((q) => q.id === card.id).map((q) => `<circle cx="${X(q.x)}" cy="${Y(q.y)}" r="7" fill="#fbbf24" stroke="#fff" stroke-width="1.5"><title>${esc(q.name)}: ${q.x.toFixed(2)} P/GP, ${sg(q.y)} ${card.split ? 'Defending' : 'goals prevented'}</title></circle>`).join('')}
+    <text x="${pad}" y="${Hh - 6}">points per game →</text><text x="2" y="${Hh - 28}" transform="rotate(-90 8 ${Hh / 2})" style="text-anchor:middle">${card.split ? 'Defending (goals/82)' : 'goals prevented'} →</text></svg>`;
 }
 
 /** Best and worst few areas as tiles: value, NHL rank, tinted. */
@@ -286,7 +286,7 @@ export function skaterSections({ card, now: nowIn, games, clips, tab, all, playo
   const shots = clips?.shots ? (range ? clips.shots.filter((q) => ids.has(q.gid)) : clips.shots) : clips?.shots;
   const out = [];
   const spiderHtml = spider(card.spider);
-  const defHtml = card.defBars.length ? `<figure class="gc-defbars"><figcaption>Defense: percentile vs NHL ${card.group === 'D' ? 'defensemen' : 'forwards'}, 100 = best</figcaption>${bars(card.defBars)}</figure>` : '<p class="pq-note">Defense numbers need more ice time.</p>';
+  const defHtml = card.defBars.length ? `<figure class="gc-defbars"><figcaption>${card.split ? 'Defending and puck control' : 'Defense'}: percentile vs NHL ${card.group === 'D' ? 'defensemen' : 'forwards'}, 100 = best</figcaption>${bars(card.defBars)}</figure>` : '<p class="pq-note">Defense numbers need more ice time.</p>';
   const gs = m.rating, mo = m.play;
   out.push(headlineStrip([
     hlCell('Game score', gs ? gs.value.toFixed(1) : '-', gs ? `${rkb(ofN(gs.rank))}<em>${card.row.rn} games</em>` : 'builds as games are rated', 'Average game score (0-10) from our scorecards. 6.0 is an average night, 9+ is a huge game.'),
@@ -323,14 +323,23 @@ export function skaterSections({ card, now: nowIn, games, clips, tab, all, playo
     ${plain('Attempts', row.sat)}</div>
     <h3 class="pc-sub">Shot map <small>${range ? `last ${range} games` : 'every attempt this season'}</small></h3>${fig(shotMap(shots))}`));
   const att60 = row.oto ? ((row.oca ?? 0) * 3600) / row.oto : null;
-  out.push(sec('sk-def', 'Defense', `${card.group === 'D' ? 'defensemen' : 'forwards'} are compared with teammates at the same position`, `<div class="pq-grid pc-grid">
-    ${rtile(m.def, m.def ? sg(m.def.value) : '-', 'Goals prevented', card.adjusted ? '5v5, adjusted' : 'vs teammates')}
+  const grpName = card.group === 'D' ? 'defensemen' : 'forwards';
+  const WHEN = ['This season', 'Last season', 'Two seasons ago'];
+  const hist = card.split && card.dseasons?.some(Boolean) ? `<h3 class="pc-sub">Across seasons <small>goals per 82 games; this season counts 50%, last season 30%, the one before 20%</small></h3><div class="sk-hist"><table class="pt"><thead><tr><th></th><th>Defending</th><th>Puck control</th><th>5v5 time</th></tr></thead><tbody>${card.dseasons.map((q, i) => (q ? `<tr><th>${WHEN[i]}</th><td>${sg(q.def)}</td><td>${sg(q.puck)}</td><td>${q.h.toFixed(0)} h</td></tr>` : `<tr><th>${WHEN[i]}</th><td colspan="3" class="pq-note">no data</td></tr>`)).join('')}</tbody></table></div>` : '';
+  const defNote = card.split
+    ? 'Defending is the 5v5 shot attempts the other team takes while he is on the ice, adjusted for his teammates and opponents (a ridge regression over every shift), with the part his own offense explains taken out, then compared with other ' + grpName + '. That part is Puck control: keeping the puck is real defense too, but a different skill, so it is shown on its own. Both blend this season with the last two (50 / 30 / 20 once he has a full season of ice time; early on last seasons count for more) and are shown in goals per 82 games at an average amount of ice time for his position. Penalty kill needs 60 minutes shorthanded. Blocks are context only: they track role, not skill. Goals against and plus/minus are not used: too noisy.'
+    : card.adjusted ? 'Goals prevented = the shot attempts the other team takes at 5v5 while he is on the ice, adjusted for his teammates and the opponents he faces, turned into goals. It overlaps with puck possession.' : 'Goals prevented = how many fewer shot attempts than his teammates at the same position the other team gets while he is on the ice, turned into goals. The adjusted 5v5 version appears once the season has enough shifts saved.';
+  out.push(sec('sk-def', card.split ? 'Defending' : 'Defense', `${grpName} are compared with the same position`, `<div class="pq-grid pc-grid">
+    ${rtile(m.def, m.def ? sg(m.def.value) : '-', card.split ? 'Defending' : 'Goals prevented', card.split ? 'goals / 82, offense removed' : card.adjusted ? '5v5, adjusted' : 'vs teammates')}
+    ${card.split ? rtile(m.puck, m.puck ? sg(m.puck.value) : '-', 'Puck control', 'goals / 82') : ''}
+    ${card.split ? rtile(m.pk, m.pk ? sg(m.pk.value, 1) : '-', 'Penalty kill', m.pk ? 'attempts /60 vs teammates' : 'needs 60 min shorthanded') : ''}
     ${card.adj ? plain('Attempts against /60 (5v5, adjusted)', sg(card.adj.d, 1), 'vs average skater, lower is better', 'Shot attempts per 60 the other team takes at 5v5 while he is on the ice, after adjusting for teammates and opponents, compared with the average skater. Negative is good.') : att60 != null ? plain('Attempts against /60', att60.toFixed(1), 'on ice, all strengths') : ''}
-    ${card.adj ? plain('5v5 time', `${card.adj.h.toFixed(1)} h`, 'in the model') : ''}
+    ${card.adj ? plain('5v5 time', `${card.adj.h.toFixed(1)} h`, 'this season') : ''}
     ${row.oto ? plain('On-ice shot share', fmt.pct((row.ocf ?? 0) / Math.max(1, (row.ocf ?? 0) + (row.oca ?? 0)), 0)) : ''}
-    ${plain('Blocks', row.bl ?? '-', '', 'Shot blocks (context)')}${plain('Takeaways', row.tk ?? '-', 'context')}${row.toi ? plain('TOI/GP', fmt.toi(row.toi / row.gp)) : ''}</div>
-    ${m.def ? `<h3 class="pc-sub">Two-way map <small>points per game against goals prevented, ${card.group === 'D' ? 'defensemen' : 'forwards'}</small></h3><div class="sk-tw">${fig(twoWay(card))}</div>` : ''}
-    <p class="pq-note">${card.adjusted ? 'Goals prevented = the shot attempts the other team takes at 5v5 while he is on the ice, adjusted for his teammates and the opponents he faces (a ridge regression over every shift, so a player who skates with a great partner is not over-credited), turned into goals. Early in the season it is pulled toward average. It overlaps with puck possession. Goals against and plus/minus are not used: they are too noisy over a season.' : 'Goals prevented = how many fewer shot attempts than his teammates at the same position the other team gets while he is on the ice, turned into goals. The adjusted 5v5 version appears once the season has enough shifts saved. Goals against and plus/minus are not used: they are too noisy over a season.'}</p>`));
+    ${m.blk ? rtile(m.blk, m.blk.value.toFixed(2), 'Blocks /GP', 'context') : ''}${plain('Takeaways', row.tk ?? '-', 'context')}${row.toi ? plain('TOI/GP', fmt.toi(row.toi / row.gp)) : ''}</div>
+    ${hist}
+    ${m.def && m.puck ? `<h3 class="pc-sub">Two-way map <small>points per game against Defending, ${grpName}</small></h3><div class="sk-tw">${fig(twoWay(card))}</div>` : m.def ? `<h3 class="pc-sub">Two-way map <small>points per game against goals prevented, ${grpName}</small></h3><div class="sk-tw">${fig(twoWay(card))}</div>` : ''}
+    <p class="pq-note">${defNote}</p>`));
   out.push(sec('sk-dis', 'Discipline and puck', 'penalties and giveaways', `<div class="pq-grid pc-grid">
     ${rtile(m.pen, m.pen ? sg(m.pen.value, 2) : '-', 'Net penalties /GP', 'drawn − taken')}${plain('Drawn', card.areas.pen?.drawn ?? '-')}${plain('Taken', card.areas.pen?.taken ?? '-')}
     ${rtile(m.give, m.give ? m.give.value.toFixed(1) : '-', 'Giveaways /GP', 'context')}${plain('Takeaways /GP', card.areas.give ? card.areas.give.takePerGame.toFixed(1) : '-', 'context')}

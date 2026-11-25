@@ -248,3 +248,10 @@ body.pc-page { --page: #0a0e17; --ink: #e8edf5; --mute: #8b95a7; --line: #1f2937
 .tip-card .tc-def { margin: 4px 0 0; font-size: 12.5px; line-height: 1.4; color: #aab4c5; }
 .tip-card dl { display: grid; grid-template-columns: auto 1fr; gap: 3px 14px; margin: 10px 0 0; padding-top: 8px; border-top: 1px solid #26344f; font-size: 13px; }
 .tip-card dt { color: #8b95a7; } .tip-card dd { margin: 0; text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+/* Defending: season-by-season table */
+.sk-hist table { border-collapse: collapse; width: auto; min-width: min(100%, 420px); }
+.sk-hist th, .sk-hist td { padding: 6px 14px 6px 0; text-align: right; font-weight: 500; white-space: nowrap; }
+.sk-hist thead th { color: var(--muted, #94a3b8); font-size: .78rem; text-transform: uppercase; letter-spacing: .04em; }
+.sk-hist tbody th { text-align: left; font-weight: 600; }
+.sk-hist td { font-variant-numeric: tabular-nums; }

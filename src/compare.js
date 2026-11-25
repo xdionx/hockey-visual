@@ -4,6 +4,7 @@
 import { leagueRate, minGames, perGame, scoringBase } from './seasonStats.js';
 import { areaBase, skaterAreas, goalieAreas, MIN } from './areas.js';
 import { deficiencies } from './deficiencies.js';
+import { defendingValues } from './defending.js';
 
 // [key, label, short label, kind, higher is better, tooltip]
 export const COLS = {
@@ -13,6 +14,8 @@ export const COLS = {
     ['mom', 'Driving play', 'Play', 'signed1', 1, 'Momentum per game'],
     ['pen', 'Penalties', 'Pen', 'signed2', 1, 'Penalties drawn minus taken per game'],
     ['fo', 'Faceoffs', 'FO', 'pct0', 1, 'Faceoff win % (centers only)'],
+    ['def', 'Defending', 'Def', 'signed1', 1, 'Goals per 82 games prevented at 5v5 beyond what his own puck control explains (adjusted for teammates and opponents; blends this season with the last two)'],
+    ['puck', 'Puck control', 'Puck', 'signed1', 1, 'Goals per 82 games prevented because his team keeps the puck with him on the ice. Context for Overall: it is the offense-driven part of defense'],
     ['give', 'Giveaways', 'Give', 'dec1', -1, 'Giveaways per game (context only)'],
     ['rating', 'Game rating', 'Rtg', 'dec1', 1, 'Average game rating: our scorecard score (6.0 is an average night). Blends the other areas, so it is context for Overall.'],
   ],
@@ -35,10 +38,11 @@ export const COLS = {
   ],
 };
 // Columns that do not count toward Overall or the standout chips.
-const CONTEXT = new Set(['give', 'pts', 'rating']);
+const CONTEXT = new Set(['give', 'pts', 'rating', 'puck']);
 
 /** Rows for every qualifying skater / goalie / team: { id, name, team, pos, group, gp, v: { key: value|null } }. */
-export function compareRows(total, { last = null, recent = null, recentTotal = null } = {}) {
+export function compareRows(total, { last = null, recent = null, recentTotal = null, defFiles = null } = {}) {
+  const dv = defFiles ? defendingValues(defFiles, total) : null;
   if (!total?.players) return null;
   const win = last ? recentTotal : null;
   const src = win ?? total;
@@ -63,7 +67,7 @@ export function compareRows(total, { last = null, recent = null, recentTotal = n
     const pg = perGame(row, rate, sbase);
     const a = skaterAreas(row, base);
     skaters.push({ id: Number(id), name: row.n, team: row.t, pos: row.p, group: row.p === 'D' ? 'D' : 'F', gp: row.gp, v: {
-      fin: row.xg != null ? pg.gaa : null, vol: a.vol?.share ?? null, mom: pg.momPerGame, pen: a.pen?.perGame ?? null, fo: a.fo?.pct ?? null, give: a.give?.perGame ?? null, rating: (row.rn ?? 0) >= (win ? 3 : 5) ? row.rt / row.rn : null } });
+      fin: row.xg != null ? pg.gaa : null, vol: a.vol?.share ?? null, mom: pg.momPerGame, pen: a.pen?.perGame ?? null, fo: a.fo?.pct ?? null, give: a.give?.perGame ?? null, def: dv?.get(Number(id))?.def ?? null, puck: dv?.get(Number(id))?.puck ?? null, rating: (row.rn ?? 0) >= (win ? 3 : 5) ? row.rt / row.rn : null } });
   }
   const d = deficiencies(total, win ? { last, recent } : {});
   const teams = (d?.teams ?? []).map((t) => ({ id: t.abbrev, name: t.abbrev, team: t.abbrev, pos: '', group: 'T', gp: t.gp, v: {

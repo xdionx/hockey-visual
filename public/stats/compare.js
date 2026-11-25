@@ -29,6 +29,10 @@ const loadRecent = (season) => { if (!recentCache.has(season)) recentCache.set(s
 const colsFor = () => (state.g === 'T' ? COLS.teams : state.g === 'G' ? COLS.goalies : COLS.skaters);
 const tint = (p) => (p == null ? '' : p < 0.5 ? `background:rgba(248,113,113,${((0.5 - p) * 0.9).toFixed(2)})` : `background:rgba(74,222,128,${((p - 0.5) * 0.75).toFixed(2)})`);
 
+const defCache = new Map();
+const prevSeasonOf = (s) => Number(`${Math.floor(s / 10000) - 1}${Math.floor(s / 10000)}`);
+const loadDef = (season) => { if (!defCache.has(season)) defCache.set(season, Promise.all([season, prevSeasonOf(season), prevSeasonOf(prevSeasonOf(season))].map((x) => getStatic(`seasons/${x}-def.json`).catch(() => null)))); return defCache.get(season); };
+
 async function load() {
   const total = await loadSeason(state.season);
   state.total = total;
@@ -39,6 +43,7 @@ async function load() {
     opts = { last: LAST, recent, recentTotal: recentAll(recent, LAST) };
     if (!recent) { state.last = false; opts = {}; }
   }
+  opts.defFiles = await loadDef(state.season);
   const d = compareRows(total, opts);
   withPercentiles(d.skaters, COLS.skaters);
   withPercentiles(d.goalies, COLS.goalies);

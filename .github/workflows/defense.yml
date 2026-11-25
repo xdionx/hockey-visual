@@ -1,0 +1,60 @@
+# Builds past seasons' adjusted defense files (Defending / Puck control / penalty kill totals) and keeps them on the
+# `seasons-data` branch; the publish workflow copies them into both sites. 2017-18 to 2025-26 ship pre-built in seed/defense/
+# (copied in when missing); later seasons are built from shift charts when they finish (about 20 minutes a season).
+name: Backfill defense
+
+on:
+  schedule:
+    - cron: '50 8 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: backfill-seasons
+  cancel-in-progress: false
+
+jobs:
+  defense:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          path: prod
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Check out saved seasons
+        env:
+          REMOTE: https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}
+        run: |
+          if ! git clone --quiet --depth 1 --branch seasons-data "$REMOTE" seasons; then
+            git init --quiet -b seasons-data seasons
+            git -C seasons remote add origin "$REMOTE"
+          fi
+          mkdir -p seasons/seasons
+          for f in prod/seed/defense/*-def.json; do
+            [ -e "seasons/seasons/$(basename "$f")" ] || cp "$f" seasons/seasons/
+          done
+      - name: Build defense files from shift charts
+        run: node prod/scripts/backfill-defense.js seasons --minutes 45
+      - name: Save seasons
+        id: save
+        working-directory: seasons
+        run: |
+          git add -A
+          if ! git diff --cached --quiet; then
+            git -c user.name="github-actions[bot]" -c user.email="41898333+github-actions[bot]@users.noreply.github.com" \
+              commit --quiet -m "Update defense"
+            git push --quiet origin seasons-data
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Republish the site with the new files
+        if: steps.save.outputs.changed == 'true'
+        run: gh workflow run publish.yml --repo "$GITHUB_REPOSITORY" --ref main
+        env:
+          GH_TOKEN: ${{ github.token }}

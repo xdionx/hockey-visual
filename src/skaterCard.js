@@ -2,6 +2,7 @@
 // league-average values, offense / defense summary, strengths and weak spots. Built from a season file.
 import { leagueRate, minGames, perGame, scoringBase } from './seasonStats.js';
 import { areaBase, skaterAreas } from './areas.js';
+import { defendingValues, pkVsTeammates } from './defending.js';
 
 const isD = (p) => p === 'D';
 export const MIN_DEF_TOI = 6000; // seconds of ice time before the defense number is shown
@@ -16,7 +17,10 @@ export const METRICS = [
   ['xg', 'Chances (xG)', 'off', true, 'dec2', false, 'Expected goals from the player\'s own shots per game, using shot location and type.'],
   ['vol', 'Shot volume', 'off', true, 'pct', false, 'Share of the player\'s attempts that reach the net (not blocked or missed).'],
   ['pen', 'Penalties', 'disc', true, 'signed2', false, 'Penalties drawn minus penalties taken per game.'],
-  ['def', 'Defense', 'def', true, 'signed', false, 'Goals prevented at 5v5: shot attempts the other team takes while he is on the ice, adjusted for who he plays with and against, turned into goals. Overlaps with puck possession; season-long even in the last 10 view.'],
+  ['def', 'Defending', 'def', true, 'signed', false, 'Goals per 82 games prevented at 5v5 beyond what his own puck control explains: shot attempts the other team takes while he is on the ice, adjusted for who he plays with and against, with the effect of his own offense taken out, versus other forwards or defensemen. Blends this season (50%) with the last two, so a slow start does not undo years of evidence.'],
+  ['puck', 'Puck control', 'def', true, 'signed', false, 'Goals per 82 games prevented because his team keeps the puck when he is on the ice (the part of his shot suppression that his own offense explains). Real, but a different skill from defending, so it is shown separately.'],
+  ['pk', 'Penalty kill', 'def', true, 'signed', false, 'Shot attempts per 60 the other team takes on the penalty kill, fewer than his teammates allow (positive is good). Needs 60 penalty-kill minutes this season; noisy.'],
+  ['blk', 'Shot blocks', 'ctx', true, 'dec2', true, 'Shots blocked per game. Context only: it is stable but reflects role (blockers are the team without the puck), so it is not part of Defending.'],
   ['fo', 'Faceoffs', 'fo', true, 'pct', false, 'Faceoff win % (centers only).'],
   ['rating', 'Avg rating', 'rate', true, 'dec1', false, 'Average game rating from our scorecards: 6.0 is an average night, 9+ is a huge game. It blends scoring, shots, defense, discipline, faceoffs, on-ice results and momentum.'],
   ['give', 'Giveaways', 'ctx', false, 'dec1', true, 'Giveaways per game. Context only: puck carriers give it away more because they have it more.'],
@@ -37,7 +41,7 @@ export const ord = (n) => { const s = ['th', 'st', 'nd', 'rd']; const v = n % 10
 export const teamOrd = (t, r) => (r ? `${t} ${r.tied ? 'T' : ''}${ord(r.rank)}` : '');
 
 /** Every qualifying skater's numbers: Map id -> { row, team, group, v: { key: value|null } }. */
-export function skaterTable(total, { win = false, def: defFile = null } = {}) {
+export function skaterTable(total, { win = false, def: defFile = null, defPrev = [] } = {}) {
   if (!total?.players) return null;
   const rate = leagueRate(total);
   const sbase = scoringBase(total);
@@ -53,15 +57,21 @@ export function skaterTable(total, { win = false, def: defFile = null } = {}) {
     g.oca += row.oca ?? 0; g.oto += row.oto ?? 0;
     grp.set(k, g);
   }
+  const dv = defFile?.v >= 2 ? defendingValues([defFile, ...defPrev], total) : null;
+  const teamOf = dv ? Object.fromEntries(Object.entries(total.players).map(([k, r]) => [k, r.t])) : null;
   const out = new Map();
   for (const [id, row] of Object.entries(total.players)) {
     if (row.p === 'G' || !row.t || row.gp < minGp) continue;
     const pg = perGame(row, rate, sbase);
     const a = skaterAreas(row, base);
     const gp = row.gp;
-    let def = null;
+    let def = null, puck = null, pk = null;
     const adj = defFile?.players?.[id] ?? null;
-    if (defFile) {
+    if (dv) {
+      const x = dv.get(Number(id));
+      if (x) { def = x.def; puck = x.puck; }
+      pk = pkVsTeammates(defFile, id, teamOf)?.value ?? null;
+    } else if (defFile) {
       if (adj) def = -adj.d * adj.h * (defFile.gpa ?? 0.0627); // goals prevented: attempts against /60 below average x 5v5 hours x goals per attempt
     } else if (row.oto >= minToi) {
       const g = grp.get(`${row.t}|${isD(row.p) ? 'D' : 'F'}`);
@@ -80,12 +90,15 @@ export function skaterTable(total, { win = false, def: defFile = null } = {}) {
       vol: a.vol?.share ?? null,
       pen: a.pen?.perGame ?? null,
       def,
+      puck,
+      pk,
+      blk: adj?.blk != null ? adj.blk / gp : null,
       fo: a.fo?.pct ?? null,
       give: a.give?.perGame ?? null,
       rating: (row.rn ?? 0) >= (win ? 3 : 5) ? row.rt / row.rn : null,
     } });
   }
-  return { rows: out, rate, sbase, adjusted: !!defFile };
+  return { rows: out, rate, sbase, adjusted: !!defFile, split: !!dv, dv };
 }
 
 const TIERS = [[0.9, 'elite'], [0.7, 'strong'], [0.4, 'average'], [0.2, 'below average'], [0, 'poor']];
@@ -104,7 +117,7 @@ export function skaterCard(total, id, opts = {}) {
   for (const [key, , , hi] of METRICS) {
     const mine = me.v[key];
     if (mine == null) continue;
-    const pool = all.filter((r) => r.v[key] != null && (key !== 'fo' || r.pos === 'C') && (key !== 'def' || r.group === me.group));
+    const pool = all.filter((r) => r.v[key] != null && (key !== 'fo' || r.pos === 'C') && (!['def', 'puck', 'pk', 'blk'].includes(key) || r.group === me.group));
     if (pool.length < 5) continue;
     const vals = pool.map((r) => r.v[key]);
     const rank = rankIn(vals, mine, hi);
@@ -118,7 +131,7 @@ export function skaterCard(total, id, opts = {}) {
   }
   const SPIDER = ['scoring', 'fin', 'play', 'sat', 'xg', 'pen'];
   const spider = SPIDER.filter((k) => m[k]).map((k) => ({ key: k, label: m[k].label, pct: Math.round(m[k].pct * 100), value: m[k].value, rank: m[k].rank, tip: m[k].tip }));
-  const defBars = ['def', 'pen'].filter((k) => m[k]).map((k) => ({ key: k, label: k === 'def' ? 'Goals prevented' : 'Penalties not taken', pct: Math.round(m[k].pct * 100), value: m[k].value, rank: m[k].rank }));
+  const defBars = ['def', 'puck', 'pk', 'pen'].filter((k) => m[k]).map((k) => ({ key: k, label: { def: 'Defending', puck: 'Puck control', pk: 'Penalty kill', pen: 'Penalties not taken' }[k], pct: Math.round(m[k].pct * 100), value: m[k].value, rank: m[k].rank }));
   const ranked = Object.values(m).filter((x) => !x.ctx);
   const strengths = [...ranked].sort((a, b) => b.pct - a.pct).filter((x) => x.pct >= 0.7).slice(0, 4);
   const weak = [...ranked].sort((a, b) => a.pct - b.pct).filter((x) => x.pct <= 0.3).slice(0, 4).map((x) => ({ ...x, ugly: x.pct <= 0.1 }));
@@ -136,7 +149,7 @@ export function skaterCard(total, id, opts = {}) {
   else if (off < 0.2 && def < 0.2) headline = 'Struggling at both ends';
   else headline = 'Balanced / depth';
   return { prod: productionRanks(total, id), id: me.id, name: me.name, team: me.team, pos: me.pos, group: me.group, gp: me.gp, row: me.row, pg: me.pg, areas: me.areas, m, spider, defBars, strengths, weak,
-    isWin: !!opts.win, adjusted: tbl.adjusted, adj: me.adj, summary: { headline, off, def, offTier: off == null ? null : tierName(off), defTier: def == null ? null : tierName(def) }, rate: tbl.rate, sbase: tbl.sbase,
+    isWin: !!opts.win, adjusted: tbl.adjusted, split: tbl.split, dseasons: tbl.split ? tbl.dv.get(me.id)?.seasons ?? null : null, adj: me.adj, summary: { headline, off, def, offTier: off == null ? null : tierName(off), defTier: def == null ? null : tierName(def) }, rate: tbl.rate, sbase: tbl.sbase,
     pool: all.filter((r) => r.group === me.group && r.v.def != null).map((r) => ({ id: r.id, name: r.name, x: ((r.row.g ?? 0) + (r.row.a1 ?? 0) + (r.row.a2 ?? 0)) / r.gp, y: r.v.def })) };
 }
 

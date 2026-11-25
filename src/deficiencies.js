@@ -10,6 +10,7 @@
 import { gameObj, leagueRate, minGames, perGame, scoringBase, recentTotal, recentAll } from './seasonStats.js';
 import { areaBase, skaterFlags, goalieAreas, goalieFlags, AREA_LABEL } from './areas.js';
 import { teamTable } from './momentumModel.js';
+import { defendingValues } from './defending.js';
 import { IMPACT } from './impact.js';
 
 export const AREAS = [
@@ -153,6 +154,7 @@ export const ONICE_MIN_SEC = 150 * 60;
 export const ONICE_GAP = 0.10; // share of attempts, 10 points: depth lines normally trail the top lines by a few points
 export const ONICE_TOI = { F: 11.5 * 60, D: 14 * 60 }; // regulars only: top nine forwards, top two or three pairs
 export const ONICE_MAX = 3;
+export const DEF_BAD = -1.0; // goals per 82 games of Defending below which it is listed as a reason
 export function onIceRows(players, { minSec = ONICE_MIN_SEC, mateSec = 20 * 60 } = {}) {
   const share = (r) => r.oi.cf / (r.oi.cf + r.oi.ca);
   const per60 = (r) => ((r.oi.gf - r.oi.ga) * 3600) / r.oi.sec;
@@ -175,7 +177,8 @@ export function onIceText(r) {
   const kind = isD(r.pos) ? 'defensemen' : 'forwards';
   const pts = Math.round(-r.gap * 100);
   const gd = r.gdGap <= -0.5 ? ` Goals: ${sign(r.gdGap)} per 60 minutes against the others (noisier than shots).` : '';
-  return `With him on the ice the team gets ${pctTxt(r.share, 0)} of the shot attempts, ${pts} point${pts === 1 ? '' : 's'} fewer than with its other ${kind} (${pctTxt(r.mateShare, 0)}), over ${Math.round(r.min)} minutes.${gd}`;
+  const dvTxt = r.dv ? ` Defending ${sign(r.dv.def)} and puck control ${sign(r.dv.puck)} goals per 82 games.` : '';
+  return `With him on the ice the team gets ${pctTxt(r.share, 0)} of the shot attempts, ${pts} point${pts === 1 ? '' : 's'} fewer than with its other ${kind} (${pctTxt(r.mateShare, 0)}), over ${Math.round(r.min)} minutes.${gd}${dvTxt}`;
 }
 
 /** Goalies who started for the team, worst goals saved above expected first; with the team's record in their starts. */
@@ -220,7 +223,8 @@ function goalieOnIce(goalies, { cost = GOALIE_COST, minGames = 4 } = {}) {
  * { rate, teams: [{ abbrev, gp, w, l, otl, ptsPct, ptsRank, areas: { play, finishing, goaltending }, trouble, strengths,
  *   checks: [...], players: [...], goalies: [...] }], n }
  */
-export function deficiencies(total, { last = null, recent = null } = {}) {
+export function deficiencies(total, { last = null, recent = null, defFiles = null } = {}) {
+  const dv = defFiles ? defendingValues(defFiles, total) : null;
   const list = (total?.g ?? []).map(gameObj);
   if (!list.length) return null;
   const rate = leagueRate(total);
@@ -333,9 +337,11 @@ export function deficiencies(total, { last = null, recent = null } = {}) {
     const strengths = AREAS.map(([k2]) => areas[k2]).filter((a) => a.strength).sort((a, b) => b.value - a.value);
     const goalies = goalieRows(src, t.abbrev, rate, wGames, win ? wbase : abase);
     const gOpt = win ? { minStarts: 2, cost: GOALIE_COST * k, minGames: 3 } : {};
-    const dragging = [...players.map((p) => ({ ...p, reasons: skaterReasons(p, k) })).filter((p) => (p.cost <= -1.5 * k || hardFlag(p)) && p.reasons.length), ...goalieDragging(goalies, gOpt)]
+    const defReason = (p) => { const x = dv?.get(p.id); return x && x.def <= DEF_BAD ? [{ k: 'def', cost: 0, text: `Defending: ${sign(x.def)} goals per 82 games against other ${isD(p.pos) ? 'defensemen' : 'forwards'}${x.puck >= 0.5 ? ` (his puck control is ${sign(x.puck)}, so it is not for lack of the puck)` : ''}. Blends this and the last two seasons.` }] : []; };
+    const dragging = [...players.map((p) => ({ ...p, reasons: [...skaterReasons(p, k), ...defReason(p)] })).filter((p) => (p.cost <= -1.5 * k || hardFlag(p)) && p.reasons.length), ...goalieDragging(goalies, gOpt)]
       .sort((a, b) => a.cost - b.cost);
     const onIce = [...onIceRows(players.map((p) => ({ ...p })), win ? { minSec: 90 * 60, mateSec: 15 * 60 } : {})
+      .map((r) => ({ ...r, dv: dv?.get(r.id) ?? null }))
       .filter((r) => r.gap <= -ONICE_GAP && r.cost < 0).slice(0, ONICE_MAX), ...goalieOnIce(goalies, gOpt)];
     return {
       onIce,
