@@ -33,11 +33,11 @@ function tile(label, value, sub = '', cls = '', tip = '') {
   return `<div class="pq-t ${cls}"${tip ? ` title="${tip.replace(/"/g, '&quot;')}"` : ''}><span class="pq-v">${value}</span><span class="pq-k">${label}</span>${sub ? `<span class="pq-s">${sub}</span>` : ''}</div>`;
 }
 
-/** "12th of 410" plus a small bar showing where that sits (best at the right). */
+/** A boxed "12th NHL" plus a small bar showing where that sits (best at the right). */
 export function rankBit(r) {
   if (!r) return '';
   const pct = r.of > 1 ? 100 * (1 - (r.rank - 1) / (r.of - 1)) : 100;
-  return `${fmt.ord(r.rank)} of ${r.of}<i class="pq-bar"><b style="width:${pct.toFixed(0)}%"></b></i>`;
+  return `<span class="rkb">${r.tied ? 'T' : ''}${fmt.ord(r.rank)} NHL</span><i class="pq-bar"><b style="width:${pct.toFixed(0)}%"></b></i>`;
 }
 
 function body(id, p, ours, season, type) {
@@ -52,7 +52,7 @@ function body(id, p, ours, season, type) {
   const grp = (title, items, cls = '') => (items.length ? `<div class="pq-grp"><h3>${title}</h3><div class="pq-grid ${cls}">${items.join('')}</div></div>` : '');
   const big = (label, value, sub, tip) => `<div class="pq-big"${tip ? ` title="${tip}"` : ''}><span class="pq-bk">${label}</span><span class="pq-bv">${value}</span><span class="pq-bs">${sub || ''}</span></div>`;
   const RTIP = 'Average game score (0-10) from our scorecards. 6.0 is an average night, 9+ is a huge game.';
-  const rating = ours?.ratingAvg != null ? big('Game score', fmt.dec(ours.ratingAvg, 1), `${rankBit(ours.ratingRank) || ''}<em>avg of ${ours.row.rn} games</em>`, RTIP) : big('Game score', '-', '<em>not enough rated games</em>', RTIP);
+  const rating = ours?.ratingAvg != null ? big('Game score', fmt.dec(ours.ratingAvg, 1), `${rankBit(ours.ratingRank) || ''}<em>${ours.row.rn} games</em>`, RTIP) : big('Game score', '-', '<em>not enough rated games</em>', RTIP);
   let heads; let groups;
   if (goalie) {
     heads = [rating, ours?.gsax != null ? big('GSAx', fmt.signed(ours.gsax, 1), rankBit(ours.gsaxRank), 'Goals saved above expected') : big('GSAx', '-', '')];

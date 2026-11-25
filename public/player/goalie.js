@@ -15,6 +15,7 @@ const cls = (v) => (v > 0.05 ? 'up' : v < -0.05 ? 'down' : '');
 const tile = (label, value, sub = '', c = '', tip = '') => `<div class="pq-t pq-ours"${tip ? ` title="${esc(tip)}"` : ''}><span class="pq-v ${c}">${value}</span><span class="pq-k">${label}</span>${sub ? `<span class="pq-s">${sub}</span>` : ''}</div>`;
 const plain = (label, value, sub = '', c = '') => `<div class="pq-t ${c === 'hl' ? 'pq-hl' : ''}"><span class="pq-v">${value}</span><span class="pq-k">${label}</span>${sub ? `<span class="pq-s">${sub}</span>` : ''}</div>`;
 /** Rank label: "15th NHL", "T1st NHL" when tied. */
+const rb = (r) => (r ? `<span class="rkb">${ofN(r)}</span>` : '');
 const ofN = (r) => (r ? `${r.tied ? 'T' : ''}${fmt.ord(r.rank)} NHL` : '');
 const sec = (id, title, sub, html) => `<section class="pc-card gc-sec" id="${id}"><h2>${title}${sub ? ` <small>${sub}</small>` : ''}</h2>${html}</section>`;
 const fig = (inner) => `<div class="gc-fig">${inner}</div>`;
@@ -211,13 +212,13 @@ export function goalieSections(ctx) {
 
   const spider = radarChart(pts, n);
   const rk0 = season && me && me.rating != null ? rankAmong(lg.rows.map((g) => g.rating), me.rating, true) : null;
-  const hl = `<div class="hl-strip"><div class="hl-c" tabindex="0" title="Average game score (0-10) from our scorecards. 6.0 is an average night."><span class="hl-k">Game score</span><span class="hl-v">${rk0 ? me.rating.toFixed(1) : '-'}</span><span class="hl-s">${rk0 ? `${ofN(rk0)} of ${rk0.of} · avg of ${me.rated} games` : 'builds as games are rated'}</span></div><div class="hl-c" tabindex="0" title="Goals saved above expected"><span class="hl-k">GSAx</span><span class="hl-v">${sg(b.gsax)}</span><span class="hl-s">${season && gl ? `${ofN(gl)} of ${gl.of}` : b.label}</span></div></div>`;
+  const hl = `<div class="hl-strip"><div class="hl-c" tabindex="0" title="Average game score (0-10) from our scorecards. 6.0 is an average night."><span class="hl-k">Game score</span><span class="hl-v">${rk0 ? me.rating.toFixed(1) : '-'}</span><span class="hl-s">${rk0 ? `${rb(rk0)}<em>${me.rated} games</em>` : 'builds as games are rated'}</span></div><div class="hl-c" tabindex="0" title="Goals saved above expected"><span class="hl-k">GSAx</span><span class="hl-v">${sg(b.gsax)}</span><span class="hl-s">${season && gl ? rb(gl) : b.label}</span></div></div>`;
   const out = [hl, spider ? `<div class="gc-top">${verdict}${spider}</div>` : verdict];
   // Average game rating (our scorecard score; 6.0 = an average night), ranked among goalies with 5+ starts.
   const ratingTile = () => {
     if (!season || !me || me.rating == null) return '';
     const rk = rankAmong(lg.rows.map((g) => g.rating), me.rating, true);
-    return `<div class="pq-t pq-ours" title="Average game rating from our scorecards: 6.0 is an average night. ${esc(ofN(rk))} of ${rk.of} goalies."><span class="pq-v">${me.rating.toFixed(1)}</span><span class="pq-k">Avg rating</span><span class="pq-s">${ofN(rk)} · ${me.rated} games</span></div>`;
+    return `<div class="pq-t pq-ours" title="Average game rating from our scorecards: 6.0 is an average night. ${esc(ofN(rk))} of ${rk.of} goalies."><span class="pq-v">${me.rating.toFixed(1)}</span><span class="pq-k">Avg rating</span><span class="pq-s">${rb(rk)} ${me.rated} games</span></div>`;
   };
   // 1 Results
   const n0 = now;
@@ -227,7 +228,7 @@ export function goalieSections(ctx) {
   // 2 Saves vs expected
   out.push(sec('gc-exp', 'Saves vs expected', 'goals kept out beyond an average goalie on the same shots', `
     <div class="pq-grid pc-grid">${[
-      tile('GSAx', sg(b.gsax), season && gl ? ofN(gl) : b.label, cls(b.gsax)),
+      tile('GSAx', sg(b.gsax), season && gl ? rb(gl) : b.label, cls(b.gsax)),
       tile('GSAx/GP', sg(season ? ours.gsaxPerGame : gsaxPerStart, 2), season ? 'per game played' : 'per start', cls(b.gsax)),
       tile('Goals against', b.ga, `avg goalie ${fmt.dec(b.xga)} on the same shots`),
       b.sa ? tile('SV% vs exp', `${sg(((b.sv ?? 0) - (b.expSv ?? 0)) * 100, 1)}%`, `expected ${sv3(b.expSv)} on these shots`, cls(b.gsax)) : '',
@@ -255,10 +256,10 @@ export function goalieSections(ctx) {
   out.push(sec('gc-con', 'Consistency', 'quality starts and the bad nights', `
     <div class="pq-grid pc-grid">${[
       b.qs != null ? tile('Quality starts', b.qs, `of ${b.n} starts`, '', QS_TIP(lgSv)) : '',
-      b.qs != null ? tile('QS%', fmt.pct(b.qs / nStarts, 0), season && ours.qsRank ? `${ofN(ours.qsRank)} · ${lgQs}` : lgQs, qsLg != null && b.qs / nStarts < qsLg - 0.08 ? 'down' : qsLg != null && b.qs / nStarts > qsLg + 0.08 ? 'up' : '', QS_TIP(lgSv)) : '',
+      b.qs != null ? tile('QS%', fmt.pct(b.qs / nStarts, 0), season && ours.qsRank ? `${rb(ours.qsRank)} ${lgQs}` : lgQs, qsLg != null && b.qs / nStarts < qsLg - 0.08 ? 'down' : qsLg != null && b.qs / nStarts > qsLg + 0.08 ? 'up' : '', QS_TIP(lgSv)) : '',
       b.bad != null ? tile('Really bad starts', b.bad, 'GSAx −2 or worse', b.bad ? 'down' : '') : (starts?.length ? tile('Really bad starts', summarize(starts).bad, 'GSAx −2 or worse', '') : ''),
       b.so != null ? tile('Shutouts', b.so, '0 goals against') : '',
-      b.soft != null && b.n ? tile('Perimeter goals/start', ((b.soft ?? 0) / nStarts).toFixed(2), season && me?.softPer != null ? ofN(rankAmong(lg.rows.map((g) => g.softPer), me.softPer, false)) + ' (fewest best)' : '') : '',
+      b.soft != null && b.n ? tile('Perimeter goals/start', ((b.soft ?? 0) / nStarts).toFixed(2), season && me?.softPer != null ? rb(rankAmong(lg.rows.map((g) => g.softPer), me.softPer, false)) + ' fewest is best' : '') : '',
     ].join('')}</div>
     ${playoffs ? '' : `<h3 class="pc-sub">Every start, quality or not</h3>${fig(qsChart(starts?.slice(n ? -n : 0) ?? null, lgSv))}`}
     <div class="gc-legend"${playoffs ? ' hidden' : ''}><span><i style="background:${BLUE}"></i>Quality start</span><span><i style="background:${DOWN}"></i>Not a quality start</span><span>Bar = save %, dashed line = NHL AVG save % (${sv3(lgSv)})</span></div>
@@ -268,7 +269,7 @@ export function goalieSections(ctx) {
   // 6 Starter quality
   out.push(sec('gc-pick', 'Starter quality', 'what the research says is worth watching', `<div class="gc-cols"><div class="pq-grid pc-grid">${[
     pick?.id ? tile('Pick edge', sg(W.goalie * pick.value, 2), 'goals a game in our pick when he starts vs an average goalie') : '',
-    ours.gsaxRank ? tile('GSAx rank', ofN(ours.gsaxRank), `among ${ours.gsaxRank.of} NHL goalies`) : '',
+    ours.gsaxRank ? tile('GSAx rank', ofN(ours.gsaxRank), `among NHL goalies`) : '',
   ].join('')}</div><div><p class="pq-note" style="margin-top:0"><b>What we tested</b> (6 seasons, 409,000 shots): save streaks, big saves, goalie pulls and last-5-starts form do not swing games or predict the next one, so goalies get no in-game momentum. Season-long skill is real (GSAx per shot repeats, split-half r .36), and the starter's GSAx this season and last (shrunk toward average) adds to our pre-game pick on the Scores page. <b>Pick edge</b> is that adjustment.</p></div></div>`));
   return out.join('');
 }

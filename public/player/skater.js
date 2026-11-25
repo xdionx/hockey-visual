@@ -20,6 +20,7 @@ const fv = (x) => FMT[x.kind] ?? FMT.dec;
 const sec = (id, title, sub, html) => `<section class="pc-card gc-sec" id="${id}"><h2>${title}${sub ? ` <small>${sub}</small>` : ''}</h2>${html}</section>`;
 const fig = (inner) => `<div class="gc-fig">${inner}</div>`;
 const none = () => '<p class="pq-note">No game-by-game data for this view.</p>';
+const rkb = (t) => (t ? `<span class="rkb">${t}</span>` : '');
 const wait = () => '<p class="pq-note gc-wait">Loading every game…</p>';
 
 export const NAV = [['sk-sum', 'Summary'], ['sk-rate', 'Ratings'], ['sk-sco', 'Scoring'], ['sk-drv', 'Driving play'], ['sk-sho', 'Shooting'], ['sk-def', 'Defense'], ['sk-dis', 'Discipline'], ['sk-lg', 'NHL rank'], ['sk-hist', 'History'], ['sk-last', 'Last 10 games']];
@@ -29,7 +30,7 @@ export const navHtml = () => `<nav class="gc-nav" aria-label="Sections">${NAV.ma
 function rtile(x, value, label, sub = '') {
   if (!x) return `<div class="pq-t pq-ours"><span class="pq-v">${value}</span><span class="pq-k">${label}</span>${sub ? `<span class="pq-s">${sub}</span>` : ''}</div>`;
   const tone = x.ctx ? '' : x.pct >= 0.9 ? ' rk-top' : x.pct <= 0.1 ? ' rk-low' : '';
-  return `<div class="pq-t pq-ours${tone}" title="${esc(hoverText(x, fv(x)))}" tabindex="0"><span class="pq-v">${value}</span><span class="pq-k">${label}</span><span class="pq-s">${ofN(x.rank)}${x.teamRank ? ` · ${teamOrd(x.team, x.teamRank)}` : ''}${sub ? ` · ${sub}` : ''}</span></div>`;
+  return `<div class="pq-t pq-ours${tone}" title="${esc(hoverText(x, fv(x)))}" tabindex="0"><span class="pq-v">${value}</span><span class="pq-k">${label}</span><span class="pq-s">${rkb(ofN(x.rank))}${x.teamRank ? ` ${rkb(teamOrd(x.team, x.teamRank))}` : ''}${sub ? ` <i>${sub}</i>` : ''}</span></div>`;
 }
 const TIPS = {
   G: 'Goals scored.', A: 'Assists: primary and secondary.', P: 'Points: goals plus assists.', PIM: 'Penalty minutes.',
@@ -64,7 +65,7 @@ function spider(points) {
 
 const bars = (pts) => (pts.length ? `<div class="gc-bars" aria-label="NHL percentile">${pts.map((q) => `<div title="${esc(q.label)}: ${esc(FMT[METRIC[q.key].kind](q.value))}, ${ofN(q.rank)}"><span>${esc(q.label)}</span><i><b style="width:${Math.max(2, q.pct)}%;background:${q.pct >= 50 ? UP : DOWN}"></b></i><em>${q.pct}</em></div>`).join('')}</div>` : '');
 
-const chip = (x, good) => `<span class="sk-chip ${good ? 'up' : x.ugly ? 'ugly' : 'down'}" title="${esc(hoverText(x, fv(x)))}">${esc(x.label)} <b>${fv(x)(x.value)}</b> <small>${ofN(x.rank)}</small></span>`;
+const chip = (x, good) => `<span class="sk-chip ${good ? 'up' : x.ugly ? 'ugly' : 'down'}" title="${esc(hoverText(x, fv(x)))}">${esc(x.label)} <b>${fv(x)(x.value)}</b> ${rkb(ofN(x.rank))}</span>`;
 
 function summary(card) {
   const { summary: s, m } = card;
@@ -179,7 +180,7 @@ function twoWay(card) {
 
 /** Best and worst few areas as tiles: value, NHL rank, tinted. */
 function stripSection(card) {
-  const t = (x, good) => `<div class="pq-t pq-ours ${good ? 'rk-top' : x.ugly ? 'rk-low' : ''}" title="${esc(hoverText(x, fv(x)))}" tabindex="0"><span class="pq-v">${fv(x)(x.value)}</span><span class="pq-k">${esc(x.label)}</span><span class="pq-s">${ofN(x.rank)}</span></div>`;
+  const t = (x, good) => `<div class="pq-t pq-ours ${good ? 'rk-top' : x.ugly ? 'rk-low' : ''}" title="${esc(hoverText(x, fv(x)))}" tabindex="0"><span class="pq-v">${fv(x)(x.value)}</span><span class="pq-k">${esc(x.label)}</span><span class="pq-s">${rkb(ofN(x.rank))}</span></div>`;
   const col = (title, sub, list, good) => `<div class="sk-strip"><h3 class="pc-sub">${title} <small>${sub}</small></h3>${list.length ? `<div class="pq-grid pc-grid">${list.map((x) => t(x, good)).join('')}</div>` : '<p class="pq-note">Nothing stands out.</p>'}</div>`;
   return `<div class="sk-strips" id="sk-str">${col('Strengths', 'best areas vs the NHL', card.strengths, true)}${col('Weak spots', 'worst areas, ugly = bottom 10%', card.weak, false)}</div>`;
 }
@@ -290,8 +291,8 @@ export function skaterSections({ card, now: nowIn, games, clips, tab, all, playo
   const defHtml = card.defBars.length ? `<figure class="gc-defbars"><figcaption>Defense: percentile vs NHL ${card.group === 'D' ? 'defensemen' : 'forwards'}, 100 = best</figcaption>${bars(card.defBars)}</figure>` : '<p class="pq-note">Defense numbers need more ice time.</p>';
   const gs = m.rating, mo = m.play;
   out.push(headlineStrip([
-    hlCell('Game score', gs ? gs.value.toFixed(1) : '-', gs ? `${ofN(gs.rank)} of ${gs.of} · avg of ${card.row.rn} games` : 'builds as games are rated', 'Average game score (0-10) from our scorecards. 6.0 is an average night, 9+ is a huge game.'),
-    hlCell('Momentum / GP', mo ? sg(mo.value) : '-', mo ? `${ofN(mo.rank)} of ${mo.of}` : '', 'Momentum per game: our play-by-play model of the shifts in pressure the player creates or gives up.'),
+    hlCell('Game score', gs ? gs.value.toFixed(1) : '-', gs ? `${rkb(ofN(gs.rank))}<em>${card.row.rn} games</em>` : 'builds as games are rated', 'Average game score (0-10) from our scorecards. 6.0 is an average night, 9+ is a huge game.'),
+    hlCell('Momentum / GP', mo ? sg(mo.value) : '-', mo ? rkb(ofN(mo.rank)) : '', 'Momentum per game: our play-by-play model of the shifts in pressure the player creates or gives up.'),
   ]));
   out.push(`<div class="gc-top" id="sk-sum">${summary(card)}<div>${spiderHtml}${defHtml}</div></div>`, stripSection(card));
   const seasonWord = playoffs ? 'playoff run' : 'season';
