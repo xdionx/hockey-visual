@@ -387,7 +387,8 @@ test('goalie xG: power plays, rebounds and slap shots are harder than the base m
 test('goalie rating sits level with skaters: a league-average start is 7.0 and a standout night reaches the top of the game', async () => {
   const { goalieRating, rating } = await import('../src/gameDetail.js');
   assert.equal(goalieRating(0), 7);
-  assert.ok(goalieRating(2.5) >= 10); // 7 + 3.75 = 10.75 raw, softened past 9
+  assert.equal(goalieRating(1), 9);
+  assert.ok(goalieRating(2.5) >= 10); // 7 + 5 = 12 raw, softened past 9
   assert.ok(goalieRating(2.5) > rating(2.5));
   assert.ok(goalieRating(-3) < 4); // a disaster still falls below 4
 });

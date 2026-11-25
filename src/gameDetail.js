@@ -77,16 +77,16 @@ export function rating(gameScore) {
 }
 
 /**
- * Goalie rating: the same 1.5 points per goal saved above expected, but centered at 7.0 (the average skater rating
- * is 7.0, so an average goalie start sits level with an average skater) and with a gentler soft end above 9 (0.8 vs 0.4)
- * so a standout night can reach the top of the game's skaters. Goalies are the best-rated player in about 9% of their
- * starts, close to how often the NHL names a goalie first star.
+ * Goalie rating: 2.0 points per goal saved above expected (skaters use 1.5 per game score point), centered at 7.0 (the
+ * average skater rating is 7.0). The steeper line lets a good-not-great start reach the NHL's second and third star
+ * (goalies are a star in 23% of starts; this puts them in the top 3 about 18% of the time against skaters, first
+ * star about 10%). Past 9 it softens like skaters (0.4).
  */
 export const GOALIE_BASE = 7;
-export const GOALIE_SOFT_SLOPE = 0.8;
+export const GOALIE_SLOPE = 2;
 export function goalieRating(gameScore) {
-  const raw = GOALIE_BASE + 1.5 * gameScore;
-  return round(raw > 9 ? 9 + GOALIE_SOFT_SLOPE * (raw - 9) : raw < 4 ? 4 + RATING_SOFT_SLOPE * (raw - 4) : raw, 1);
+  const raw = GOALIE_BASE + GOALIE_SLOPE * gameScore;
+  return round(raw > 9 ? 9 + RATING_SOFT_SLOPE * (raw - 9) : raw < 4 ? 4 + RATING_SOFT_SLOPE * (raw - 4) : raw, 1);
 }
 
 const TEAM_STAT_LABELS = {
