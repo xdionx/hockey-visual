@@ -1,0 +1,70 @@
+Average starter rating per start (all five seasons):
+  current 6.56   calibrated-xG 6.72   proposed 6.09   (league average should read 6.0)
+  spread (sd): 2.26 / 2.26 / 1.96
+  share of starts rated 8.0+: 31.9% / 34.6% / 19.5%
+  share of starts rated under 4.0: 19.2% / 17.5% / 20.5%
+  mean shots faced 28.6, goals against 2.80, xGA raw 2.45, xGA proposed 2.78
+  correlation of rating with shots faced: 0.32 / 0.33 / 0.31
+
+2026-27 so far, goalies with >= 5 starts (63 goalies): current vs proposed average rating and rank
+            gname  gp    sa  gsax  gsax2   r0  k0   r2  k2
+    Linus Ullmark  13 23.46  0.59   0.79 7.89   1 7.16   3
+    Casey DeSmith   5 27.20  0.28   0.33 7.49   2 6.70   9
+  Igor Shesterkin   5 21.80  0.48   0.86 7.47   3 7.26   1
+ Jesper Wallstedt  22 26.27  0.28   0.66 7.44   4 6.94   4
+ Michael DiPietro   6 27.83  0.38   0.53 7.38   5 6.75   7
+   Daniil Tarasov   9 26.44  0.35   0.99 7.35   6 7.23   2
+       Joel Hofer  17 29.18  0.05   0.37 7.17   7 6.55  13
+     Ilya Sorokin  16 29.44  0.11   0.44 7.15   8 6.58  11
+     Dylan Garand  14 26.50  0.04   0.28 7.10   9 6.52  14
+      Juuse Saros  16 30.25 -0.05   0.25 7.09  10 6.44  17
+     Devin Cooley  10 31.00 -0.15   0.25 7.07  11 6.60  10
+       Cam Talbot  12 29.08 -0.13   0.29 7.00  12 6.56  12
+     Jacob Fowler  15 28.33  0.15   0.79 6.99  13 6.92   5
+Connor Hellebuyck   9 26.44  0.01   0.11 6.90  14 6.18  22
+    Tristan Jarry  11 27.45 -0.27   0.05 6.86  15 6.34  18
+...
+        gname  gp    sa  gsax  gsax2   r0  k0   r1  k1   r2  k2
+Linus Ullmark  13 23.46  0.59   0.79 7.89   1 8.09   1 7.16   3
+
+All goalies, 2026-27, sorted by proposed rating (top 10 / bottom 5):
+            gname  gp  gsax  gsax2   r0  k0   r2  k2
+  Igor Shesterkin   5  0.48   0.86 7.47   3 7.26   1
+   Daniil Tarasov   9  0.35   0.99 7.35   6 7.23   2
+    Linus Ullmark  13  0.59   0.79 7.89   1 7.16   3
+ Jesper Wallstedt  22  0.28   0.66 7.44   4 6.94   4
+     Jacob Fowler  15  0.15   0.79 6.99  13 6.92   5
+   Jake Oettinger  18 -0.01   0.53 6.73  16 6.77   6
+ Michael DiPietro   6  0.38   0.53 7.38   5 6.75   7
+ Alex Nedeljkovic   9 -0.08   0.49 6.71  17 6.73   8
+    Casey DeSmith   5  0.28   0.33 7.49   2 6.70   9
+     Devin Cooley  10 -0.15   0.25 7.07  11 6.60  10
+     Lukas Dostal  13 -1.31  -0.83 5.00  60 5.09  59
+       Jake Allen  11 -1.10  -0.75 5.33  55 5.03  60
+ Charlie Lindgren   8 -1.46  -0.89 4.74  61 4.92  61
+   Kevin Lankinen   9 -2.49  -1.86 3.78  63 4.18  62
+Jordan Binnington   7 -2.02  -1.78 4.18  62 4.00  63
+20222023 Ullmark {'gp': 48, 'sa': 30.23, 'gsax': 0.6, 'gsax2': 0.88, 'r0': 8.22, 'k0': 1, 'r2': 7.23, 'k2': 2} of 77
+20232024 Ullmark {'gp': 40, 'sa': 30.2, 'gsax': 0.05, 'gsax2': 0.31, 'r0': 7.21, 'k0': 9, 'r2': 6.52, 'k2': 8} of 71
+20242025 Ullmark {'gp': 41, 'sa': 29.46, 'gsax': -0.1, 'gsax2': 0.18, 'r0': 6.92, 'k0': 12, 'r2': 6.36, 'k2': 13} of 71
+20252026 Ullmark {'gp': 48, 'sa': 24.67, 'gsax': -0.53, 'gsax2': -0.21, 'r0': 6.22, 'k0': 45, 'r2': 5.8, 'k2': 48} of 71
+20262027 Ullmark {'gp': 13, 'sa': 23.46, 'gsax': 0.59, 'gsax2': 0.79, 'r0': 7.89, 'k0': 1, 'r2': 7.16, 'k2': 1} of 40
+
+How much of a goalie season average comes from his team (goalies with >= 20 starts, season level):
+  corr(avg rating, avg shots faced): current 0.28, proposed 0.20   (n=241)
+
+Split half (odd vs even starts, 79 goalies with 40+ starts): correlation of average rating: current 0.46, proposed 0.50
+Season to season (20+ starts both years, n=148): current 0.20, proposed 0.13
+  goalies who changed teams (n=35): current 0.16, proposed 0.08
+
+What one shot is worth to the goalie (rating points = 1.5 x game score), by kind of shot
+                        kind  shots  goal_pct  xG_cur  xG_new  save_cur  save_new  goal_cur  goal_new
+               even strength 263744     9.122   8.334   8.876     0.194     0.133    -1.606    -1.367
+  penalty kill (facing a PP)  55050    14.185   9.922  14.029     0.202     0.210    -1.598    -1.290
+goalie team on PP (SH shots)   9027     9.184   8.078   9.147     0.192     0.137    -1.608    -1.363
+             rebound (1-3 s)  11790    24.902  13.055  23.336     0.219     0.350    -1.581    -1.150
+            tip / deflection  28744    14.807  21.244  15.575     0.262     0.234    -1.538    -1.266
+                 inner plate  49987    19.889  19.420  20.125     0.252     0.302    -1.548    -1.198
+                 outer plate  83161    15.789  10.787  15.264     0.207     0.229    -1.593    -1.271
+      perimeter (wide/other) 194673     4.944   4.877   4.729     0.176     0.071    -1.624    -1.429
+                   all shots 327821     9.974   8.594   9.749     0.195     0.146    -1.605    -1.354

@@ -1,0 +1,26 @@
+train 160590 shots (2022-24), test 167231 shots (2024-27)
+
+model                        test logloss     AUC
+current xG                        0.30930  0.7118
+xG + strength                     0.30827  0.7161
+xG + rebound (1-3 s)              0.30760  0.7152
+xG + shot type/tip                0.30212  0.7298
+xG + area                         0.30565  0.7131
+xG + all                          0.29781  0.7384
+(raw xG, uncalibrated)            0.31091  0.7118
+
+  intercept    +0.372
+  lx           +1.191
+  pp           +0.303
+  sh_          +0.016
+  t3v3         +0.484
+  reb          +0.569
+  ty_slap      +0.837
+  ty_snap      +0.385
+  ty_backhand  -0.347
+  ty_tipin     -0.838
+  ty_deflected -0.573
+  ty_wraparound +0.120
+  inner        +0.036
+  outer        +0.363
+  wide         -0.362
