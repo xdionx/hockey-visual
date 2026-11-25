@@ -139,10 +139,13 @@ export function skaterCard(total, id, opts = {}) {
     pool: all.filter((r) => r.group === me.group && r.v.def != null).map((r) => ({ id: r.id, name: r.name, x: ((r.row.g ?? 0) + (r.row.a1 ?? 0) + (r.row.a2 ?? 0)) / r.gp, y: r.v.def })) };
 }
 
-/** Hover text for one ranked stat: definition, value, NHL rank vs NHL AVG, and where he sits on his team. */
+/**
+ * Hover text for one ranked stat, in the structured form the hover card renders:
+ * heading, definition, then "Label¦value" rows (value, NHL rank, NHL AVG, team rank, best and lowest teammate).
+ */
 export function hoverText(x, fmtV) {
   if (!x) return '';
-  const parts = [x.tip, `${x.label}: ${fmtV(x.value)}, ${ofN(x.rank)} of ${x.of} (NHL AVG ${fmtV(x.mean)}).`];
-  if (x.teamRank) parts.push(`${teamOrd(x.team, x.teamRank)} of ${x.teamOf} teammates at his position group; best ${x.best.name} ${fmtV(x.best.v[x.key])}, lowest ${x.worst.name} ${fmtV(x.worst.v[x.key])}.`);
-  return parts.join(' ');
+  const lines = [x.label, x.tip, `Value¦${fmtV(x.value)}`, `NHL rank¦${x.rank.tied ? 'T' : ''}${ord(x.rank.rank)} of ${x.of}`, `NHL AVG¦${fmtV(x.mean)}`];
+  if (x.teamRank) lines.push(`${x.team} rank¦${x.teamRank.tied ? 'T' : ''}${ord(x.teamRank.rank)} of ${x.teamOf} at his position`, `Best teammate¦${x.best.name} ${fmtV(x.best.v[x.key])}`, `Lowest teammate¦${x.worst.name} ${fmtV(x.worst.v[x.key])}`);
+  return lines.join('\n');
 }
