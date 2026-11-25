@@ -4,7 +4,7 @@
 export const ALPHA = 3e4;
 export const MIN_SECONDS = 6000; // 100 minutes of 5v5 before a player gets a number
 
-/** rows: stints from stintRows (all games, concatenated). Returns { gpa, players: { id: { d, h } } } (d = attempts against per 60, relative to the average skater; h = 5v5 hours). */
+/** rows: stints from stintRows (all games, concatenated). Returns { gpa, players: { id: { d, o, h } } } (d = attempts against per 60, lower is better, and o = attempts for per 60, higher is better, both relative to the average skater; h = 5v5 hours). */
 export function fitDefense(rows, goalsPerAttempt = 0.0627, alpha = ALPHA) {
   const ids = [...new Set(rows.flatMap((r) => [...r[1], ...r[2]]))].sort((a, b) => a - b);
   const P = ids.length, n = 2 * P + 1;
@@ -38,10 +38,10 @@ export function fitDefense(rows, goalsPerAttempt = 0.0627, alpha = ALPHA) {
   for (let i = 0; i < 2 * P; i++) A[i * n + i] += alpha;
   const beta = cholSolve(A, b, n);
   const players = {};
-  let tot = 0, mean = 0;
-  for (let i = 0; i < P; i++) { tot += secs[i]; mean += beta[P + i] * secs[i]; }
-  mean /= tot;
-  for (let i = 0; i < P; i++) if (secs[i] >= MIN_SECONDS) players[ids[i]] = { d: Math.round((beta[P + i] - mean) * 1000) / 1000, h: Math.round((secs[i] / 3600) * 100) / 100 };
+  let tot = 0, mean = 0, meanO = 0;
+  for (let i = 0; i < P; i++) { tot += secs[i]; mean += beta[P + i] * secs[i]; meanO += beta[i] * secs[i]; }
+  mean /= tot; meanO /= tot;
+  for (let i = 0; i < P; i++) if (secs[i] >= MIN_SECONDS) players[ids[i]] = { d: Math.round((beta[P + i] - mean) * 1000) / 1000, o: Math.round((beta[i] - meanO) * 1000) / 1000, h: Math.round((secs[i] / 3600) * 100) / 100 };
   return { gpa: goalsPerAttempt, players };
 }
 
@@ -63,4 +63,11 @@ function cholSolve(A, b, n) {
   const x = new Float64Array(n);
   for (let i = n - 1; i >= 0; i--) { let s = y[i]; for (let k = i + 1; k < n; k++) s -= A[k * n + i] * x[k]; x[i] = s / A[i * n + i]; }
   return x;
+}
+
+/** Penalty-kill totals per skater from stintData's pk rows: { id: [seconds shorthanded, attempts against] }. */
+export function pkTotals(pk) {
+  const m = new Map();
+  for (const [dur, ids, ca] of pk) for (const id of ids) { const t = m.get(id) ?? [0, 0]; t[0] += dur; t[1] += ca; m.set(id, t); }
+  return Object.fromEntries([...m].filter(([, t]) => t[0] >= 300));
 }

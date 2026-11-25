@@ -24,7 +24,10 @@ let state = null;
 const recentCache = new Map();
 /** Each team's last 10 games of player lines (current season only), or null. */
 const loadRecent = (season) => { if (!recentCache.has(season)) recentCache.set(season, getStatic(`seasons/${recentFile(season)}`).catch(() => null)); return recentCache.get(season); };
-const opts = () => (state.last ? { last: LAST, recent: state.recent } : {});
+const defCache = new Map();
+const prevSeasonOf = (s) => Number(`${Math.floor(s / 10000) - 1}${Math.floor(s / 10000)}`);
+const loadDef = (season) => { if (!defCache.has(season)) defCache.set(season, Promise.all([season, prevSeasonOf(season), prevSeasonOf(prevSeasonOf(season))].map((x) => getStatic(`seasons/${x}-def.json`).catch(() => null)))); return defCache.get(season); };
+const opts = () => ({ ...(state.last ? { last: LAST, recent: state.recent } : {}), defFiles: state.defFiles ?? null });
 const LAST = 10;
 
 /** Season / Last 10 games switch for the team numbers (players and on-ice lists stay season-long). */
@@ -199,6 +202,7 @@ async function show(season) {
   const total = await loadSeason(season);
   state.total = total;
   state.recent = state.last ? await loadRecent(season) : null;
+  state.defFiles = await loadDef(season);
   state.report = total ? deficiencies(total, opts()) : null;
   render();
 }

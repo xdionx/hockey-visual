@@ -267,18 +267,20 @@ async function load() {
   });
   installTips(main);
   const sk = { tab: 'g', all: false, games: {}, clips: {}, past: {}, season: null, recent: null };
-  const loadDefFile = (season) => (sk.def ??= getStatic(`seasons/${season}-def.json`).catch(() => null));
+  const prevSeasonOf = (s) => Number(`${Math.floor(s / 10000) - 1}${Math.floor(s / 10000)}`);
+  // This season's def file and the two before it (Defending blends all three).
+  const loadDefFiles = (season) => ((sk.defs ??= {})[season] ??= Promise.all([season, prevSeasonOf(season), prevSeasonOf(prevSeasonOf(season))].map((x) => getStatic(`seasons/${x}-def.json`).catch(() => null))));
   const loadRecentFile = (season) => (sk.recent ??= getStatic(`seasons/${recentFile(season)}`).catch(() => null));
   const showSkater = async (type, v, seasonCard0) => {
-    const defFile = v.playoffs ? null : await loadDefFile(v.season);
-    const seasonCard = defFile ? skaterCard(v.file, p.id, { def: defFile }) ?? seasonCard0 : seasonCard0;
+    const [defFile, ...defPrev] = v.playoffs ? [null] : await loadDefFiles(v.season);
+    const seasonCard = defFile ? skaterCard(v.file, p.id, { def: defFile, defPrev }) ?? seasonCard0 : seasonCard0;
     const key = type;
     const rng = v.playoffs ? 0 : range;
     let card = seasonCard;
     let winNote = '';
     if (rng) {
       const win = recentAll(await loadRecentFile(v.season), rng);
-      const c = win ? skaterCard(win, p.id, { win: true, def: defFile }) : null;
+      const c = win ? skaterCard(win, p.id, { win: true, def: defFile, defPrev }) : null;
       if (c) card = c; else winNote = '<p class="pq-note">Not enough recent games for a last 10 view yet; showing the season.</p>';
     }
     const seasons = v.playoffs ? [] : p.nhl.map((r) => r.season).filter((x) => x >= FIRST_FULL_SEASON);
