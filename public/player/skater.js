@@ -30,7 +30,20 @@ function rtile(x, value, label, sub = '') {
   const tone = x.ctx ? '' : x.pct >= 0.9 ? ' rk-top' : x.pct <= 0.1 ? ' rk-low' : '';
   return `<div class="pq-t pq-ours${tone}" title="${esc(hoverText(x, fv(x)))}" tabindex="0"><span class="pq-v">${value}</span><span class="pq-k">${label}</span><span class="pq-s">${ofN(x.rank)}${x.teamRank ? ` · ${teamOrd(x.team, x.teamRank)}` : ''}${sub ? ` · ${sub}` : ''}</span></div>`;
 }
-const plain = (label, value, sub = '', tip = '') => `<div class="pq-t"${tip ? ` title="${esc(tip)}"` : ''}><span class="pq-v">${value}</span><span class="pq-k">${label}</span>${sub ? `<span class="pq-s">${sub}</span>` : ''}</div>`;
+const TIPS = {
+  G: 'Goals scored.', A: 'Assists: primary and secondary.', P: 'Points: goals plus assists.', PIM: 'Penalty minutes.',
+  Playmaking: 'Three quarters of the assists above what an average player at his position gets in the same games.',
+  'MOM +/GP': 'Momentum he creates per game: the positive swings in our play-by-play model.',
+  'MOM −/GP': 'Momentum he gives up per game: the negative swings in our play-by-play model.',
+  'Above avg games': 'Share of his games rated above average for the position (momentum plus finishing, in goals). Below-average share is shown underneath.',
+  Shots: 'Shots on goal.', 'S%': 'Shooting percentage on shots that reached the goalie, against what an average shooter would shoot on the same shots.',
+  Attempts: 'All shot attempts he took: shots, misses and blocks (SAT).',
+  'Attempts against /60': 'Shot attempts the other team takes per 60 minutes while he is on the ice (all strengths). Lower is better.',
+  'On-ice shot share': 'His team\'s share of all shot attempts while he is on the ice.',
+  Blocks: 'Shots he blocked. Context only: not a model-validated skill.', Takeaways: 'Takeaways. Context only: rinks count them differently.',
+  'TOI/GP': 'Average ice time per game.', Drawn: 'Penalties he drew.', Taken: 'Penalties he took.', 'Takeaways /GP': 'Takeaways per game. Context only.',
+};
+const plain = (label, value, sub = '', tip = '') => `<div class="pq-t" tabindex="0"${(tip || TIPS[label]) ? ` title="${esc(`${tip || TIPS[label]} ${label}: ${String(value).replace(/<[^>]*>/g, '')}.`)}"` : ''}><span class="pq-v">${value}</span><span class="pq-k">${label}</span>${sub ? `<span class="pq-s">${sub}</span>` : ''}</div>`;
 
 function spider(points) {
   if (points.length < 3) return '';

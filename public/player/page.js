@@ -8,6 +8,7 @@ import { rankBit } from './quick.js';
 import { getData } from '../data.js';
 import { FIRST_FULL_SEASON, leagueRate, leagueSavePct } from '../src/seasonStats.js';
 import { leagueGoalies, teamGameIds, startFromGame } from '../src/goalieCard.js';
+import { installTips } from './tips.js';
 import { skaterCard } from '../src/skaterCard.js';
 import { skaterSections, loadSkaterGames, loadClips, clipsHtml, lastGamesSection, navHtml as skNav } from './skater.js';
 import { goalieSections, lastStartsSection, navHtml, rangeToggle } from './goalie.js';
@@ -264,6 +265,7 @@ async function load() {
     range = Number(b.dataset.gcRange);
     show(getStatsType());
   });
+  installTips(main);
   const sk = { tab: 'g', all: false, games: {}, clips: {} };
   const showSkater = async (type, v, card) => {
     const key = type;
