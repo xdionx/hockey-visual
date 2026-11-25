@@ -190,3 +190,21 @@ body.pc-page { --page: #0a0e17; --ink: #e8edf5; --mute: #8b95a7; --line: #1f2937
 .gc-bars i { display: block; height: 8px; border-radius: 4px; background: #1a2740; overflow: hidden; }
 .gc-bars b { display: block; height: 100%; border-radius: 4px; }
 .gc-bars em { font-style: normal; font-weight: 800; text-align: right; color: #e8edf5; }
+
+/* Skater card v2 */
+.rk-top { background: color-mix(in srgb, #4ade80 14%, transparent); box-shadow: inset 0 0 0 1px rgba(74,222,128,.35); }
+.rk-low { background: color-mix(in srgb, #f87171 14%, transparent); box-shadow: inset 0 0 0 1px rgba(248,113,113,.35); }
+.sk-row { margin: 6px 0; font-size: 14px; } .sk-tier { font-weight: 700; } .sk-tier.up { color: #4ade80; } .sk-tier.down { color: #f87171; } .sk-det { color: #8b95a7; }
+.sk-sub { margin-top: 10px; font: 700 12px "Barlow Condensed", sans-serif; letter-spacing: .1em; text-transform: uppercase; color: #8b95a7; }
+.sk-chip { display: inline-block; padding: 3px 9px; border-radius: 999px; border: 1px solid #26344f; font-size: 13px; background: #0b1626; cursor: help; }
+.sk-chip.up { border-color: rgba(74,222,128,.5); } .sk-chip.down { border-color: rgba(248,113,113,.4); } .sk-chip.ugly { border-color: #f87171; background: rgba(248,113,113,.14); }
+.sk-chip small { color: #8b95a7; }
+.sk-cliplist { list-style: none; margin: 10px 0 0; padding: 0; } .sk-cliplist li { padding: 7px 0; border-bottom: 1px solid #1f2937; font-size: 14px; }
+.sk-scroll { max-height: 340px; overflow-y: auto; } .sk-clip-d { display: inline-block; width: 48px; color: #8b95a7; } .sk-clip-t { color: #8b95a7; font-size: 13px; }
+.sk-tag { display: inline-block; min-width: 26px; text-align: center; padding: 0 6px; border-radius: 4px; background: #1e293b; font: 700 12px Inter, sans-serif; }
+.sk-watch, .sk-cliplist .vid { margin-left: 6px; font-weight: 600; color: #38bdf8; text-decoration: none; }
+.sk-more { margin-top: 8px; padding: 6px 12px; border: 1px solid #26344f; border-radius: 6px; background: #0b1220; color: #cbd5e1; cursor: pointer; }
+.sk-dot { display: grid; grid-template-columns: 150px 1fr 90px; align-items: center; gap: 10px; margin: 8px 0; font-size: 13px; cursor: help; }
+.sk-dot i { position: relative; height: 6px; border-radius: 3px; background: #1a2740; } .sk-dot b { position: absolute; top: -4px; width: 14px; height: 14px; margin-left: -7px; border-radius: 50%; border: 2px solid #0b1220; }
+.sk-dot em { font-style: normal; color: #8b95a7; text-align: right; }
+.gc-defbars { margin: 12px 0 0; } .gc-defbars figcaption { font-size: 12px; color: #8b95a7; margin-bottom: 6px; }

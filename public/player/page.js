@@ -8,6 +8,8 @@ import { rankBit } from './quick.js';
 import { getData } from '../data.js';
 import { FIRST_FULL_SEASON, leagueRate, leagueSavePct } from '../src/seasonStats.js';
 import { leagueGoalies, teamGameIds, startFromGame } from '../src/goalieCard.js';
+import { skaterCard } from '../src/skaterCard.js';
+import { skaterSections, loadSkaterGames, loadClips, clipsHtml, lastGamesSection, navHtml as skNav } from './skater.js';
 import { goalieSections, lastStartsSection, navHtml, rangeToggle } from './goalie.js';
 import { combineSeasons } from '../src/player.js';
 import { goalieRating, W } from '../src/predict.js';
@@ -262,11 +264,42 @@ async function load() {
     range = Number(b.dataset.gcRange);
     show(getStatsType());
   });
+  const sk = { tab: 'g', all: false, games: {}, clips: {} };
+  const showSkater = async (type, v, card) => {
+    const key = type;
+    const paint = () => {
+      main.querySelector('#sk-body').innerHTML = skaterSections({ card, now: v.now, games: sk.games[key], clips: sk.clips[key], tab: sk.tab, all: sk.all, playoffs: v.playoffs });
+      main.querySelector('#sk-last').innerHTML = lastGamesSection(sk.games[key], v.playoffs);
+    };
+    main.innerHTML = `${hero(p)}${typeToggle(type, 'pc-type-main')}${skNav()}<div class="pc-cols" id="sk-body"></div><div class="pc-cols" id="sk-hist">${trend(v.rows, false, v.playoffs)}${seasonsTable(p, v.rows, v)}</div><div id="sk-last" class="pc-cols"></div><div id="pc-last5"></div>`;
+    document.querySelectorAll('.pt-scroll').forEach((el) => { el.scrollLeft = el.scrollWidth; });
+    paint();
+    if (!(key in sk.games)) {
+      sk.games[key] = null;
+      loadSkaterGames(p, v).then(async (g) => {
+        sk.games[key] = g;
+        if (getStatsType() === type) paint();
+        sk.clips[key] = await loadClips(p, g);
+        if (getStatsType() === type) paint();
+      }).catch(() => { sk.games[key] = []; sk.clips[key] = []; if (getStatsType() === type) paint(); });
+    } else paint();
+    document.querySelector('#pc-last5').outerHTML = await last5 || '';
+  };
+  main.addEventListener('click', (e) => {
+    const t = e.target.closest('[data-sk-tab]');
+    const a = e.target.closest('[data-sk-all]');
+    if (!t && !a) return;
+    if (t) { sk.tab = t.dataset.skTab; sk.all = false; } else sk.all = a.dataset.skAll === '1';
+    const holder = main.querySelector('#sk-clips');
+    if (holder) holder.innerHTML = clipsHtml(sk.clips[getStatsType()], sk.tab, sk.all, getStatsType() === 'playoffs' ? 'playoff run' : 'season');
+  });
   const show = async (type) => {
     views[type] ??= buildView(p, type);
     const v = await views[type];
     if (getStatsType() !== type) return; // toggled again while loading
     if (p.goalie) return showGoalie(type, v);
+    const card = v.file && v.ours ? skaterCard(v.file, p.id) : null;
+    if (card) return showSkater(type, v, card);
     main.innerHTML = `${hero(p)}${typeToggle(type, 'pc-type-main')}<div class="pc-cols">${thisSeason(p, v.ours, v.pick, v)}${trend(v.rows, p.goalie, v.playoffs)}${seasonsTable(p, v.rows, v)}<div id="pc-last5"></div></div>`;
     // Season bars scroll sideways on narrow screens: start at the newest seasons.
     document.querySelectorAll('.pt-scroll').forEach((el) => { el.scrollLeft = el.scrollWidth; });
