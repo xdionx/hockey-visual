@@ -2,6 +2,7 @@
 // assist clips, driving play, shooting, defense, discipline, faceoffs, NHL rank, last 10 games). Every ranked stat
 // shows its NHL rank, is tinted in the top / bottom 10%, and explains itself on hover. Pure numbers: ../src/skaterCard.js.
 import { esc, videoButton } from '../game/core.js';
+import { HOME_PLATE, RINK, halfRinkLines } from '../game/rink.js';
 import { fmt } from './store.js';
 import { getData } from '../data.js';
 import { gameObj } from '../src/seasonStats.js';
@@ -137,11 +138,9 @@ function shotMap(shots) {
   if (!shots) return wait();
   if (!shots.length) return '<p class="pq-note">No shots yet.</p>';
   const S = 6.2, w = 85 * S, h = 75 * S;
-  const P = (x, y) => { const f = x < 0 ? -1 : 1; return [(-y * f + 42.5) * S, (Math.abs(x) - 25) * S]; };
+  const P = (x, y) => { const f = x < 0 ? -1 : 1; return [(y * f + 42.5) * S, (Math.abs(x) - 25) * S]; };
   const poly = (pts) => pts.map(([x, y]) => P(x, y).join(',')).join(' ');
-  const circ = (cx, cy) => { const [a, b] = P(cx, cy); return `<circle cx="${a}" cy="${b}" r="${15 * S}" fill="none" stroke="#9b3b4a" opacity=".7"/>`; };
-  const [, gy] = P(89, 0);
-  const plate = [[89, -4], [69, -19], [54, -19], [54, 19], [69, 19], [89, 4]];
+  const plate = HOME_PLATE;
   const [px, py] = P(61, 0);
   const dot = (q) => {
     const [a, b] = P(q.x, q.y);
@@ -153,10 +152,8 @@ function shotMap(shots) {
   const order = { block: 0, miss: 0, sog: 1, goal: 2 };
   const n = (k) => shots.filter((q) => q.kind === k).length;
   return `<svg class="gc-map" viewBox="-6 -6 ${w + 12} ${h + 12}" role="img" aria-label="Where his shot attempts came from">
-    <rect x="0" y="0" width="${w}" height="${h}" fill="#0b1626" stroke="#2a3b58" rx="26"/><line x1="0" x2="${w}" y1="0" y2="0" stroke="#3b6fd6" stroke-width="4"/>${circ(69, 22)}${circ(69, -22)}
-    <line x1="0" x2="${w}" y1="${gy}" y2="${gy}" stroke="#9b3b4a" opacity=".8"/>
+    <path d="M 0 0 H ${w} V ${h - RINK.corner * S} A ${RINK.corner * S} ${RINK.corner * S} 0 0 1 ${w - RINK.corner * S} ${h} H ${RINK.corner * S} A ${RINK.corner * S} ${RINK.corner * S} 0 0 1 0 ${h - RINK.corner * S} Z" fill="#0b1626" stroke="#2a3b58"/><line x1="0" x2="${w}" y1="0" y2="0" stroke="#3b6fd6" stroke-width="4"/>${halfRinkLines(S)}
     <polygon points="${poly(plate)}" fill="${BLUE}" opacity=".1" stroke="${BLUE}" stroke-width="1.5" stroke-dasharray="5 4"/>
-    <rect x="${P(89, 3)[0]}" y="${gy}" width="${6 * S}" height="${2.4 * S}" fill="none" stroke="#e8edf5" stroke-width="1.5"/>
     <text x="${px}" y="${py}" text-anchor="middle" style="fill:${BLUE};font-size:13px;font-weight:700">HOME PLATE</text>${shots.slice().sort((a, b) => order[a.kind] - order[b.kind]).map(dot).join('')}</svg>
     <p class="pq-note">${n('goal')} goals (gold), ${n('sog')} shots on goal (blue), ${n('miss')} missed and ${n('block')} blocked (hollow). Dashed shape = the home plate, where most goals come from.</p>`;
 }

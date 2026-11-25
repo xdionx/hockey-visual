@@ -2,6 +2,7 @@
 // consistency, league rank, starter quality) with a chart or diagram for each, plus a last-10-starts list with
 // a highlight clip for every goal let in. Pure helpers live in ../src/goalieCard.js.
 import { esc, videoButton } from '../game/core.js';
+import { HOME_PLATE, RINK, halfRinkLines } from '../game/rink.js';
 import { fmt } from './store.js';
 import { rankAmong, median, summarize, zoneVs, radarPoints } from '../src/goalieCard.js';
 import { W } from '../src/predict.js';
@@ -91,11 +92,9 @@ function qsChart(starts, lgSv) {
 function shotMap(starts) {
   if (!starts?.length) return pending();
   const S = 6.2, w = 85 * S, h = 75 * S;
-  const P = (x, y) => { const f = x < 0 ? -1 : 1; return [(-y * f + 42.5) * S, (Math.abs(x) - 25) * S]; };
+  const P = (x, y) => { const f = x < 0 ? -1 : 1; return [(y * f + 42.5) * S, (Math.abs(x) - 25) * S]; };
   const poly = (pts) => pts.map(([x, y]) => P(x, y).join(',')).join(' ');
-  const circ = (cx, cy) => { const [a, b] = P(cx, cy); return `<circle cx="${a}" cy="${b}" r="${15 * S}" fill="none" stroke="#9b3b4a" opacity=".7"/>`; };
-  const [, gy] = P(89, 0);
-  const plate = [[89, -4], [69, -19], [54, -19], [54, 19], [69, 19], [89, 4]];
+  const plate = HOME_PLATE;
   const [px, py] = P(61, 0);
   const saves = starts.flatMap((s) => s.shots.filter((x) => !x.goal)).map((x) => { const [a, b] = P(x.x, x.y); return `<circle cx="${a}" cy="${b}" r="3.1" fill="#8b95a7" opacity=".5"/>`; }).join('');
   const goals = starts.flatMap((s) => s.goals.map((g) => ({ ...g, s }))).map((g) => {
@@ -107,11 +106,9 @@ function shotMap(starts) {
       : `<g><title>${esc(title)}</title>${dot}</g>`;
   }).join('');
   return `<svg class="gc-map" viewBox="-6 -6 ${w + 12} ${h + 12}" role="img" aria-label="Where the shots against him came from">
-    <rect x="0" y="0" width="${w}" height="${h}" fill="#0b1626" stroke="#2a3b58" rx="26"/><line x1="0" x2="${w}" y1="0" y2="0" stroke="#3b6fd6" stroke-width="4"/>${circ(69, 22)}${circ(69, -22)}
-    <line x1="0" x2="${w}" y1="${gy}" y2="${gy}" stroke="#9b3b4a" opacity=".8"/>
+    <path d="M 0 0 H ${w} V ${h - RINK.corner * S} A ${RINK.corner * S} ${RINK.corner * S} 0 0 1 ${w - RINK.corner * S} ${h} H ${RINK.corner * S} A ${RINK.corner * S} ${RINK.corner * S} 0 0 1 0 ${h - RINK.corner * S} Z" fill="#0b1626" stroke="#2a3b58"/><line x1="0" x2="${w}" y1="0" y2="0" stroke="#3b6fd6" stroke-width="4"/>${halfRinkLines(S)}
     <polygon points="${poly(plate)}" fill="${BLUE}" opacity=".1" stroke="${BLUE}" stroke-width="1.5" stroke-dasharray="5 4"/>
     <line x1="${P(79, -11.5)[0]}" x2="${P(79, 11.5)[0]}" y1="${P(79, 0)[1]}" y2="${P(79, 0)[1]}" stroke="${BLUE}" opacity=".5" stroke-dasharray="3 3"/>
-    <rect x="${P(89, 3)[0]}" y="${gy}" width="${6 * S}" height="${2.4 * S}" fill="none" stroke="#e8edf5" stroke-width="1.5"/>
     <text x="${px}" y="${py}" text-anchor="middle" style="fill:${BLUE};font-size:13px;font-weight:700">HOME PLATE</text>${saves}${goals}</svg>`;
 }
 

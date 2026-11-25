@@ -38,9 +38,16 @@ main { padding: 0 0 48px; }
 /* Shared rink */
 .rink .ice { fill: var(--rink-ice, #f8fafc); }
 .rink .red { stroke: #ef4444; stroke-width: 1; opacity: .55; }
+.rink .center-ice image { opacity: .9; }
 .rink .blue { stroke: #3b82f6; stroke-width: 1; opacity: .55; }
-.rink .goal-line { stroke: #ef4444; stroke-width: .4; opacity: .5; }
-.rink .circle { fill: none; stroke: #ef4444; stroke-width: .4; opacity: .4; }
+.rink .goal-line, .rink-half .goal-line { stroke: #ef4444; stroke-width: .17; opacity: .6; }
+.rink .hash, .rink .lmark, .rink-half .hash, .rink-half .lmark { fill: none; stroke: #ef4444; stroke-width: .17; opacity: .5; }
+.rink .trapezoid, .rink-half .trapezoid { fill: none; stroke: #ef4444; stroke-width: .17; opacity: .5; }
+.rink .circle, .rink-half .circle { fill: none; stroke: #ef4444; stroke-width: .17; opacity: .5; }
+.rink-half .dot { fill: #ef4444; opacity: .5; }
+.rink-half .crease { fill: #93c5fd; opacity: .3; stroke: #ef4444; stroke-width: .17; }
+.rink-half .net { fill: none; stroke: #e8edf5; stroke-width: .25; }
+.s-rink .circle, .s-rink .goal-line, .s-rink .hash, .s-rink .lmark, .s-rink .trapezoid { stroke-width: .6; }
 .rink .dot { fill: #ef4444; opacity: .5; }
 .rink .crease { fill: #93c5fd; opacity: .45; stroke: #ef4444; stroke-width: .3; }
 .rink .net { fill: none; stroke: var(--rink-line, #64748b); stroke-width: .5; }
