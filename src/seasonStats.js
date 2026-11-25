@@ -31,12 +31,13 @@ import { tierOf } from './impact.js';
 // 10: home plate 8 ft wide at the goal line (was 4).
 // 11: goalie expected goals (xga) and game rating use src/goalieXg.js (power play, rebound, shot type, area).
 // 12: goalie rating centered at 7.0 like skaters (goalieRating in src/gameDetail.js).
+// 13: goalie rating 2.0 points per goal saved above expected (was 1.5), softened past 9 like skaters.
 // 7: home plate narrowed to 19 ft, inner 2x / outer 3.5x, wide shots 0.5x (momentum and on-ice weights).
 // 8: goalie shots against (sa) and goals on them (sg), plus one [shots, goals] entry per start (q), for quality starts.
 // 9: deficiencies v2: skater penalties taken / drawn (pen, pd, pim), giveaways and takeaways (gv, tk), faceoffs (fw, fl);
 //    goalie shots and goals inside / outside the home plate (psa, pga, osa, oga) and perimeter goals (sf); game rows get
 //    power-play chances and goals for each side (appo, apg, hppo, hpg).
-export const SEASON_VERSION = 12;
+export const SEASON_VERSION = 13;
 
 /** First season we keep on-ice shot attempts for (shift charts; the Team deficiencies tab starts here too). */
 export const FIRST_SHIFT_SEASON = 20202021;
