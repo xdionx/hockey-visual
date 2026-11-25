@@ -62,3 +62,20 @@ test('spider percentiles rank him among league goalies, perimeter goals flipped'
   assert.ok(worst.every((p) => p.pct === 0));
   assert.deepEqual(radarPoints(lg, 99), []);
 });
+
+test('goalie table ranks every stat among the goalies shown, with NHL averages', async () => {
+  const { goalieTable } = await import('../src/goalieCard.js');
+  const mk = (i, ga) => ({ n: `G${i}`, t: i % 2 ? 'AAA' : 'BBB', p: 'G', gp: 10, gs: 10, ga, xga: 25, sa: 300, sg: ga, psa: 100, pga: ga / 2, osa: 200, oga: ga / 2, sf: ga / 10, rt: 60, rn: 10, q: Array.from({ length: 10 }, () => [30, ga / 10]) });
+  const t = goalieTable({ season: 20262027, gameType: 2, games: 20, g: [], players: { 1: mk(1, 20), 2: mk(2, 30), 3: mk(3, 30), 4: { ...mk(4, 10), gs: 1 } } });
+  assert.equal(t.rows.length, 3); // goalie 4 has too few starts
+  const g1 = t.rows.find((r) => r.id === 1);
+  assert.equal(g1.rank.gsax.rank, 1);
+  assert.equal(g1.rank.gsax.tied, false);
+  const g2 = t.rows.find((r) => r.id === 2);
+  assert.equal(g2.rank.gsax.rank, 2);
+  assert.equal(g2.rank.gsax.tied, true); // tied with goalie 3
+  assert.equal(g1.rank.sfPer.rank, 1); // fewest perimeter goals per start is best
+  assert.ok(Math.abs(g1.svx - (g1.gsax / 300)) < 1e-9);
+  assert.equal(g1.rating, 6);
+  assert.ok(t.avg.sv > 0.85 && t.avg.inSv != null && t.avg.qsPct != null);
+});

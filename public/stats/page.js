@@ -7,7 +7,8 @@ import '../horn.js'; // goal horns for games with a horn on, on every page
 import { loadSeason, currentSeason, fmt, typeToggle, getStatsType, setStatsType, GAME_TYPES } from '../player/store.js';
 import { installPlayerLinks, playerLink } from '../player/link.js';
 import { esc, makeSortable, teamColor } from '../game/core.js';
-import { leaderboard, minGames, qsBoard, teamQualityStarts, QS_LOW_SHOTS, QS_MAX_GA, QS_MIN_SV, FIRST_FULL_SEASON } from '../src/seasonStats.js';
+import { leaderboard, minGames, qsBoard, teamQualityStarts, QS_LOW_SHOTS, QS_MAX_GA, QS_MIN_SV, FIRST_FULL_SEASON, recentFile, recentAll } from '../src/seasonStats.js';
+import { goalieTable } from '../src/goalieCard.js';
 import { seasonModel } from '../src/momentumModel.js';
 import { compare, BOOK_NAMES, EDGE_MIN } from '../src/odds.js';
 import { spreadReport, COVER_EDGE } from '../src/spread.js';
@@ -434,16 +435,49 @@ function labCard(lab, view) {
     <details class="ms-fold"><summary>What each version changes</summary><ul class="ml-notes">${lab.versions.map((v) => `<li><b>${esc(v.name)}</b>: ${esc(v.note || '')}</li>`).join('')}</ul></details>`, 'ml-card');
 }
 
-// Goalies: quality starts and the share of starts that were one.
-function goalieCard(total, showAll) {
-  const { board, lgSv, minStarts } = qsBoard(total);
-  if (!board.length) return card('Goalies', 'quality starts', '<p class="pq-note">No quality start numbers in this season file yet. They fill in as the season is rebuilt.</p>', 'ms-goalie-card');
-  const shown = showAll ? board : board.slice(0, 30);
-  const rows = shown.map((r) => `<tr><td data-v="${r.rank}">${r.rank}</td><td class="l">${playerLink(r.id, r.n)}</td><td class="l">${esc(r.t)}</td><td>${r.gp}</td><td>${r.starts}</td><td class="pc-o" data-v="${r.qs}">${r.qs}</td><td class="pc-o" data-v="${r.qsPct}"><b>${pct(r.qsPct, 0)}</b></td><td data-v="${1 - r.sg / r.sa}">${fmt.sv(1 - r.sg / r.sa)}</td></tr>`).join('');
-  return card('Goalies', `quality starts, ${board.length} goalies with ${minStarts}+ starts`, `
-    <p class="ms-lede">A <b>quality start</b> is a game where the starting goalie gave his team a real chance to win. ${qsTip(lgSv)}</p>
-    <div class="pc-scroll"><table class="pc-table sortable"><thead><tr><th data-sort>#</th><th class="l" data-sort>Goalie</th><th class="l" data-sort>Team</th><th data-sort>GP</th><th data-sort>GS</th><th class="pc-o" data-sort title="Quality starts">QS</th><th class="pc-o" data-sort data-dir="desc" title="Quality starts divided by games started">QS%</th><th data-sort title="Season save %">SV%</th></tr></thead><tbody>${rows}</tbody></table></div>
-    ${board.length > shown.length ? `<button type="button" class="ms-more" data-gmore>Show all ${board.length}</button>` : ''}`, 'ms-goalie-card');
+// Goalies: our scorecard score, saves vs expected, where the goals come from (home plate vs perimeter) and quality
+// starts, each with its NHL rank. Team filter and All games / Last 10 (each team's last 10 games).
+const nhlRank = (r) => (r ? `${r.tied ? 'T' : ''}${fmt.ord(r.rank)} NHL` : '');
+const svx = (v) => (v == null ? '-' : `${fmt.signed(v * 100, 1)}%`);
+const GOALIE_FMT = {
+  rating: (v) => (v == null ? '-' : v.toFixed(1)), sv: (v) => fmt.sv(v), gsax: (v) => fmt.signed(v, 1), svx,
+  inSv: (v) => fmt.sv(v), outSv: (v) => fmt.sv(v), sf: (v) => (v == null ? '-' : String(v)), qsPct: (v) => pct(v, 0),
+};
+function goalieCard(total, st) {
+  const win = st.gLast && st.recentTotal ? st.recentTotal : null;
+  const t = goalieTable(total, { win });
+  if (!t?.rows.length) return card('Goalies', 'our scorecard and saves vs expected', '<p class="pq-note">No goalie numbers in this season file yet. They fill in as the season is rebuilt.</p>', 'ms-goalie-card');
+  const po = total.gameType === 3;
+  const all = t.rows.slice().sort((a, b) => b.gsax - a.gsax);
+  const list = st.gTeam ? all.filter((r) => r.team === st.gTeam) : all;
+  const shown = st.gAll || st.gTeam ? list : list.slice(0, 30);
+  const cell = (r, key, rankKey = key, cls = '') => {
+    const v = r[key];
+    if (v == null) return `<td class="pc-na">-</td>`;
+    const sign = key === 'gsax' || key === 'svx' ? (v > 0 ? 'up' : v < 0 ? 'down' : '') : '';
+    return `<td class="${cls} ${sign}" data-v="${v}" title="${esc(nhlRank(r.rank[rankKey]))}">${GOALIE_FMT[key](v)}<small class="gt-rk">${nhlRank(r.rank[rankKey])}</small></td>`;
+  };
+  const rows = shown.map((r) => `<tr style="--team:${teamColor(r.team)}"><td data-v="${r.rank.gsax.rank}">${r.rank.gsax.tied ? 'T' : ''}${r.rank.gsax.rank}</td><td class="l">${playerLink(r.id, r.name)}</td><td class="l">${esc(r.team)}</td><td title="${r.gp} games played">${r.gs}</td>
+    ${cell(r, 'rating', 'rating', 'pc-o')}${cell(r, 'sv')}${cell(r, 'gsax', 'gsax', 'pc-o')}${cell(r, 'svx', 'svx', 'pc-o')}${cell(r, 'inSv', 'inSv', 'pc-o')}${cell(r, 'outSv', 'outSv', 'pc-o')}${cell(r, 'sf', 'sfPer', 'pc-o')}
+    ${r.qs == null ? '<td class="pc-na">-</td>' : `<td data-v="${r.qs}">${r.qs}<small class="gt-rk">of ${r.qsStarts}</small></td>`}${cell(r, 'qsPct', 'qsPct', 'pc-o')}</tr>`).join('');
+  const a = t.avg;
+  const f = (k) => (a[k] == null ? '-' : GOALIE_FMT[k](a[k]));
+  const avgRow = `<tfoot><tr class="gt-avg"><td></td><td class="l" colspan="3">NHL AVG</td><td>${f('rating')}</td><td>${f('sv')}</td><td>${fmt.signed(0, 1)}</td><td>${svx(0)}</td><td>${f('inSv')}</td><td>${f('outSv')}</td><td title="Perimeter goals per start">${a.sfPer == null ? '-' : `${a.sfPer.toFixed(2)}/start`}</td><td></td><td>${f('qsPct')}</td></tr></tfoot>`;
+  const teams = [...new Set(all.map((r) => r.team))].sort();
+  const filters = `<div class="ms-filters">${po ? '' : `<div class="ms-toggle" role="group" aria-label="Games">${[[false, 'All games'], [true, 'Last 10']].map(([v, l]) => `<button type="button" data-glast="${v ? 1 : 0}" aria-pressed="${!!st.gLast === v}">${l}</button>`).join('')}</div>`}
+    <label class="ms-select${st.gTeam ? ' ms-on' : ''}"${st.gTeam ? ` style="--team:${teamColor(st.gTeam)}"` : ''}><span>Team</span><select data-gteam aria-label="Team"><option value="">All teams</option>${teams.map((x) => `<option value="${esc(x)}"${x === st.gTeam ? ' selected' : ''}>${esc(x)}</option>`).join('')}</select></label></div>`;
+  const qsHead = qsTip(t.lgSv);
+  return card('Goalies', `${all.length} goalies with ${t.min}+ starts${win ? ", each team's last 10 games" : ''}`, `
+    <p class="ms-lede">Ranks are among all NHL goalies shown (filtering by team keeps the NHL rank). <b>Game score</b> is the average rating from our scorecard. <b>GSAx</b> is goals saved above expected and <b>SV% vs exp</b> the same in save % points, both against an average goalie on the same shots. <b>Home plate</b> and <b>Perimeter</b> SV% split the shots by where they came from; <b>Perimeter goals</b> are goals from outside the home plate on shots worth under 6%.</p>
+    ${filters}
+    <div class="pc-scroll"><table class="pc-table sortable ms-gtable"><thead><tr><th data-sort title="NHL rank by goals saved above expected">#</th><th class="l" data-sort>Goalie</th><th class="l" data-sort>Team</th><th data-sort title="Games started">GS</th>
+      <th class="pc-o" data-sort data-dir="desc" title="Average game rating from our scorecards (6.0 is an average night)${win ? '; 3+ rated games' : '; 5+ rated games'}">Game score</th><th data-sort data-dir="desc" title="Save %, shootouts and empty nets left out">SV%</th>
+      <th class="pc-o" data-sort data-dir="desc" title="Goals saved above expected">GSAx</th><th class="pc-o" data-sort data-dir="desc" title="Save % above expected, in points: GSAx divided by shots faced">SV% vs exp</th>
+      <th class="pc-o" data-sort data-dir="desc" title="Save % on shots from inside the home plate">Home plate SV%</th><th class="pc-o" data-sort data-dir="desc" title="Save % on shots from outside the home plate">Perimeter SV%</th>
+      <th class="pc-o" data-sort title="Goals from outside the home plate on shots worth under 6%. Rank is per start, fewest best.">Perimeter goals</th><th data-sort title="${esc(qsHead)}">QS</th><th class="pc-o" data-sort data-dir="desc" title="${esc(qsHead)}">QS%</th></tr></thead>
+      <tbody>${rows}</tbody>${avgRow}</table></div>
+    ${list.length > shown.length ? `<button type="button" class="ms-more" data-gmore>Show all ${list.length}</button>` : ''}
+    <p class="pq-note">${qsTip(t.lgSv)}${win ? ' Last 10 is each team\'s last 10 games, so goalies have only a few starts; ranks are against everyone\'s last 10.' : ''}</p>`, 'ms-goalie-card');
 }
 let state = null;
 
@@ -475,7 +509,7 @@ function render() {
       ${playersCard(total, pos, showAll, state.team)}
       ${finishingCard(total, m, state.finView, state.finPos, state.finAll, state.finTeam)}
       ${scoringCard(total, state.scoPos, state.scoAll, state.scoTeam)}
-      ${goalieCard(total, state.gAll)}
+      ${goalieCard(total, state)}
       ${trendsCard(list)}
       ${regularOnly}
     </div>`;
@@ -491,6 +525,13 @@ function swapCard(cls, html) {
 }
 const redrawPlayers = () => swapCard('.ms-players-card', playersCard(selected().total, state.pos, state.showAll, state.team));
 const redrawSco = () => swapCard('.ms-sco-card', scoringCard(selected().total, state.scoPos, state.scoAll, state.scoTeam));
+const redrawGoalies = () => swapCard('.ms-goalie-card', goalieCard(selected().total, state));
+/** Each team's last 10 games for the goalie table (current season only), loaded the first time it is asked for. */
+const recentCache = new Map();
+async function loadRecentTotal(season) {
+  if (!recentCache.has(season)) recentCache.set(season, getStatic(`seasons/${recentFile(season)}`).then((r) => recentAll(r)).catch(() => null));
+  return recentCache.get(season);
+}
 const redrawFin = () => { const sel = selected(); swapCard('.ms-fin-card', finishingCard(sel.total, sel.model, state.finView, state.finPos, state.finAll, state.finTeam)); };
 
 /** Keep season and team filters in the URL so a filtered view can be shared or reloaded. */
@@ -500,6 +541,8 @@ function syncUrl() {
   if (state.team) q.set('team', state.team);
   if (state.finTeam) q.set('finteam', state.finTeam);
   if (state.scoTeam) q.set('scoteam', state.scoTeam);
+  if (state.gTeam) q.set('gteam', state.gTeam);
+  if (state.gLast) q.set('glast', '1');
   history.replaceState(null, '', `?${q}`);
 }
 
@@ -507,6 +550,7 @@ main.addEventListener('change', (e) => {
   const t = e.target;
   if (t.matches('[data-team]')) { state.team = t.value || null; state.showAll = false; syncUrl(); redrawPlayers(); main.querySelector('[data-team]')?.focus(); }
   else if (t.matches('[data-scoteam]')) { state.scoTeam = t.value || null; state.scoAll = false; syncUrl(); redrawSco(); main.querySelector('[data-scoteam]')?.focus(); }
+  else if (t.matches('[data-gteam]')) { state.gTeam = t.value || null; state.gAll = false; syncUrl(); redrawGoalies(); main.querySelector('[data-gteam]')?.focus(); }
   else if (t.matches('[data-finteam]')) { state.finTeam = t.value || null; state.finAll = false; syncUrl(); redrawFin(); main.querySelector('[data-finteam]')?.focus(); }
 });
 
@@ -526,6 +570,9 @@ main.addEventListener('click', async (e) => {
     state.showAll = false;
     state.finAll = false;
     state.scoAll = false;
+    state.gAll = false;
+    state.gLast = false;
+    state.gTeam = null;
     const teams = teamsOf(selected()?.total);
     if (!teams.includes(state.team)) state.team = null;
     if (!teams.includes(state.finTeam)) state.finTeam = null;
@@ -565,7 +612,14 @@ main.addEventListener('click', async (e) => {
     redrawSco();
     return;
   }
-  if (e.target.closest('[data-gmore]')) { state.gAll = true; swapCard('.ms-goalie-card', goalieCard(selected().total, true)); return; }
+  const gl = e.target.closest('[data-glast]');
+  if (gl) {
+    const on = gl.dataset.glast === '1';
+    if (on) { state.recentTotal = await loadRecentTotal(state.season); if (!state.recentTotal) return; }
+    state.gLast = on; state.gAll = false; syncUrl(); redrawGoalies();
+    return;
+  }
+  if (e.target.closest('[data-gmore]')) { state.gAll = true; redrawGoalies(); return; }
   const p = e.target.closest('[data-pos]');
   if (p) { state.pos = p.dataset.pos || null; state.showAll = false; redrawPlayers(); return; }
   if (e.target.closest('[data-more]')) { state.showAll = true; redrawPlayers(); return; }
@@ -577,6 +631,9 @@ main.addEventListener('click', async (e) => {
     state.showAll = false;
     state.finAll = false;
     state.scoAll = false;
+    state.gAll = false;
+    state.gLast = false;
+    state.gTeam = null;
     const teams = teamsOf(selected()?.total);
     if (!teams.includes(state.team)) state.team = null;
     if (!teams.includes(state.finTeam)) state.finTeam = null;
@@ -611,12 +668,16 @@ async function start() {
   const type = getStatsType();
   const [list, lab, odds] = await Promise.all([listOf(type), fetch('model-lab.json').then((r) => (r.ok ? r.json() : null)).catch(() => null), getStatic('odds.json').catch(() => null)]);
   const asked = Number(params.get('season'));
-  state = { type, list, lab, odds, labView: 'all', season: list.some((s) => s.season === asked) ? asked : defaultSeason(list, type), pos: null, showAll: false, finView: 'players', finPos: null, finAll: false, scoPos: null, scoAll: false, gAll: false };
+  state = { type, list, lab, odds, labView: 'all', season: list.some((s) => s.season === asked) ? asked : defaultSeason(list, type), pos: null, showAll: false, finView: 'players', finPos: null, finAll: false, scoPos: null, scoAll: false, gAll: false, gTeam: null, gLast: false, recentTotal: null };
   const teams = teamsOf(selected()?.total);
   const want = (k) => { const t = (params.get(k) || '').toUpperCase(); return teams.includes(t) ? t : null; };
   state.team = want('team');
   state.finTeam = want('finteam');
   state.scoTeam = want('scoteam');
+  const gteams = new Set(Object.values(selected()?.total?.players ?? {}).filter((r) => r.p === 'G' && r.t).map((r) => r.t));
+  const gt = (params.get('gteam') || '').toUpperCase();
+  state.gTeam = gteams.has(gt) ? gt : null;
+  if (params.get('glast') === '1' && type !== 'playoffs') { state.recentTotal = await loadRecentTotal(state.season); state.gLast = !!state.recentTotal; }
   render();
 }
 

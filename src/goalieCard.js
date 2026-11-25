@@ -144,3 +144,51 @@ export function radarPoints(lg, id) {
     return { key: a.key, label: a.label, tip: a.tip, value, pct: Math.round(((rank.of - rank.rank) / (rank.of - 1)) * 100), rank };
   }).filter(Boolean);
 }
+
+/** The Stats page goalie table: one row per goalie with enough starts, each stat with its NHL rank, plus the NHL averages. */
+export const GOALIE_COLS = [
+  ['rating', 'Game score', true], ['sv', 'SV%', true], ['gsax', 'GSAx', true], ['svx', 'SV% vs exp', true],
+  ['inSv', 'Home plate SV%', true], ['outSv', 'Perimeter SV%', true], ['sfPer', 'Perimeter goals/start', false], ['qsPct', 'QS%', true],
+];
+
+/**
+ * total = the season file, win = a window total (each team's last games, from recentAll) or null for the whole season.
+ * Ranks are among the goalies shown (before any team filter): { rank, of, tied }, 1 = best.
+ * { rows: [{ id, name, team, gp, gs, rating, sv, gsax, svx, inSv, outSv, sf, sfPer, qs, qsStarts, qsPct, rank: { key: {rank, of, tied} } }], avg, min }
+ */
+export function goalieTable(total, { win = null, minStarts = null } = {}) {
+  const src = win ?? total;
+  if (!src?.players) return null;
+  const rate = leagueRate(total);
+  const lgSv = leagueSavePct(total);
+  const min = minStarts ?? (win ? 2 : (total.gameType === 3 ? 2 : LEAGUE_MIN_STARTS));
+  const ratingMin = win ? 3 : 5;
+  const rows = [];
+  const sum = { sa: 0, sg: 0, psa: 0, pga: 0, osa: 0, oga: 0, sf: 0, gs: 0, rt: 0, rn: 0, qs: 0, st: 0 };
+  for (const [id, r] of Object.entries(src.players)) {
+    if (r.p !== 'G' || !r.t || (r.gs ?? 0) < min || r.xga == null) continue;
+    const l = goalieLineOf(r, rate, lgSv);
+    const q = qualityStarts(r, lgSv);
+    const has = r.psa != null;
+    rows.push({
+      id: Number(id), name: r.n, team: r.t, gp: r.gp, gs: r.gs,
+      rating: (r.rn ?? 0) >= ratingMin ? r.rt / r.rn : null,
+      sv: r.sa ? 1 - (r.sg ?? 0) / r.sa : null, gsax: l.gsax, svx: r.sa ? l.gsax / r.sa : null,
+      inSv: has && r.psa ? 1 - (r.pga ?? 0) / r.psa : null, outSv: has && r.osa ? 1 - (r.oga ?? 0) / r.osa : null,
+      sf: has ? r.sf ?? 0 : null, sfPer: has && r.gs ? (r.sf ?? 0) / r.gs : null,
+      qs: q?.qs ?? null, qsStarts: q?.starts ?? null, qsPct: q?.qsPct ?? null, rank: {},
+    });
+    for (const k of ['sa', 'sg', 'psa', 'pga', 'osa', 'oga', 'sf', 'gs', 'rt', 'rn']) sum[k] += r[k] ?? 0;
+    if (q) { sum.qs += q.qs; sum.st += q.starts; }
+  }
+  for (const [key, , hi] of GOALIE_COLS) {
+    const vals = rows.map((r) => r[key]);
+    for (const r of rows) r.rank[key] = rankAmong(vals, r[key], hi);
+  }
+  const avg = {
+    rating: sum.rn ? sum.rt / sum.rn : null, sv: sum.sa ? 1 - sum.sg / sum.sa : null, gsax: 0, svx: 0,
+    inSv: sum.psa ? 1 - sum.pga / sum.psa : null, outSv: sum.osa ? 1 - sum.oga / sum.osa : null,
+    sfPer: sum.psa && sum.gs ? sum.sf / sum.gs : null, qsPct: sum.st ? sum.qs / sum.st : null,
+  };
+  return { rows, avg, min, lgSv };
+}

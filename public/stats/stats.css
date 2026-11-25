@@ -75,3 +75,10 @@
 }
 .ms-type { margin: 2px 0 12px; }
 .ml-sub { margin: 18px 0 8px; font: 700 12px Inter, sans-serif; letter-spacing: .1em; text-transform: uppercase; color: #8d98ab; }
+
+/* Goalie table: a rank line under each value, NHL AVG row at the bottom */
+.ms-gtable td { line-height: 1.15; }
+.gt-rk { display: block; font-size: 10.5px; font-weight: 500; color: #8b95a7; white-space: nowrap; }
+.ms-gtable .gt-avg td { border-top: 2px solid #334155; font-weight: 700; color: #e8edf5; background: #0d1524; }
+.ms-gtable th { white-space: normal; line-height: 1.1; vertical-align: bottom; max-width: 84px; }
+.ms-gtable th, .ms-gtable td { padding-left: 6px; padding-right: 6px; }
