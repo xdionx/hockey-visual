@@ -46,6 +46,15 @@
 .pq-ours .pq-k { color: var(--pq-ours); }
 .pq-bar { display: block; width: 70%; height: 3px; border-radius: 2px; background: #1e293b; overflow: hidden; }
 .pq-bar b { display: block; height: 100%; background: var(--pq-ours); }
+.pq-heads { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+.pq-big { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 12px 6px 10px; border-radius: 6px; border: 1px solid color-mix(in srgb, var(--pq-ours) 55%, var(--pq-line)); background: linear-gradient(180deg, color-mix(in srgb, var(--pq-ours) 16%, var(--pq-card)), var(--pq-card)); text-align: center; min-width: 0; }
+.pq-bk { font: 700 13px "Barlow Condensed", sans-serif; letter-spacing: .1em; text-transform: uppercase; color: var(--pq-ours); }
+.pq-bv { font: 800 46px/1 "Barlow Condensed", sans-serif; font-variant-numeric: tabular-nums; color: #fff; }
+.pq-bs { font-size: 11px; color: var(--pq-mute); display: flex; flex-direction: column; align-items: center; gap: 3px; width: 100%; }
+.pq-bs em { font-style: normal; }
+.pq-grp { margin-top: 12px; }
+.pq-grp h3 { margin: 0 0 6px; font: 700 12px "Barlow Condensed", sans-serif; letter-spacing: .12em; text-transform: uppercase; color: var(--pq-mute); border-bottom: 1px solid var(--pq-line); padding-bottom: 3px; }
+.pq-g3 { grid-template-columns: repeat(3, 1fr); }
 .pq-note { margin: 10px 0 0; font-size: 12px; color: var(--pq-mute); }
 .pq-full { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 12px; padding: 10px; border-radius: 4px; background: #e11d48; color: #fff; font: 700 16px "Barlow Condensed", sans-serif; letter-spacing: .06em; text-transform: uppercase; text-decoration: none; }
 .pq-full:hover { background: #be123c; }
@@ -128,7 +137,8 @@ body.pc-page { --page: #0a0e17; --ink: #e8edf5; --mute: #8b95a7; --line: #1f2937
 
 /* Goalie card v2: grouped sections, charts, shot map, league strips */
 .gc-bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
-.gc-bar .pc-type-main { margin-top: 16px; }
+.gc-bar { margin-top: 16px; }
+.gc-bar .pc-type-main, .gc-bar .gc-range { margin-top: 0; }
 .gc-nav { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 0; }
 .gc-nav a { color: #8b95a7; text-decoration: none; font: 600 12px Inter, sans-serif; border: 1px solid #1f2937; padding: 4px 10px; border-radius: 99px; }
 .gc-nav a:hover { color: #f1f5f9; border-color: #334155; }
@@ -218,3 +228,10 @@ body.pc-page { --page: #0a0e17; --ink: #e8edf5; --mute: #8b95a7; --line: #1f2937
 @media (max-width: 860px) { .sk-strips, .sk-two { grid-template-columns: 1fr; } .sk-dot { grid-template-columns: 100px 1fr 110px; } }
 .sk-tw { max-width: 560px; } .sk-tw svg { max-height: 330px; }
 .sk-sel { display: inline-block; margin-right: 10px; font-size: 13px; color: #8b95a7; } .sk-sel select { margin-left: 6px; background: #0b1220; color: #e8edf5; border: 1px solid #26344f; border-radius: 6px; padding: 4px 8px; }
+
+.hl-strip { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.hl-c { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 14px 8px 12px; border-radius: 8px; border: 1px solid color-mix(in srgb, #38bdf8 55%, #1f2937); background: linear-gradient(180deg, color-mix(in srgb, #38bdf8 16%, #111827), #111827); text-align: center; }
+.hl-k { font: 700 15px "Barlow Condensed", sans-serif; letter-spacing: .12em; text-transform: uppercase; color: #38bdf8; }
+.hl-v { font: 800 64px/1 "Barlow Condensed", sans-serif; font-variant-numeric: tabular-nums; color: #fff; }
+.hl-s { font-size: 12px; color: #8b95a7; }
+@media (max-width: 480px) { .hl-v { font-size: 48px; } }

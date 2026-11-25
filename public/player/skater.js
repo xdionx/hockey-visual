@@ -271,6 +271,10 @@ export async function loadClips(p, games) {
 }
 
 /** The grouped sections. games / clips are null until loaded. */
+const hlCell = (label, value, sub, tip) => `<div class="hl-c" title="${esc(tip)}" tabindex="0"><span class="hl-k">${label}</span><span class="hl-v">${value}</span><span class="hl-s">${sub}</span></div>`;
+/** The two numbers that drive the site, big, at the top of the card. */
+export function headlineStrip(cells) { return `<div class="hl-strip">${cells.join('')}</div>`; }
+
 export function skaterSections({ card, now: nowIn, games, clips, tab, all, playoffs, range = 0, seasons = [], season = '', clipSeason = '' }) {
   const { m, row, pg } = card;
   const gl = games ? (range ? games.slice(-range) : games) : null;
@@ -280,6 +284,11 @@ export function skaterSections({ card, now: nowIn, games, clips, tab, all, playo
   const out = [];
   const spiderHtml = spider(card.spider);
   const defHtml = card.defBars.length ? `<figure class="gc-defbars"><figcaption>Defense: percentile vs NHL ${card.group === 'D' ? 'defensemen' : 'forwards'}, 100 = best</figcaption>${bars(card.defBars)}</figure>` : '<p class="pq-note">Defense numbers need more ice time.</p>';
+  const gs = m.rating, mo = m.play;
+  out.push(headlineStrip([
+    hlCell('Game score', gs ? gs.value.toFixed(1) : '-', gs ? `${ofN(gs.rank)} of ${gs.of} · avg of ${card.row.rn} games` : 'builds as games are rated', 'Average game score (0-10) from our scorecards. 6.0 is an average night, 9+ is a huge game.'),
+    hlCell('Momentum / GP', mo ? sg(mo.value) : '-', mo ? `${ofN(mo.rank)} of ${mo.of}` : '', 'Momentum per game: our play-by-play model of the shifts in pressure the player creates or gives up.'),
+  ]));
   out.push(`<div class="gc-top" id="sk-sum">${summary(card)}<div>${spiderHtml}${defHtml}</div></div>`, stripSection(card));
   const seasonWord = playoffs ? 'playoff run' : 'season';
   const rated = (gl ?? []).filter((g) => g.rating != null);

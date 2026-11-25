@@ -49,28 +49,32 @@ function body(id, p, ours, season, type) {
   const now = playoffs ? p?.playoffs?.find((r) => r.season === season) : p?.now;
   const label = playoffs ? (season ? `${fmt.season(season)} playoffs${season === p?.currentSeason ? '' : ' (latest)'}` : 'Playoffs') : `${fmt.season(season)} regular season`;
   const full = `player.html?id=${encodeURIComponent(id)}${typeQuery(type)}`;
-  let tiles;
+  const grp = (title, items, cls = '') => (items.length ? `<div class="pq-grp"><h3>${title}</h3><div class="pq-grid ${cls}">${items.join('')}</div></div>` : '');
+  const big = (label, value, sub, tip) => `<div class="pq-big"${tip ? ` title="${tip}"` : ''}><span class="pq-bk">${label}</span><span class="pq-bv">${value}</span><span class="pq-bs">${sub || ''}</span></div>`;
+  const RTIP = 'Average game score (0-10) from our scorecards. 6.0 is an average night, 9+ is a huge game.';
+  const rating = ours?.ratingAvg != null ? big('Game score', fmt.dec(ours.ratingAvg, 1), `${rankBit(ours.ratingRank) || ''}<em>avg of ${ours.row.rn} games</em>`, RTIP) : big('Game score', '-', '<em>not enough rated games</em>', RTIP);
+  let heads; let groups;
   if (goalie) {
-    tiles = [
-      tile('GP', now?.gp ?? ours?.gp ?? 0), tile('W', now?.wins ?? '-'), tile('L', now?.losses ?? '-'), ...(playoffs ? [] : [tile('OTL', now?.otLosses ?? '-')]),
-      tile('SV%', fmt.sv(now?.savePct)), tile('GAA', fmt.dec(now?.gaa, 2)), tile('SO', now?.shutouts ?? '-'), tile('TOI/GP', fmt.toi(now?.toiPerGame)),
-      ...(ours?.gsax != null ? [
-        tile('GSAx', fmt.signed(ours.gsax, 1), rankBit(ours.gsaxRank), 'pq-ours'),
-        ...(ours.qs != null ? [tile('QS', `${ours.qs} <small>${fmt.pct(ours.qsPct, 0)}</small>`, rankBit(ours.qsRank) || 'quality starts', 'pq-ours', `Quality start: save % at least the league average this season${ours.lgSv ? ` (${fmt.sv(ours.lgSv)})` : ''}, or under 20 shots with 2 goals or fewer allowed and a save % of .885+. A pulled starter is judged on the shots he faced; relief appearances don't count.`)] : []),
-        ...(now?.shotsAgainst ? [tile('SV% vs exp', `${fmt.signed((ours.gsax / now.shotsAgainst) * 100, 1)}%`, `expected ${fmt.sv(1 - ours.xgaAvg / now.shotsAgainst)}`, 'pq-ours')] : []),
-      ] : []),
+    heads = [rating, ours?.gsax != null ? big('GSAx', fmt.signed(ours.gsax, 1), rankBit(ours.gsaxRank), 'Goals saved above expected') : big('GSAx', '-', '')];
+    groups = [
+      grp('Record', [tile('GP', now?.gp ?? ours?.gp ?? 0), tile('W', now?.wins ?? '-'), tile('L', now?.losses ?? '-'), ...(playoffs ? [] : [tile('OTL', now?.otLosses ?? '-')]), tile('SO', now?.shutouts ?? '-'), tile('TOI/GP', fmt.toi(now?.toiPerGame))]),
+      grp('Results', [tile('SV%', fmt.sv(now?.savePct)), tile('GAA', fmt.dec(now?.gaa, 2)),
+        ...(ours?.gsax != null && now?.shotsAgainst ? [tile('SV% vs exp', `${fmt.signed((ours.gsax / now.shotsAgainst) * 100, 1)}%`, `expected ${fmt.sv(1 - ours.xgaAvg / now.shotsAgainst)}`, 'pq-ours')] : []),
+        ...(ours?.qs != null ? [tile('QS', `${ours.qs} <small>${fmt.pct(ours.qsPct, 0)}</small>`, rankBit(ours.qsRank) || 'quality starts', 'pq-ours', `Quality start: save % at least the league average this season${ours.lgSv ? ` (${fmt.sv(ours.lgSv)})` : ''}, or under 20 shots with 2 goals or fewer allowed and a save % of .885+. A pulled starter is judged on the shots he faced; relief appearances don't count.`)] : [])], 'pq-g3'),
     ];
   } else {
-    tiles = [
-      tile('GP', now?.gp ?? ours?.gp ?? 0), tile('G', now?.goals ?? '-'), tile('A', now?.assists ?? '-'), tile('P', now?.points ?? '-', '', 'pq-hl'),
-      tile('PIM', now?.pim ?? '-'), tile('TOI/GP', fmt.toi(now?.toiPerGame ?? ours?.toiPerGame)),
-      tile('SAT/GP', fmt.dec(ours?.satPerGame), rankBit(ours?.satRank), 'pq-ours'),
-      tile('MOM/GP', fmt.signed(ours?.momPerGame, 1), rankBit(ours?.momRank), 'pq-ours'),
-      ...(ours?.abovePct != null ? [tile('Above avg', fmt.pct(ours.abovePct, 0), `below ${fmt.pct(ours.belowPct, 0)}`, 'pq-ours')] : []),
-      ...(ours?.gaa != null ? [tile('Goals vs avg', fmt.signed(ours.gaa, 1), rankBit(ours.finRank), 'pq-ours')] : []),
-      ...(ours?.scoringVsAvg != null ? [tile('Scoring vs avg', fmt.signed(ours.scoringVsAvg, 1), 'goals and assists', 'pq-ours')] : []),
+    heads = [rating, big('Momentum / GP', fmt.signed(ours?.momPerGame, 1), rankBit(ours?.momRank), 'Momentum per game from our play-by-play model')];
+    groups = [
+      grp('Production', [tile('GP', now?.gp ?? ours?.gp ?? 0), tile('G', now?.goals ?? '-'), tile('A', now?.assists ?? '-'), tile('P', now?.points ?? '-', '', 'pq-hl'), tile('PIM', now?.pim ?? '-'), tile('TOI/GP', fmt.toi(now?.toiPerGame ?? ours?.toiPerGame))], 'pq-g3'),
+      grp('Our model', [
+        tile('SAT/GP', fmt.dec(ours?.satPerGame), rankBit(ours?.satRank), 'pq-ours'),
+        ...(ours?.gaa != null ? [tile('Goals vs avg', fmt.signed(ours.gaa, 1), rankBit(ours.finRank), 'pq-ours')] : []),
+        ...(ours?.scoringVsAvg != null ? [tile('Scoring vs avg', fmt.signed(ours.scoringVsAvg, 1), 'goals and assists', 'pq-ours')] : []),
+        ...(ours?.abovePct != null ? [tile('Above avg', fmt.pct(ours.abovePct, 0), `below ${fmt.pct(ours.belowPct, 0)}`, 'pq-ours')] : []),
+      ], 'pq-g3'),
     ];
   }
+  const tiles = [`<div class="pq-heads">${heads.join('')}</div>`, ...groups];
   const sub = [p?.number != null ? `#${p.number}` : null, positionName(p?.position ?? ours?.row?.p), p?.teamName ?? team].filter(Boolean).join(' · ');
   const span = playoffs ? 'these playoffs' : 'this season';
   const note = playoffs && !now && !ours ? `${esc(name)} hasn't played an NHL playoff game yet.` : goalie ? (ours?.gsax != null ? `GSAx (goals saved above expected) is goals kept out beyond what an average NHL goalie would allow on the same shots, from our own play-by-play model across ${ours.gp} games ${span}. Ranks are among goalies with 5+ starts.` : '') : ours
@@ -86,7 +90,7 @@ function body(id, p, ours, season, type) {
     <div class="pq-body">
       ${typeToggle(type, 'pc-type-quick')}
       <div class="pq-label">${esc(label)}</div>
-      ${playoffs && !now && !ours ? '' : `<div class="pq-grid">${tiles.join('')}</div>`}
+      ${playoffs && !now && !ours ? '' : `${tiles.join('')}`}
       ${!p ? '<p class="pq-note">NHL season stats couldn\'t load right now.</p>' : ''}
       ${note ? `<p class="pq-note">${note}</p>` : ''}
       <a class="pq-full" href="${full}" target="_blank" rel="noopener">Full player card ${ICONS.pop}</a>
