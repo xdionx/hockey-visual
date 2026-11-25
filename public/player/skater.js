@@ -69,7 +69,7 @@ function summary(card) {
   const { summary: s, m } = card;
   const tierLine = (name, pct, tier, det) => `<div class="sk-row"><b>${name}</b> <span class="sk-tier ${pct == null ? '' : pct >= 0.7 ? 'up' : pct < 0.4 ? 'down' : ''}">${tier ?? 'not enough ice time yet'}</span>${det ? ` <span class="sk-det">${det}</span>` : ''}</div>`;
   const offDet = ['scoring', 'play'].filter((k) => m[k]).map((k) => `${m[k].label.toLowerCase()} ${ofN(m[k].rank)}`).join(', ');
-  const defDet = m.def ? `${sg(m.def.value)} goals prevented vs teammates, ${ofN(m.def.rank)} among ${card.group === 'D' ? 'defensemen' : 'forwards'}` : '';
+  const defDet = m.def ? `${sg(m.def.value)} goals prevented at 5v5, ${ofN(m.def.rank)} among ${card.group === 'D' ? 'defensemen' : 'forwards'}` : '';
   const flags = card.row ? '' : '';
   return `<div class="gc-verdict ${s.headline.startsWith('Struggling') ? 'bad' : ''}"><b>${esc(s.headline)}.</b>
     ${tierLine('Offense', s.off, s.offTier, offDet)}${tierLine('Defense', s.def, s.defTier, defDet)}
@@ -169,14 +169,40 @@ function stripSection(card) {
 
 // ── clips ──
 const clipRow = (c) => `<li><span class="sk-clip-d">${day(c.date)}</span> ${c.home ? 'vs' : '@'} ${esc(c.opp)} <span class="sk-tag">${c.kind}</span> <span class="sk-clip-t">${esc(c.period)} ${esc(c.time)}${c.tags?.length ? ` · ${esc(c.tags.join(' '))}` : ''}${c.kind === 'G' ? '' : ` · goal by ${esc(c.scorer)}`}</span> ${c.id ? videoButton(c.id, `${c.kind === 'G' ? 'Goal' : 'Assist'}: ${c.scorer}, ${day(c.date)} ${c.home ? 'vs' : '@'} ${c.opp}`, '▶ Watch') : c.href ? `<a class="sk-watch" href="${esc(c.href)}" target="_blank" rel="noopener">▶ Watch</a>` : ''}</li>`;
-export function clipsHtml(clips, tab, all, seasonLabel) {
-  if (!clips) return wait();
+export function clipsHtml(clips, tab, all, seasonLabel, seasons = [], season = '') {
+  if (!clips) return `${seasonSelect(seasons, season)}${wait()}`;
   const list = clips.filter((c) => (tab === 'all' ? true : tab === 'g' ? c.kind === 'G' : c.kind !== 'G')).slice().reverse();
   const shown = all ? list : list.slice(0, 5);
-  return `<div class="sk-clips"><div class="pc-type" role="group" aria-label="Goals or assists">${[['g', 'Goals'], ['a', 'Assists'], ['all', 'All']].map(([k, l]) => `<button type="button" data-sk-tab="${k}" aria-pressed="${k === tab}">${l}</button>`).join('')}</div>
+  return `<div class="sk-clips">${seasonSelect(seasons, season)}<div class="pc-type" role="group" aria-label="Goals or assists">${[['g', 'Goals'], ['a', 'Assists'], ['all', 'All']].map(([k, l]) => `<button type="button" data-sk-tab="${k}" aria-pressed="${k === tab}">${l}</button>`).join('')}</div>
     ${shown.length ? `<ul class="sk-cliplist${all ? ' sk-scroll' : ''}">${shown.map(clipRow).join('')}</ul>` : `<p class="pq-note">No ${tab === 'a' ? 'assists' : tab === 'g' ? 'goals' : 'goals or assists'} yet this ${seasonLabel}.</p>`}
     ${list.length > 5 ? `<button type="button" class="sk-more" data-sk-all="${all ? 0 : 1}">${all ? 'Show fewer' : `Show all ${list.length}`}</button>` : ''}</div>`;
 }
+
+const seasonSelect = (seasons, cur) => (seasons.length > 1 ? `<label class="sk-sel">Season <select data-sk-season>${seasons.map((x) => `<option value="${x}"${String(x) === String(cur) ? ' selected' : ''}>${fmt.season(x)}</option>`).join('')}</select></label>` : '');
+
+/** Goal and assist clips for a past season: the Worker lists the games he scored or assisted in, then each saved game. */
+export async function loadSeasonClips(p, season, gameType = 2) {
+  const log = await getData(`log/${p.id}/${season}/${gameType}.json`).catch(() => null);
+  const list = log?.games ?? [];
+  const out = [];
+  let next = 0;
+  const worker = async () => {
+    while (next < list.length) {
+      const g = list[next++];
+      const game = await getData(`games/${g.id}.json`).catch(() => null);
+      if (!game) continue;
+      for (const s of game.scoring ?? []) {
+        const goal = s.scorer?.id === p.id;
+        if (!goal && !(s.assists ?? []).some((x) => x.id === p.id)) continue;
+        out.push({ ...g, n: g.id, date: game.gameDate ?? g.date, kind: goal ? 'G' : (s.assists[0].id === p.id ? 'A1' : 'A2'), period: s.period, time: s.time, tags: s.tags, scorer: s.scorer?.fullName, id: s.highlightId, href: s.highlight });
+      }
+    }
+  };
+  await Promise.all(Array.from({ length: 6 }, worker));
+  return out.sort((a, b) => (a.date ?? '').localeCompare(b.date ?? '') || a.time.localeCompare(b.time));
+}
+
+export const rangeToggle = (n) => `<div class="pc-type gc-range" role="group" aria-label="All games or last 10 games">${[[0, 'All games'], [10, 'Last 10']].map(([k, l]) => `<button type="button" data-gc-range="${k}" aria-pressed="${k === n}">${l}</button>`).join('')}</div>`;
 
 /** Every game this regular season for the player, from the saved per-game lines. */
 export async function loadSkaterGames(p, v) {
@@ -214,7 +240,7 @@ export async function loadClips(p, games) {
       const game = await getData(`games/${g.id}.json`).catch(() => null);
       if (!game) continue;
       g.date = game.gameDate;
-      for (const sh of game.shots ?? []) if (sh.shooterId === p.id && sh.x != null) shots.push({ x: sh.x, y: sh.y, kind: sh.kind, type: sh.shotType, plate: sh.homePlate, opp: g.opp, home: g.home, date: game.gameDate, period: sh.period, time: sh.time });
+      for (const sh of game.shots ?? []) if (sh.shooterId === p.id && sh.x != null) shots.push({ gid: g.id, x: sh.x, y: sh.y, kind: sh.kind, type: sh.shotType, plate: sh.homePlate, opp: g.opp, home: g.home, date: game.gameDate, period: sh.period, time: sh.time });
       for (const s of game.scoring ?? []) {
         const goal = s.scorer?.id === p.id;
         if (!goal && !(s.assists ?? []).some((x) => x.id === p.id)) continue;
@@ -228,38 +254,42 @@ export async function loadClips(p, games) {
 }
 
 /** The grouped sections. games / clips are null until loaded. */
-export function skaterSections({ card, now, games, clips, tab, all, playoffs }) {
+export function skaterSections({ card, now: nowIn, games, clips, tab, all, playoffs, range = 0, seasons = [], season = '', clipSeason = '' }) {
   const { m, row, pg } = card;
-  const gl = games ?? [];
+  const gl = games ? (range ? games.slice(-range) : games) : null;
+  const ids = new Set((gl ?? []).map((g) => g.id));
+  const now = range && gl ? { goals: gl.reduce((a, g) => a + g.g, 0), assists: gl.reduce((a, g) => a + g.a, 0), get points() { return this.goals + this.assists; }, pim: row.pim } : nowIn;
+  const shots = clips?.shots ? (range ? clips.shots.filter((q) => ids.has(q.gid)) : clips.shots) : clips?.shots;
   const out = [];
   const spiderHtml = spider(card.spider);
   const defHtml = card.defBars.length ? `<figure class="gc-defbars"><figcaption>Defense: percentile vs NHL ${card.group === 'D' ? 'defensemen' : 'forwards'}, 100 = best</figcaption>${bars(card.defBars)}</figure>` : '<p class="pq-note">Defense numbers need more ice time.</p>';
   out.push(`<div class="gc-top" id="sk-sum">${summary(card)}<div>${spiderHtml}${defHtml}</div></div>`, stripSection(card));
-  const season = playoffs ? 'playoff run' : 'season';
+  const seasonWord = playoffs ? 'playoff run' : 'season';
   out.push(sec('sk-sco', 'Scoring', 'goals, assists and what they are worth', `<div class="pq-grid pc-grid">
     ${plain('G', now?.goals ?? row.g ?? '-')}${plain('A', now?.assists ?? '-')}${plain('P', now?.points ?? '-')}
     ${rtile(m.scoring, sg(pg.scoringVsAvg), 'Scoring vs avg', 'per game rank')}${rtile(m.fin, sg(pg.gaa), 'Goals vs avg', 'finishing')}
     ${plain('Playmaking', sg(pg.playVsAvg), 'assists vs avg', 'Three quarters of the assists above an average player at the position.')}${plain('PIM', now?.pim ?? row.pim ?? '-')}</div>
-    <div class="sk-two">${fig(`<h4 class="sk-h">Points by game</h4>${pointsBars(gl.length ? gl : null)}`)}${fig(`<h4 class="sk-h">Running scoring vs average</h4>${runningChart(gl.length ? gl : null, card.rate, card.sbase?.[card.group] ?? 0)}`)}</div>
-    <h3 class="pc-sub">Clips <small>goals and assists, last 5 first</small></h3><div id="sk-clips">${clipsHtml(clips, tab, all, season)}</div>`));
+    <div class="sk-two">${fig(`<h4 class="sk-h">Points by game</h4>${pointsBars(gl?.length ? gl : null)}`)}${fig(`<h4 class="sk-h">Running scoring vs average</h4>${runningChart(gl?.length ? gl : null, card.rate, card.sbase?.[card.group] ?? 0)}`)}</div>
+    <h3 class="pc-sub">Clips <small>goals and assists, last 5 first</small></h3><div id="sk-clips">${clipsHtml(clips, tab, all, seasonWord, seasons, clipSeason)}</div>`));
   out.push(sec('sk-drv', 'Driving play', 'shot attempts and momentum', `<div class="pq-grid pc-grid">
     ${rtile(m.sat, fmt.dec(pg.satPerGame), 'SAT/GP')}${rtile(m.play, sg(pg.momPerGame), 'MOM/GP')}
     ${plain('MOM +/GP', sg(pg.momPosPerGame), 'created')}${plain('MOM −/GP', sg(pg.momNegPerGame), 'given up')}
     ${pg.abovePct != null ? plain('Above avg games', fmt.pct(pg.abovePct, 0), `below avg ${fmt.pct(pg.belowPct, 0)}`) : ''}</div>
-    <div class="sk-two">${fig(`<h4 class="sk-h">Momentum by game <small>green above average, red below</small></h4>${gameBars(gl.length ? gl : null, (g) => g.mom, 'Momentum', (g) => (g.tier > 0 ? UP : g.tier < 0 ? DOWN : '#8b95a7'))}`)}${fig(`<h4 class="sk-h">Shot attempts by game</h4>${gameBars(gl.length ? gl : null, (g) => g.sat, 'Shot attempts', () => BLUE)}`)}</div>`));
+    <div class="sk-two">${fig(`<h4 class="sk-h">Momentum by game <small>green above average, red below</small></h4>${gameBars(gl?.length ? gl : null, (g) => g.mom, 'Momentum', (g) => (g.tier > 0 ? UP : g.tier < 0 ? DOWN : '#8b95a7'))}`)}${fig(`<h4 class="sk-h">Shot attempts by game</h4>${gameBars(gl?.length ? gl : null, (g) => g.sat, 'Shot attempts', () => BLUE)}`)}</div>`));
   out.push(sec('sk-sho', 'Shooting', 'what he does with the puck near the net', `<div class="pq-grid pc-grid">
     ${plain('Shots', pg.sogPerGame != null ? (pg.sogPerGame * pg.gp).toFixed(0) : '-')}${plain('S%', fmt.pct(pg.shPct), `avg shooter ${fmt.pct(pg.xShPct)}`)}
     ${rtile(m.xg, fmt.dec(row.xg ?? 0, 1), 'xG', `${(m.xg?.value ?? 0).toFixed(2)}/game`)}${rtile(m.vol, fmt.pct(card.areas.vol?.share, 0), 'Shot volume', 'attempts on net')}
     ${plain('Attempts', row.sat)}</div>
-    <h3 class="pc-sub">Shot map <small>every attempt this season</small></h3>${fig(shotMap(clips?.shots))}`));
+    <h3 class="pc-sub">Shot map <small>${range ? `last ${range} games` : 'every attempt this season'}</small></h3>${fig(shotMap(shots))}`));
   const att60 = row.oto ? ((row.oca ?? 0) * 3600) / row.oto : null;
   out.push(sec('sk-def', 'Defense', `${card.group === 'D' ? 'defensemen' : 'forwards'} are compared with teammates at the same position`, `<div class="pq-grid pc-grid">
-    ${rtile(m.def, m.def ? sg(m.def.value) : '-', 'Goals prevented', 'vs teammates')}
-    ${att60 != null ? plain('Attempts against /60', att60.toFixed(1), 'on ice, all strengths') : ''}
+    ${rtile(m.def, m.def ? sg(m.def.value) : '-', 'Goals prevented', card.adjusted ? '5v5, adjusted' : 'vs teammates')}
+    ${card.adj ? plain('Attempts against /60 (5v5, adjusted)', sg(card.adj.d, 1), 'vs average skater, lower is better', 'Shot attempts per 60 the other team takes at 5v5 while he is on the ice, after adjusting for teammates and opponents, compared with the average skater. Negative is good.') : att60 != null ? plain('Attempts against /60', att60.toFixed(1), 'on ice, all strengths') : ''}
+    ${card.adj ? plain('5v5 time', `${card.adj.h.toFixed(1)} h`, 'in the model') : ''}
     ${row.oto ? plain('On-ice shot share', fmt.pct((row.ocf ?? 0) / Math.max(1, (row.ocf ?? 0) + (row.oca ?? 0)), 0)) : ''}
     ${plain('Blocks', row.bl ?? '-', '', 'Shot blocks (context)')}${plain('Takeaways', row.tk ?? '-', 'context')}${row.toi ? plain('TOI/GP', fmt.toi(row.toi / row.gp)) : ''}</div>
     ${m.def ? `<h3 class="pc-sub">Two-way map <small>points per game against goals prevented, ${card.group === 'D' ? 'defensemen' : 'forwards'}</small></h3><div class="sk-tw">${fig(twoWay(card))}</div>` : ''}
-    <p class="pq-note">Goals prevented = how many fewer shot attempts than his teammates at the same position the other team gets while he is on the ice, turned into goals (shrunk, since only part of it carries to the next season). It overlaps with puck possession and a pair partner shares the credit. Goals against and plus/minus are not used: they are too noisy over a season.</p>`));
+    <p class="pq-note">${card.adjusted ? 'Goals prevented = the shot attempts the other team takes at 5v5 while he is on the ice, adjusted for his teammates and the opponents he faces (a ridge regression over every shift, so a player who skates with a great partner is not over-credited), turned into goals. Early in the season it is pulled toward average. It overlaps with puck possession. Goals against and plus/minus are not used: they are too noisy over a season.' : 'Goals prevented = how many fewer shot attempts than his teammates at the same position the other team gets while he is on the ice, turned into goals. The adjusted 5v5 version appears once the season has enough shifts saved. Goals against and plus/minus are not used: they are too noisy over a season.'}</p>`));
   out.push(sec('sk-dis', 'Discipline and puck', 'penalties and giveaways', `<div class="pq-grid pc-grid">
     ${rtile(m.pen, m.pen ? sg(m.pen.value, 2) : '-', 'Net penalties /GP', 'drawn − taken')}${plain('Drawn', card.areas.pen?.drawn ?? '-')}${plain('Taken', card.areas.pen?.taken ?? '-')}
     ${rtile(m.give, m.give ? m.give.value.toFixed(1) : '-', 'Giveaways /GP', 'context')}${plain('Takeaways /GP', card.areas.give ? card.areas.give.takePerGame.toFixed(1) : '-', 'context')}

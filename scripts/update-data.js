@@ -22,6 +22,9 @@ import { getScoreboard, getGameDetailRaw } from '../src/nhlApi.js';
 import { normalizeGameDetail } from '../src/gameDetail.js';
 import { normalizeScoreboard } from '../src/normalize.js';
 import { shotAttempts } from '../src/sat.js';
+import { stintRows } from '../src/stints.js';
+import { fitDefense } from '../src/rapm.js';
+import { getShifts } from '../src/nhlApi.js';
 import { emptyRecent, addRecent, recentFile, emptySeason, addGame, fromPbp, linesFromDetail, seasonOf, seasonFile, SEASON_VERSION } from '../src/seasonStats.js';
 import { getPlayByPlay } from '../src/nhlApi.js';
 import { parsePartner, mergeOdds } from '../src/odds.js';
@@ -113,6 +116,10 @@ const season = seasonOf(today);
 const totals = { 2: emptySeason(season, 2), 3: emptySeason(season, 3) };
 const recent = emptyRecent(season);
 let linesFetched = 0;
+let stintsFetched = 0;
+const STINTS_PER_RUN = 120; // new games per run; the rest catch up on the next runs
+const stintAll = [];
+let stintGames = 0;
 for (const f of (await readdir(join(outDir, 'games'))).filter((x) => x.endsWith('.json')).sort()) {
   const g = JSON.parse(await readFile(join(outDir, 'games', f), 'utf8').catch(() => 'null'));
   const total = totals[g?.gameType];
@@ -127,6 +134,22 @@ for (const f of (await readdir(join(outDir, 'games'))).filter((x) => x.endsWith(
       console.warn(`Player lines ${g.id} failed: ${err.message}`);
       continue;
     }
+  }
+  // 5v5 stints for the adjusted defense model (regular season only), saved once per finished game.
+  if (g.gameType === 2 && g.hasShifts) {
+    let st = JSON.parse(await readFile(join(outDir, 'stints', `${g.id}.json`), 'utf8').catch(() => 'null'));
+    if (!st && stintsFetched < STINTS_PER_RUN) {
+      stintsFetched++;
+      await new Promise((r) => setTimeout(r, 300));
+      try {
+        st = { v: 1, rows: stintRows(await getPlayByPlay(g.id), await getShifts(g.id)) };
+        await mkdir(join(outDir, 'stints'), { recursive: true });
+        await writeFile(join(outDir, 'stints', `${g.id}.json`), JSON.stringify(st));
+      } catch (err) {
+        console.warn(`Stints ${g.id} failed: ${err.message}`);
+      }
+    }
+    if (st?.rows?.length) { for (const r of st.rows) stintAll.push(r); stintGames++; }
   }
   // Time on ice comes from the box score (the play-by-play doesn't carry it).
   const toi = new Map(linesFromDetail(g).map((l) => [l.id, l.toi]));
@@ -145,6 +168,17 @@ for (const total of Object.values(totals)) {
     total.updated = new Date().toISOString();
     total.complete = false;
     await writeFile(file, `${JSON.stringify(total)}\n`);
+    changed++;
+  }
+}
+// Adjusted 5v5 defense for the whole season so far (ridge regression over every saved stint).
+if (stintAll.length) {
+  const fit = fitDefense(stintAll);
+  const df = join(outDir, 'seasons', `${season}-def.json`);
+  const body = `${JSON.stringify({ season, v: 1, games: stintGames, gpa: fit.gpa, players: fit.players })}\n`;
+  const prev = await readFile(df, 'utf8').catch(() => null);
+  if (!prev || JSON.parse(prev).games !== stintGames) {
+    await writeFile(df, body);
     changed++;
   }
 }

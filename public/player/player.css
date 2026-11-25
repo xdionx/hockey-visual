@@ -217,3 +217,4 @@ body.pc-page { --page: #0a0e17; --ink: #e8edf5; --mute: #8b95a7; --line: #1f2937
 .sk-dot s { position: absolute; top: -2px; width: 2px; height: 18px; background: #fbbf24; } .sk-dot b { top: 0; width: 14px; height: 14px; }
 @media (max-width: 860px) { .sk-strips, .sk-two { grid-template-columns: 1fr; } .sk-dot { grid-template-columns: 100px 1fr 110px; } }
 .sk-tw { max-width: 560px; } .sk-tw svg { max-height: 330px; }
+.sk-sel { display: inline-block; margin-right: 10px; font-size: 13px; color: #8b95a7; } .sk-sel select { margin-left: 6px; background: #0b1220; color: #e8edf5; border: 1px solid #26344f; border-radius: 6px; padding: 4px 8px; }

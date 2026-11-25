@@ -5,12 +5,12 @@ import { loadPlayer, loadSeason, ourStats, fmt, positionName, typeToggle, getSta
 import { teamColor, esc, decisionLabel, initVideo } from '../game/core.js';
 import { installPlayerLinks } from './link.js';
 import { rankBit } from './quick.js';
-import { getData } from '../data.js';
-import { FIRST_FULL_SEASON, leagueRate, leagueSavePct } from '../src/seasonStats.js';
+import { getData, getStatic } from '../data.js';
+import { FIRST_FULL_SEASON, leagueRate, leagueSavePct, recentFile, recentAll } from '../src/seasonStats.js';
 import { leagueGoalies, teamGameIds, startFromGame } from '../src/goalieCard.js';
 import { installTips } from './tips.js';
 import { skaterCard } from '../src/skaterCard.js';
-import { skaterSections, loadSkaterGames, loadClips, clipsHtml, lastGamesSection, navHtml as skNav } from './skater.js';
+import { skaterSections, loadSkaterGames, loadClips, loadSeasonClips, clipsHtml, lastGamesSection, rangeToggle as skRange, navHtml as skNav } from './skater.js';
 import { goalieSections, lastStartsSection, navHtml, rangeToggle } from './goalie.js';
 import { combineSeasons } from '../src/player.js';
 import { goalieRating, W } from '../src/predict.js';
@@ -266,14 +266,31 @@ async function load() {
     show(getStatsType());
   });
   installTips(main);
-  const sk = { tab: 'g', all: false, games: {}, clips: {} };
-  const showSkater = async (type, v, card) => {
+  const sk = { tab: 'g', all: false, games: {}, clips: {}, past: {}, season: null, recent: null };
+  const loadDefFile = (season) => (sk.def ??= getStatic(`seasons/${season}-def.json`).catch(() => null));
+  const loadRecentFile = (season) => (sk.recent ??= getStatic(`seasons/${recentFile(season)}`).catch(() => null));
+  const showSkater = async (type, v, seasonCard0) => {
+    const defFile = v.playoffs ? null : await loadDefFile(v.season);
+    const seasonCard = defFile ? skaterCard(v.file, p.id, { def: defFile }) ?? seasonCard0 : seasonCard0;
     const key = type;
+    const rng = v.playoffs ? 0 : range;
+    let card = seasonCard;
+    let winNote = '';
+    if (rng) {
+      const win = recentAll(await loadRecentFile(v.season), rng);
+      const c = win ? skaterCard(win, p.id, { win: true, def: defFile }) : null;
+      if (c) card = c; else winNote = '<p class="pq-note">Not enough recent games for a last 10 view yet; showing the season.</p>';
+    }
+    const seasons = v.playoffs ? [] : p.nhl.map((r) => r.season).filter((x) => x >= FIRST_FULL_SEASON);
+    const cur = sk.season ?? v.season;
     const paint = () => {
-      main.querySelector('#sk-body').innerHTML = skaterSections({ card, now: v.now, games: sk.games[key], clips: sk.clips[key], tab: sk.tab, all: sk.all, playoffs: v.playoffs });
+      const clips = cur === v.season || v.playoffs ? sk.clips[key] : sk.past[cur];
+      main.querySelector('#sk-body').innerHTML = winNote + skaterSections({ card, now: v.now, games: sk.games[key], clips: clips ? Object.assign(clips, { shots: sk.clips[key]?.shots }) : clips, tab: sk.tab, all: sk.all, playoffs: v.playoffs, range: card.isWin ? rng : 0, seasons, clipSeason: cur });
       main.querySelector('#sk-last').innerHTML = lastGamesSection(sk.games[key], v.playoffs);
     };
-    main.innerHTML = `${hero(p)}${typeToggle(type, 'pc-type-main')}${skNav()}<div class="pc-cols" id="sk-body"></div><div class="pc-cols" id="sk-hist">${trend(v.rows, false, v.playoffs)}${seasonsTable(p, v.rows, v)}</div><div id="sk-last" class="pc-cols"></div><div id="pc-last5"></div>`;
+    sk.repaint = paint;
+    sk.v = v; sk.key = key; sk.type = type;
+    main.innerHTML = `${hero(p)}<div class="gc-bar">${typeToggle(type, 'pc-type-main')}${v.playoffs ? '' : skRange(rng)}</div>${skNav()}<div class="pc-cols" id="sk-body"></div><div class="pc-cols" id="sk-hist">${trend(v.rows, false, v.playoffs)}${seasonsTable(p, v.rows, v)}</div><div id="sk-last" class="pc-cols"></div><div id="pc-last5"></div>`;
     document.querySelectorAll('.pt-scroll').forEach((el) => { el.scrollLeft = el.scrollWidth; });
     paint();
     if (!(key in sk.games)) {
@@ -284,7 +301,7 @@ async function load() {
         sk.clips[key] = await loadClips(p, g);
         if (getStatsType() === type) paint();
       }).catch(() => { sk.games[key] = []; sk.clips[key] = []; if (getStatsType() === type) paint(); });
-    } else paint();
+    }
     document.querySelector('#pc-last5').outerHTML = await last5 || '';
   };
   main.addEventListener('click', (e) => {
@@ -292,8 +309,18 @@ async function load() {
     const a = e.target.closest('[data-sk-all]');
     if (!t && !a) return;
     if (t) { sk.tab = t.dataset.skTab; sk.all = false; } else sk.all = a.dataset.skAll === '1';
-    const holder = main.querySelector('#sk-clips');
-    if (holder) holder.innerHTML = clipsHtml(sk.clips[getStatsType()], sk.tab, sk.all, getStatsType() === 'playoffs' ? 'playoff run' : 'season');
+    sk.repaint?.();
+  });
+  main.addEventListener('change', async (e) => {
+    const sel = e.target.closest('[data-sk-season]');
+    if (!sel) return;
+    sk.season = Number(sel.value);
+    sk.all = false;
+    if (sk.season !== sk.v.season && !sk.past[sk.season]) {
+      sk.repaint();
+      sk.past[sk.season] = await loadSeasonClips(p, sk.season);
+    }
+    sk.repaint();
   });
   const show = async (type) => {
     views[type] ??= buildView(p, type);

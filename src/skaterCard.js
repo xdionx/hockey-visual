@@ -16,7 +16,7 @@ export const METRICS = [
   ['xg', 'Chances (xG)', 'off', true, 'dec2', false, 'Expected goals from the player\'s own shots per game, using shot location and type.'],
   ['vol', 'Shot volume', 'off', true, 'pct', false, 'Share of the player\'s attempts that reach the net (not blocked or missed).'],
   ['pen', 'Penalties', 'disc', true, 'signed2', false, 'Penalties drawn minus penalties taken per game.'],
-  ['def', 'Defense', 'def', true, 'signed', false, 'Goals prevented against teammates at the same position, from shot attempts against while on the ice (all strengths). Overlaps with puck possession and shares credit with a pair partner.'],
+  ['def', 'Defense', 'def', true, 'signed', false, 'Goals prevented at 5v5: shot attempts the other team takes while he is on the ice, adjusted for who he plays with and against, turned into goals. Overlaps with puck possession; season-long even in the last 10 view.'],
   ['fo', 'Faceoffs', 'fo', true, 'pct', false, 'Faceoff win % (centers only).'],
   ['give', 'Giveaways', 'ctx', false, 'dec1', true, 'Giveaways per game. Context only: puck carriers give it away more because they have it more.'],
 ];
@@ -36,12 +36,13 @@ export const ord = (n) => { const s = ['th', 'st', 'nd', 'rd']; const v = n % 10
 export const teamOrd = (t, r) => (r ? `${t} ${r.tied ? 'T' : ''}${ord(r.rank)}` : '');
 
 /** Every qualifying skater's numbers: Map id -> { row, team, group, v: { key: value|null } }. */
-export function skaterTable(total) {
+export function skaterTable(total, { win = false, def: defFile = null } = {}) {
   if (!total?.players) return null;
   const rate = leagueRate(total);
   const sbase = scoringBase(total);
-  const base = areaBase(total);
+  const base = areaBase(total, { win });
   const minGp = Math.max(5, minGames(total));
+  const minToi = win ? 1500 : MIN_DEF_TOI;
   // Team / position-group on-ice totals for "against teammates".
   const grp = new Map();
   for (const row of Object.values(total.players)) {
@@ -58,15 +59,18 @@ export function skaterTable(total) {
     const a = skaterAreas(row, base);
     const gp = row.gp;
     let def = null;
-    if (row.oto >= MIN_DEF_TOI) {
+    const adj = defFile?.players?.[id] ?? null;
+    if (defFile) {
+      if (adj) def = -adj.d * adj.h * (defFile.gpa ?? 0.0627); // goals prevented: attempts against /60 below average x 5v5 hours x goals per attempt
+    } else if (row.oto >= minToi) {
       const g = grp.get(`${row.t}|${isD(row.p) ? 'D' : 'F'}`);
       const restToi = g.oto - row.oto;
-      if (restToi >= MIN_DEF_TOI) {
+      if (restToi >= minToi) {
         const rel = ((row.oca ?? 0) / row.oto - (g.oca - (row.oca ?? 0)) / restToi) * 3600; // attempts against per 60, vs teammates
         def = -rel * (row.oto / 3600) * GOALS_PER_ATTEMPT;
       }
     }
-    out.set(Number(id), { id: Number(id), name: row.n, row, team: row.t, pos: row.p, group: isD(row.p) ? 'D' : 'F', gp, pg, areas: a, v: {
+    out.set(Number(id), { id: Number(id), name: row.n, row, adj, team: row.t, pos: row.p, group: isD(row.p) ? 'D' : 'F', gp, pg, areas: a, v: {
       scoring: pg.scoringVsAvg != null ? pg.scoringVsAvg / gp : null,
       fin: pg.gaa != null ? pg.gaa / gp : null,
       play: pg.momPerGame,
@@ -79,7 +83,7 @@ export function skaterTable(total) {
       give: a.give?.perGame ?? null,
     } });
   }
-  return { rows: out, rate, sbase };
+  return { rows: out, rate, sbase, adjusted: !!defFile };
 }
 
 const TIERS = [[0.9, 'elite'], [0.7, 'strong'], [0.4, 'average'], [0.2, 'below average'], [0, 'poor']];
@@ -89,8 +93,8 @@ export const tierName = (p) => TIERS.find(([t]) => p >= t)[1];
  * Everything the card shows for one skater: per metric value, NHL rank, percentile, NHL average, team rank;
  * the spider points, the summary and strengths / weak spots. null when the skater doesn't qualify.
  */
-export function skaterCard(total, id) {
-  const tbl = skaterTable(total);
+export function skaterCard(total, id, opts = {}) {
+  const tbl = skaterTable(total, opts);
   const me = tbl?.rows.get(Number(id));
   if (!me) return null;
   const all = [...tbl.rows.values()];
@@ -111,7 +115,7 @@ export function skaterCard(total, id) {
   }
   const SPIDER = ['scoring', 'fin', 'play', 'sat', 'xg', 'pen'];
   const spider = SPIDER.filter((k) => m[k]).map((k) => ({ key: k, label: m[k].label, pct: Math.round(m[k].pct * 100), value: m[k].value, rank: m[k].rank, tip: m[k].tip }));
-  const defBars = ['def', 'pen'].filter((k) => m[k]).map((k) => ({ key: k, label: k === 'def' ? 'Goals prevented vs teammates' : 'Penalties not taken', pct: Math.round(m[k].pct * 100), value: m[k].value, rank: m[k].rank }));
+  const defBars = ['def', 'pen'].filter((k) => m[k]).map((k) => ({ key: k, label: k === 'def' ? 'Goals prevented' : 'Penalties not taken', pct: Math.round(m[k].pct * 100), value: m[k].value, rank: m[k].rank }));
   const ranked = Object.values(m).filter((x) => !x.ctx);
   const strengths = [...ranked].sort((a, b) => b.pct - a.pct).filter((x) => x.pct >= 0.7).slice(0, 4);
   const weak = [...ranked].sort((a, b) => a.pct - b.pct).filter((x) => x.pct <= 0.3).slice(0, 4).map((x) => ({ ...x, ugly: x.pct <= 0.1 }));
@@ -129,7 +133,7 @@ export function skaterCard(total, id) {
   else if (off < 0.2 && def < 0.2) headline = 'Struggling at both ends';
   else headline = 'Balanced / depth';
   return { id: me.id, name: me.name, team: me.team, pos: me.pos, group: me.group, gp: me.gp, row: me.row, pg: me.pg, areas: me.areas, m, spider, defBars, strengths, weak,
-    summary: { headline, off, def, offTier: off == null ? null : tierName(off), defTier: def == null ? null : tierName(def) }, rate: tbl.rate, sbase: tbl.sbase,
+    isWin: !!opts.win, adjusted: tbl.adjusted, adj: me.adj, summary: { headline, off, def, offTier: off == null ? null : tierName(off), defTier: def == null ? null : tierName(def) }, rate: tbl.rate, sbase: tbl.sbase,
     pool: all.filter((r) => r.group === me.group && r.v.def != null).map((r) => ({ id: r.id, name: r.name, x: ((r.row.g ?? 0) + (r.row.a1 ?? 0) + (r.row.a2 ?? 0)) / r.gp, y: r.v.def })) };
 }
 
