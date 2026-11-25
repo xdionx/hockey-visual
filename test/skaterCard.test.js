@@ -44,3 +44,18 @@ test('game ratings add up per player and feed averages, flags and Compare', () =
   const rows = compareRows(total);
   assert.equal(rows.skaters.find((x) => x.id === 1).v.rating, 3.5);
 });
+
+import { productionRanks } from '../src/skaterCard.js';
+test('productionRanks ranks box-score numbers with team ranks', () => {
+  const players = {
+    1: { n: 'A', t: 'AAA', p: 'C', gp: 10, g: 5, a1: 2, a2: 1, pim: 4, toi: 12000 },
+    2: { n: 'B', t: 'AAA', p: 'L', gp: 10, g: 5, a1: 0, a2: 0, pim: 8, toi: 10000 },
+    3: { n: 'C', t: 'BBB', p: 'D', gp: 10, g: 1, a1: 5, a2: 0, pim: 0, toi: 9000 },
+    4: { n: 'G', t: 'BBB', p: 'G', gp: 10 },
+  };
+  const r = productionRanks({ players }, 1);
+  assert.equal(r.g.nhl.rank, 1); assert.equal(r.g.nhl.tied, true);
+  assert.equal(r.p.nhl.rank, 1); assert.equal(r.p.team.rank, 1); assert.equal(r.p.team.team, 'AAA');
+  assert.equal(r.pim.nhl.rank, 2);
+  assert.equal(productionRanks({ players }, 4), null);
+});

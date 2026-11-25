@@ -4,6 +4,7 @@
 import { esc, videoButton } from '../game/core.js';
 import { HOME_PLATE, RINK, halfRinkLines } from '../game/rink.js';
 import { fmt } from './store.js';
+import { rankBoxes } from './quick.js';
 import { getData } from '../data.js';
 import { gameObj } from '../src/seasonStats.js';
 import { tierOf } from '../src/impact.js';
@@ -304,10 +305,11 @@ export function skaterSections({ card, now: nowIn, games, clips, tab, all, playo
     ${rated.length ? plain('7+ games', fmt.pct(rated.filter((g) => g.rating >= 7).length / rated.length, 0), 'rated 7.0 or better', 'Share of his games rated 7.0 or better.') : ''}
     ${rated.length ? plain('Under 5', fmt.pct(rated.filter((g) => g.rating < 5).length / rated.length, 0), 'rated below 5.0', 'Share of his games rated below 5.0.') : ''}</div>
     ${fig(`<h4 class="sk-h">Rating by game <small>green above 6.0, red below</small></h4>${ratingBars(gl, !!clips)}`)}`));
+  const pr = Object.fromEntries(['g', 'a', 'p', 'pim'].map((k) => [k, range ? '' : rankBoxes(card.prod?.[k])]));
   out.push(sec('sk-sco', 'Scoring', 'goals, assists and what they are worth', `<div class="pq-grid pc-grid">
-    ${plain('G', now?.goals ?? row.g ?? '-')}${plain('A', now?.assists ?? '-')}${plain('P', now?.points ?? '-')}
+    ${plain('G', now?.goals ?? row.g ?? '-', pr.g)}${plain('A', now?.assists ?? '-', pr.a)}${plain('P', now?.points ?? '-', pr.p)}
     ${rtile(m.scoring, sg(pg.scoringVsAvg), 'Scoring vs avg', 'per game rank')}${rtile(m.fin, sg(pg.gaa), 'Goals vs avg', 'finishing')}
-    ${plain('Playmaking', sg(pg.playVsAvg), 'assists vs avg', 'Three quarters of the assists above an average player at the position.')}${plain('PIM', now?.pim ?? row.pim ?? '-')}</div>
+    ${plain('Playmaking', sg(pg.playVsAvg), 'assists vs avg', 'Three quarters of the assists above an average player at the position.')}${plain('PIM', now?.pim ?? row.pim ?? '-', pr.pim)}</div>
     <div class="sk-two">${fig(`<h4 class="sk-h">Points by game</h4>${pointsBars(gl?.length ? gl : null)}`)}${fig(`<h4 class="sk-h">Running scoring vs average</h4>${runningChart(gl?.length ? gl : null, card.rate, card.sbase?.[card.group] ?? 0)}`)}</div>
     <h3 class="pc-sub">Clips <small>goals and assists, last 5 first</small></h3><div id="sk-clips">${clipsHtml(clips, tab, all, seasonWord, seasons, clipSeason)}</div>`));
   out.push(sec('sk-drv', 'Driving play', 'shot attempts and momentum', `<div class="pq-grid pc-grid">

@@ -34,6 +34,13 @@ function tile(label, value, sub = '', cls = '', tip = '') {
 }
 
 /** A boxed "12th NHL" plus a small bar showing where that sits (best at the right). */
+/** Boxed NHL rank plus team rank ("1st NHL" "CAR 6th") for a box-score stat. */
+export function rankBoxes(r) {
+  if (!r) return '';
+  const o = (x) => `${x.tied ? 'T' : ''}${fmt.ord(x.rank)}`;
+  return `<span class="rkb">${o(r.nhl)} NHL</span>${r.team ? `<span class="rkb">${esc(r.team.team)} ${o(r.team)}</span>` : ''}`;
+}
+
 export function rankBit(r) {
   if (!r) return '';
   const pct = r.of > 1 ? 100 * (1 - (r.rank - 1) / (r.of - 1)) : 100;
@@ -65,7 +72,7 @@ function body(id, p, ours, season, type) {
   } else {
     heads = [rating, big('Momentum / GP', fmt.signed(ours?.momPerGame, 1), rankBit(ours?.momRank), 'Momentum per game from our play-by-play model')];
     groups = [
-      grp('Production', [tile('GP', now?.gp ?? ours?.gp ?? 0), tile('G', now?.goals ?? '-'), tile('A', now?.assists ?? '-'), tile('P', now?.points ?? '-', '', 'pq-hl'), tile('PIM', now?.pim ?? '-'), tile('TOI/GP', fmt.toi(now?.toiPerGame ?? ours?.toiPerGame))], 'pq-g3'),
+      grp('Production', [tile('GP', now?.gp ?? ours?.gp ?? 0), tile('G', now?.goals ?? '-', rankBoxes(ours?.prod?.g)), tile('A', now?.assists ?? '-', rankBoxes(ours?.prod?.a)), tile('P', now?.points ?? '-', rankBoxes(ours?.prod?.p), 'pq-hl'), tile('PIM', now?.pim ?? '-', rankBoxes(ours?.prod?.pim)), tile('TOI/GP', fmt.toi(now?.toiPerGame ?? ours?.toiPerGame), rankBoxes(ours?.prod?.toi))], 'pq-g3'),
       grp('Our model', [
         tile('SAT/GP', fmt.dec(ours?.satPerGame), rankBit(ours?.satRank), 'pq-ours'),
         ...(ours?.gaa != null ? [tile('Goals vs avg', fmt.signed(ours.gaa, 1), rankBit(ours.finRank), 'pq-ours')] : []),
