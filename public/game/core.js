@@ -399,14 +399,14 @@ export const GS_PARTS = [
 /**
  * Offensive-zone areas (see shotZone in src/gameDetail.js) for the home team's attacking end:
  * [key, label, polygon points [x, y] in rink feet (y > 0 = left side), label anchor [x, y], tall].
- * Home plate (posts -> 19 ft out -> top of the circles), one side zone on each flank of it down
+ * Home plate (8 ft at the goal line -> 19 ft out -> top of the circles), one side zone on each flank of it down
  * to the goal line, the blue line to the top of the circles split left/right, and behind the net.
  */
 const rect = (x1, x2, y1, y2) => [[x1, y1], [x2, y1], [x2, y2], [x1, y2]];
 export const ZONES = [
-  ['home-plate', 'Home plate', [[89, -4], [69, -19], [54, -19], [54, 19], [69, 19], [89, 4]], [68.5, 0], true],
-  ['side-left', 'Left side', [[54, 19], [69, 19], [89, 4], [89, 42.5], [54, 42.5]], [68, 32], true],
-  ['side-right', 'Right side', [[54, -19], [69, -19], [89, -4], [89, -42.5], [54, -42.5]], [68, -32], true],
+  ['home-plate', 'Home plate', [[89, -8], [69, -19], [54, -19], [54, 19], [69, 19], [89, 8]], [68.5, 0], true],
+  ['side-left', 'Left side', [[54, 19], [69, 19], [89, 8], [89, 42.5], [54, 42.5]], [68, 32], true],
+  ['side-right', 'Right side', [[54, -19], [69, -19], [89, -8], [89, -42.5], [54, -42.5]], [68, -32], true],
   ['point-left', 'Left point', rect(25, 54, 0, 42.5), [39.5, 21], true],
   ['point-right', 'Right point', rect(25, 54, -42.5, 0), [39.5, -21], true],
   ['behind-net', 'Behind the net', rect(89, 100, -42.5, 42.5), [94.5, 0], false],
@@ -417,7 +417,7 @@ export function inHomePlate(x, y) {
   const ax = Math.abs(x);
   const ay = Math.abs(y);
   if (ax > 89 || ax < 54) return false;
-  return ax >= 69 ? ay <= 4 + ((89 - ax) * 15) / 20 : ay <= 19;
+  return ax >= 69 ? ay <= 8 + ((89 - ax) * 11) / 20 : ay <= 19;
 }
 
 /** Same rules as shotZone in src/gameDetail.js; lets older saved games use the current zones. */
