@@ -45,6 +45,15 @@ export function kpis(game, c) {
   </section>`;
 }
 
+/** Text on a zone tint over the full-ice artwork: dark when the tint (team color at this opacity over white ice) is light. */
+function zoneTextDark(color, op) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(String(color).trim());
+  if (!m) return false;
+  const ch = [0, 2, 4].map((i) => parseInt(m[1].slice(i, i + 2), 16));
+  const lin = ch.map((v) => { const x = (v * op + 255 * (1 - op)) / 255; return x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4; });
+  return 0.2126 * lin[0] + 0.7152 * lin[1] + 0.0722 * lin[2] > 0.3;
+}
+
 export function shotMap(game, c) {
   return `<section class="a-card a-map"><div class="a-card-head"><h2>Shot map</h2>
       <div class="a-filters" id="a-filters">
@@ -215,12 +224,12 @@ function zoneLayer(game, shots, team, color) {
     out.rects += `<polygon class="a-zone${plate ? ' plate-zone' : ''}" points="${pts.map(P).map((p) => p.join(',')).join(' ')}" fill="${color}" fill-opacity="${op.toFixed(2)}" stroke="${plate ? '#facc15' : 'rgba(255,255,255,.25)'}" stroke-width="${plate ? 0.7 : 0.4}"><title>${esc(`${label}: ${n.att} attempts, ${n.goals} goals`)}</title></polygon>`;
     // Label block: zone name, attempts (with goals), then the attempt types. Goal discs sit underneath.
     const goals = shots.filter((x) => x.kind === 'goal' && x.zone === k);
-    const zero = n.att ? '' : ' zero';
+    const zero = (n.att ? '' : ' zero') + (iceKey(game) && zoneTextDark(color, op) ? ' dk' : '');
     if (tall) {
       const top = cy - (goals.length ? 7.5 : 5);
       out.labels += `<text x="${cx}" y="${top}" text-anchor="middle" class="a-zone-l${zero}">${esc(label.toUpperCase())}</text>`;
       out.labels += `<text x="${cx}" y="${top + 6.4}" text-anchor="middle" class="a-zone-n${zero}">${n.att}${n.goals ? `<tspan class="a-zone-g" dx="1.2">${n.goals}G</tspan>` : ''}</text>`;
-      if (n.att) out.labels += `<text x="${cx}" y="${top + 10.2}" text-anchor="middle" class="a-zone-k">${n.sog}<tspan> SOG</tspan><tspan class="sep"> · </tspan>${n.miss}<tspan> MISS</tspan><tspan class="sep"> · </tspan>${n.block}<tspan> BLK</tspan></text>`;
+      if (n.att) out.labels += `<text x="${cx}" y="${top + 10.2}" text-anchor="middle" class="a-zone-k${zero.includes(' dk') ? ' dk' : ''}">${n.sog}<tspan> SOG</tspan><tspan class="sep"> · </tspan>${n.miss}<tspan> MISS</tspan><tspan class="sep"> · </tspan>${n.block}<tspan> BLK</tspan></text>`;
     } else {
       out.labels += `<text x="${cx}" y="${cy + 2}" text-anchor="middle" class="a-zone-n sm${zero}">${n.att}${n.goals ? `<tspan class="a-zone-g" dx="0.8">${n.goals}G</tspan>` : ''}</text>`;
     }

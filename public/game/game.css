@@ -1139,3 +1139,12 @@ main { padding: 0 0 48px; }
 .pg-card .ln { margin-top: 12px; }
 
 .a-credit { margin: 4px 0 0; font-size: 10px; color: var(--a-mute, #7c8aa0); text-align: right; }
+
+/* Zone map on the full-ice artwork: dark text with a light halo where the tint is light. */
+.a-zone-n.dk, .a-zone-l.dk, .a-zone-k.dk { fill: #0f172a; paint-order: stroke; stroke: rgba(255,255,255,.9); stroke-width: .5px; stroke-linejoin: round; }
+.a-zone-l.dk { fill: #334155; stroke-width: .35px; }
+.a-zone-k.dk { stroke-width: .3px; }
+.a-zone-k.dk tspan { fill: #475569; }
+.a-zone-k.dk tspan.sep { fill: #94a3b8; }
+.a-zone-n.zero.dk, .a-zone-l.zero.dk { fill: rgba(15,23,42,.5); }
+.a-zone-n.dk .a-zone-g { fill: #a16207; }
