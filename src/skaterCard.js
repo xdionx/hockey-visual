@@ -79,7 +79,7 @@ export function skaterTable(total) {
       give: a.give?.perGame ?? null,
     } });
   }
-  return { rows: out, rate };
+  return { rows: out, rate, sbase };
 }
 
 const TIERS = [[0.9, 'elite'], [0.7, 'strong'], [0.4, 'average'], [0.2, 'below average'], [0, 'poor']];
@@ -105,7 +105,7 @@ export function skaterCard(total, id) {
     const mates = pool.filter((r) => r.team === me.team && r.group === me.group);
     const teamRank = mates.length > 1 ? rankIn(mates.map((r) => r.v[key]), mine, hi) : null;
     const sorted = [...vals].sort((a, b) => a - b);
-    m[key] = { ...METRIC[key], value: mine, rank, pct: pctOf(rank), of: pool.length, avg: sorted[Math.floor(sorted.length / 2)], mean: vals.reduce((a, b) => a + b, 0) / vals.length,
+    m[key] = { ...METRIC[key], value: mine, vals, rank, pct: pctOf(rank), of: pool.length, avg: sorted[Math.floor(sorted.length / 2)], mean: vals.reduce((a, b) => a + b, 0) / vals.length,
       teamRank, teamOf: mates.length, team: me.team, best: mates.length > 1 ? mates.reduce((a, b) => ((hi ? b.v[key] > a.v[key] : b.v[key] < a.v[key]) ? b : a)) : null,
       worst: mates.length > 1 ? mates.reduce((a, b) => ((hi ? b.v[key] < a.v[key] : b.v[key] > a.v[key]) ? b : a)) : null };
   }
@@ -129,7 +129,8 @@ export function skaterCard(total, id) {
   else if (off < 0.2 && def < 0.2) headline = 'Struggling at both ends';
   else headline = 'Balanced / depth';
   return { id: me.id, name: me.name, team: me.team, pos: me.pos, group: me.group, gp: me.gp, row: me.row, pg: me.pg, areas: me.areas, m, spider, defBars, strengths, weak,
-    summary: { headline, off, def, offTier: off == null ? null : tierName(off), defTier: def == null ? null : tierName(def) }, rate: tbl.rate };
+    summary: { headline, off, def, offTier: off == null ? null : tierName(off), defTier: def == null ? null : tierName(def) }, rate: tbl.rate, sbase: tbl.sbase,
+    pool: all.filter((r) => r.group === me.group && r.v.def != null).map((r) => ({ id: r.id, name: r.name, x: ((r.row.g ?? 0) + (r.row.a1 ?? 0) + (r.row.a2 ?? 0)) / r.gp, y: r.v.def })) };
 }
 
 /** Hover text for one ranked stat: definition, value, NHL rank vs NHL AVG, and where he sits on his team. */
