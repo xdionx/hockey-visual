@@ -207,7 +207,7 @@ export function goalieSections(ctx) {
     b.qs != null ? `<span class="gc-chip ${qsLg != null && b.qs / nStarts < qsLg - 0.08 ? 'bad' : qsLg != null && b.qs / nStarts > qsLg + 0.08 ? 'good' : 'ctx'}">QS ${b.qs}/${b.n}</span>` : '',
   ].join('');
   const pts = radarPoints(lg, ctx.id);
-  const bars = pts.length >= 3 ? `<div class="gc-bars" aria-label="NHL percentile by area">${pts.map((q) => `<div title="${esc(q.tip)}: ${esc(RADAR_FMT[q.key](q.value))}, ${ofN(q.rank)}"><span>${esc(q.label)}</span><i><b style="width:${Math.max(2, q.pct)}%;background:${q.pct >= 50 ? UP : DOWN}"></b></i><em>${q.pct}</em></div>`).join('')}</div>` : '';
+  const bars = pts.length >= 3 ? `<div class="gc-bars" aria-label="NHL percentile by area">${pts.map((q) => `<div title="${esc(`${q.label}\n${q.tip}\nValue¦${RADAR_FMT[q.key](q.value)}\nNHL rank¦${ofN(q.rank).replace(' NHL', '')} of ${q.rank.of}`)}"><span>${esc(q.label)}</span><i><b style="width:${Math.max(2, q.pct)}%;background:${q.pct >= 50 ? UP : DOWN}"></b></i><em>${q.pct}</em></div>`).join('')}</div>` : '';
   const verdict = `<div class="gc-verdict ${bad}"><b>${headline}.</b> ${sg(b.gsax)} goals against an average goalie on the same shots${b.n ? ` over ${b.n} starts` : ''} (${playoffs ? 'this playoff run' : b.label}${season && gl ? `, ${ofN(gl)}` : ''}). ${b.sv != null && b.expSv != null ? `Save % ${sv3(b.sv)} against an expected ${sv3(b.expSv)}.` : ''}<div class="gc-chips">${chips}</div>${where ? `<p>${where}</p>` : ''}${bars}</div>`;
 
   const spider = radarChart(pts, n);

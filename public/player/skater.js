@@ -45,7 +45,7 @@ const TIPS = {
   Blocks: 'Shots he blocked. Context only: not a model-validated skill.', Takeaways: 'Takeaways. Context only: rinks count them differently.',
   'TOI/GP': 'Average ice time per game.', Drawn: 'Penalties he drew.', Taken: 'Penalties he took.', 'Takeaways /GP': 'Takeaways per game. Context only.',
 };
-const plain = (label, value, sub = '', tip = '') => `<div class="pq-t" tabindex="0"${(tip || TIPS[label]) ? ` title="${esc(`${tip || TIPS[label]} ${label}: ${String(value).replace(/<[^>]*>/g, '')}.`)}"` : ''}><span class="pq-v">${value}</span><span class="pq-k">${label}</span>${sub ? `<span class="pq-s">${sub}</span>` : ''}</div>`;
+const plain = (label, value, sub = '', tip = '') => `<div class="pq-t" tabindex="0"${(tip || TIPS[label]) ? ` title="${esc(`${label}\n${tip || TIPS[label]}\nValue¦${String(value).replace(/<[^>]*>/g, '')}`)}"` : ''}><span class="pq-v">${value}</span><span class="pq-k">${label}</span>${sub ? `<span class="pq-s">${sub}</span>` : ''}</div>`;
 
 function spider(points) {
   if (points.length < 3) return '';
