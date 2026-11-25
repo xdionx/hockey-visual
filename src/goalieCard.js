@@ -128,7 +128,7 @@ export const RADAR_AXES = [
   { key: 'qs', label: 'Quality starts', tip: 'Quality start %', get: (g) => g.qsPct, hi: true },
   { key: 'inn', label: 'Inside plate', tip: 'Save % inside the home plate', get: (g) => g.inSv, hi: true },
   { key: 'out', label: 'Outside plate', tip: 'Save % outside the home plate', get: (g) => g.outSv, hi: true },
-  { key: 'soft', label: 'No soft goals', tip: 'Soft goals per start (fewer is better)', get: (g) => g.softPer, hi: false },
+  { key: 'soft', label: 'Perimeter goals', tip: 'Perimeter goals per start (fewer is better)', get: (g) => g.softPer, hi: false },
 ];
 
 /** [{ key, label, tip, value, pct, rank }] for the axes this goalie has numbers for (league table from leagueGoalies). */

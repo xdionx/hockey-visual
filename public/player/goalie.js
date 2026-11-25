@@ -86,7 +86,7 @@ function qsChart(starts, lgSv) {
       <text class="gc-v" x="${x + bw / 2}" y="${top - 4}" text-anchor="middle">${v === 1 ? '1.0' : sv3(v).slice(1)}</text><text x="${x + bw / 2}" y="165" text-anchor="middle">${esc(s.opp)}</text><text x="${x + bw / 2}" y="177" text-anchor="middle">${s.ga}/${s.sa}</text>`; }).join('')}</svg>`;
 }
 
-/** Half rink, net at the bottom, every shot he faced. Goal dots with a clip play it; soft goals are ringed. */
+/** Half rink, net at the bottom, every shot he faced. Goal dots with a clip play it; perimeter goals are ringed. */
 function shotMap(starts) {
   if (!starts?.length) return pending();
   const S = 6.2, w = 85 * S, h = 75 * S;
@@ -99,7 +99,7 @@ function shotMap(starts) {
   const saves = starts.flatMap((s) => s.shots.filter((x) => !x.goal)).map((x) => { const [a, b] = P(x.x, x.y); return `<circle cx="${a}" cy="${b}" r="3.1" fill="#8b95a7" opacity=".5"/>`; }).join('');
   const goals = starts.flatMap((s) => s.goals.map((g) => ({ ...g, s }))).map((g) => {
     const [a, b] = P(g.x, g.y);
-    const title = `${g.scorer ?? 'Goal'} · ${day(g.s.date)} ${g.s.home ? 'vs' : '@'} ${g.s.opp} · ${g.period} ${g.time}${g.soft ? ' · soft goal' : ''}`;
+    const title = `${g.scorer ?? 'Goal'} · ${day(g.s.date)} ${g.s.home ? 'vs' : '@'} ${g.s.opp} · ${g.period} ${g.time}${g.soft ? ' · perimeter goal' : ''}`;
     const dot = `${g.soft ? `<circle cx="${a}" cy="${b}" r="10" fill="none" stroke="#fbbf24" stroke-width="2.4"/>` : ''}<circle cx="${a}" cy="${b}" r="5.6" fill="${DOWN}" stroke="#fff" stroke-width="1"/>`;
     return g.clipId
       ? `<g class="gc-goal" data-video-id="${esc(g.clipId)}" data-video-title="${esc(title)}" tabindex="0" role="button" aria-label="Watch: ${esc(title)}"><title>${esc(title)} (tap to watch)</title><circle cx="${a}" cy="${b}" r="13" fill="transparent"/>${dot}</g>`
@@ -130,7 +130,7 @@ function strips(lg, id, row) {
     ['Save %', 'raw, not shot-adjusted', (g) => g.sv, true, sv3],
     ['Inside-plate SV%', 'slot shots', (g) => g.inSv, true, sv3],
     ['Outside-plate SV%', 'perimeter shots', (g) => g.outSv, true, sv3],
-    ['Soft goals per start', 'fewer is better', (g) => g.softPer, false, (v) => v.toFixed(2)],
+    ['Perimeter goals per start', 'fewer is better', (g) => g.softPer, false, (v) => v.toFixed(2)],
   ];
   const me = lg.rows.find((g) => g.id === Number(id));
   if (!me) return '<p class="pq-note">Not enough starts to rank yet (5 needed).</p>';
@@ -173,9 +173,9 @@ function lastStarts(starts) {
   if (!starts) return pending();
   if (!starts.length) return unavailable('No finished starts yet.');
   const rows = starts.slice(-10).reverse().map((s) => `<tr><td class="l"><a href="game.html?id=${s.id}">${day(s.date)}</a></td><td class="l">${s.home ? 'vs' : '@'} ${esc(s.opp)}</td><td class="${s.qs ? 'up' : 'down'}" title="${s.qs ? 'Quality start' : 'Not a quality start'}">${s.qs ? '✓' : '✗'}</td><td>${s.sa}</td><td>${s.ga}</td><td>${s.sa ? sv3(1 - s.ga / s.sa) : '-'}</td><td class="pc-o ${cls(s.gsax)}">${sg(s.gsax)}</td></tr>
-    ${s.goals.length ? `<tr class="gc-goals"><td colspan="7"><ul>${s.goals.map((g) => `<li>${videoButton(g.clipId, `${g.scorer ?? 'Goal'} · ${day(s.date)} ${s.home ? 'vs' : '@'} ${s.opp} · ${g.period} ${g.time}`, '<span aria-hidden="true">&#9654;</span>', 'st-clip', g.clipHref ?? '') || '<span class="st-clip none" aria-hidden="true"></span>'}<span class="gc-gt">${/^\d$/.test(g.period) ? `P${esc(g.period)}` : esc(g.period)} ${esc(g.time)}</span> ${esc(g.scorer ?? 'Goal')}<small>${esc(g.type ?? '')}${g.p != null ? `, ${(g.p * 100).toFixed(0)}% chance` : ''}</small>${g.soft ? ' <span class="gc-soft">soft goal</span>' : ''}${g.inside ? '' : ' <small>outside the plate</small>'}</li>`).join('')}</ul></td></tr>` : ''}`).join('');
+    ${s.goals.length ? `<tr class="gc-goals"><td colspan="7"><ul>${s.goals.map((g) => `<li>${videoButton(g.clipId, `${g.scorer ?? 'Goal'} · ${day(s.date)} ${s.home ? 'vs' : '@'} ${s.opp} · ${g.period} ${g.time}`, '<span aria-hidden="true">&#9654;</span>', 'st-clip', g.clipHref ?? '') || '<span class="st-clip none" aria-hidden="true"></span>'}<span class="gc-gt">${/^\d$/.test(g.period) ? `P${esc(g.period)}` : esc(g.period)} ${esc(g.time)}</span> ${esc(g.scorer ?? 'Goal')}<small>${esc(g.type ?? '')}${g.p != null ? `, ${(g.p * 100).toFixed(0)}% chance` : ''}</small>${g.soft ? ' <span class="gc-soft">perimeter goal</span>' : ''}${g.inside ? '' : ' <small>outside the plate</small>'}</li>`).join('')}</ul></td></tr>` : ''}`).join('');
   return `<div class="pc-scroll"><table class="pc-table"><thead><tr><th class="l">Date</th><th class="l">Opp</th><th title="Quality start">QS</th><th>SA</th><th>GA</th><th>SV%</th><th class="pc-o" title="Goals saved above expected that start">GSAx</th></tr></thead><tbody>${rows}</tbody></table></div>
-    <p class="pq-note">Under each start: the goals he let in. Tap &#9654; to watch the highlight; soft goals (outside the plate, under 6% chance) are marked.</p>`;
+    <p class="pq-note">Under each start: the goals he let in. Tap &#9654; to watch the highlight; perimeter goals (outside the plate, under 6% chance) are marked.</p>`;
 }
 
 /**
@@ -202,7 +202,7 @@ export function goalieSections(ctx) {
   const chips = [
     `<span class="gc-chip ${bad}">Goaltending ${sg(b.gsax)}</span>`,
     inVs != null ? `<span class="gc-chip ${inVs <= -3 ? 'bad' : 'ctx'}">Inside the plate ${sg(inVs)}</span><span class="gc-chip ${outVs <= -3 ? 'bad' : 'ctx'}">Outside the plate ${sg(outVs)}</span>` : '',
-    b.soft != null ? `<span class="gc-chip ${b.soft >= nStarts * 0.5 ? 'bad' : 'ctx'}">${b.soft} soft goal${b.soft === 1 ? '' : 's'}</span>` : '',
+    b.soft != null ? `<span class="gc-chip ${b.soft >= nStarts * 0.5 ? 'bad' : 'ctx'}">${b.soft} perimeter goal${b.soft === 1 ? '' : 's'}</span>` : '',
     b.qs != null ? `<span class="gc-chip ${qsLg != null && b.qs / nStarts < qsLg - 0.08 ? 'bad' : qsLg != null && b.qs / nStarts > qsLg + 0.08 ? 'good' : 'ctx'}">QS ${b.qs}/${b.n}</span>` : '',
   ].join('');
   const pts = radarPoints(lg, ctx.id);
@@ -233,12 +233,12 @@ export function goalieSections(ctx) {
   const shots = starts?.slice(n ? -n : 0) ?? null;
   out.push(sec('gc-loc', 'Shot location', 'where the shots come from and where they beat him', `
     <div class="gc-cols"${playoffs ? ' style="grid-template-columns:1fr"' : ''}>${playoffs ? '' : `<div><h3 class="pc-sub">Shots against him${shots ? ` <small>${shots.length} starts</small>` : ''}</h3>${fig(shotMap(shots))}
-      <div class="gc-legend"><span><i style="background:#8b95a7"></i>Save</span><span><i style="background:${DOWN}"></i>Goal (tap to watch)</span><span><i class="ring"></i>Soft goal: outside the plate, under 6%</span></div></div>`}
+      <div class="gc-legend"><span><i style="background:#8b95a7"></i>Save</span><span><i style="background:${DOWN}"></i>Goal (tap to watch)</span><span><i class="ring"></i>Perimeter goal: outside the plate, under 6%</span></div></div>`}
     <div>${b.inSa != null && b.inSa + b.outSa > 0 ? `<div class="pq-grid pc-grid">${[
       tile('Inside plate SV%', sv3(1 - b.inGa / b.inSa), `${b.inGa} goals on ${b.inSa} · NHL AVG ${sv3(1 - lg.inRate)}`, cls(inVs)),
       tile('Outside plate SV%', sv3(1 - b.outGa / b.outSa), `${b.outGa} goals on ${b.outSa} · NHL AVG ${sv3(1 - lg.outRate)}`, cls(outVs)),
       tile('Inside vs avg', sg(inVs), 'goals', cls(inVs)), tile('Outside vs avg', sg(outVs), 'goals', cls(outVs)),
-      tile('Soft goals', b.soft ?? 0, b.n ? `${((b.soft ?? 0) / b.n).toFixed(2)} per start` : '', (b.soft ?? 0) >= nStarts * 0.5 ? 'down' : ''),
+      tile('Perimeter goals', b.soft ?? 0, b.n ? `${((b.soft ?? 0) / b.n).toFixed(2)} per start` : '', (b.soft ?? 0) >= nStarts * 0.5 ? 'down' : ''),
       tile('Shots inside plate', fmt.pct(b.inSa / b.sa, 0), 'share of shots faced'),
     ].join('')}</div><h3 class="pc-sub">Save % against the NHL AVG, by area</h3>${fig(zoneChart(b, lg.inRate, lg.outRate))}<p class="pq-note">White tick = NHL AVG save % on shots from that area. Home plate = the slot (19 ft either side of the net, out to the top of the circles).</p>`
       : unavailable(playoffs ? 'Shot areas and the shot map are built for regular seasons.' : rowHasPlate || b.last ? 'No shots in this stretch.' : 'Shot areas are not built for this season yet; they fill in as the backfill rebuilds it.')}</div></div>`));
@@ -250,13 +250,13 @@ export function goalieSections(ctx) {
       b.qs != null ? tile('QS%', fmt.pct(b.qs / nStarts, 0), season && ours.qsRank ? `${ofN(ours.qsRank)} · ${lgQs}` : lgQs, qsLg != null && b.qs / nStarts < qsLg - 0.08 ? 'down' : qsLg != null && b.qs / nStarts > qsLg + 0.08 ? 'up' : '', QS_TIP(lgSv)) : '',
       b.bad != null ? tile('Really bad starts', b.bad, 'GSAx −2 or worse', b.bad ? 'down' : '') : (starts?.length ? tile('Really bad starts', summarize(starts).bad, 'GSAx −2 or worse', '') : ''),
       b.so != null ? tile('Shutouts', b.so, '0 goals against') : '',
-      b.soft != null && b.n ? tile('Soft goals/start', ((b.soft ?? 0) / nStarts).toFixed(2), season && me?.softPer != null ? ofN(rankAmong(lg.rows.map((g) => g.softPer), me.softPer, false)) + ' (fewest best)' : '') : '',
+      b.soft != null && b.n ? tile('Perimeter goals/start', ((b.soft ?? 0) / nStarts).toFixed(2), season && me?.softPer != null ? ofN(rankAmong(lg.rows.map((g) => g.softPer), me.softPer, false)) + ' (fewest best)' : '') : '',
     ].join('')}</div>
     ${playoffs ? '' : `<h3 class="pc-sub">Every start, quality or not</h3>${fig(qsChart(starts?.slice(n ? -n : 0) ?? null, lgSv))}`}
     <div class="gc-legend"${playoffs ? ' hidden' : ''}><span><i style="background:${BLUE}"></i>Quality start</span><span><i style="background:${DOWN}"></i>Not a quality start</span><span>Bar = save %, dashed line = NHL AVG save % (${sv3(lgSv)})</span></div>
     <p class="pq-note">${QS_TIP(lgSv)} The NHL AVG is about ${fmt.pct(lg.lgQsPct ?? 0.54, 0)} quality starts.</p>`));
   // 5 League rank
-  out.push(sec('gc-lg', 'Where he ranks', `among ${lg.rows.length} goalies with 5+ starts, ${playoffs ? 'this playoff run' : n ? 'season totals' : 'this season'}`, `${strips(lg, ctx.id)}<p class="pq-note">One dot per goalie, worse on the left and better on the right (soft goals flipped so fewer is right). Cyan = this goalie; the tick is the NHL median.</p>`));
+  out.push(sec('gc-lg', 'Where he ranks', `among ${lg.rows.length} goalies with 5+ starts, ${playoffs ? 'this playoff run' : n ? 'season totals' : 'this season'}`, `${strips(lg, ctx.id)}<p class="pq-note">One dot per goalie, worse on the left and better on the right (perimeter goals flipped so fewer is right). Cyan = this goalie; the tick is the NHL median.</p>`));
   // 6 Starter quality
   out.push(sec('gc-pick', 'Starter quality', 'what the research says is worth watching', `<div class="gc-cols"><div class="pq-grid pc-grid">${[
     pick?.id ? tile('Pick edge', sg(W.goalie * pick.value, 2), 'goals a game in our pick when he starts vs an average goalie') : '',
