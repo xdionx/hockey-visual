@@ -18,15 +18,16 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=Inter:wght@400;500;600;700;800&display=swap">
   <link rel="stylesheet" href="standings/standings.css">
+  <link rel="stylesheet" href="nav.css">
 </head>
 <body class="sd-page">
   <header class="sd-bar">
-    <a class="sd-back" href="./">&#8249; Scores</a>
     <span class="sd-title">Standings</span>
     <span class="sd-asof" id="asof"></span>
   </header>
   <nav class="sd-tabs" id="tabs" aria-label="Standings views"></nav>
   <main id="standings" class="sd-wrap" aria-live="polite"><p class="sd-msg">Loading…</p></main>
   <script type="module" src="standings/standings.js"></script>
+  <script type="module" src="nav.js"></script>
 </body>
 </html>

@@ -1,0 +1,27 @@
+/* Site menu (public/nav.js): a sticky bar on desktop, a hamburger sheet on phones. */
+.hv-nav { --nav-h: 54px; position: sticky; top: 0; z-index: 60; background: rgba(10, 14, 23, .92); backdrop-filter: blur(10px); border-bottom: 1px solid #1f2937; color: #e8edf5; font-family: Inter, system-ui, sans-serif; font-size: 15px; line-height: 1.4; }
+.hv-nav *, .hv-nav *::before, .hv-nav *::after { box-sizing: border-box; }
+.hv-nav a { color: inherit; text-decoration: none; }
+.hv-nav .in { max-width: 1280px; margin: 0 auto; display: flex; align-items: center; gap: 6px; padding: 0 14px; height: var(--nav-h); }
+.hv-nav .brand { font: 800 20px "Barlow Condensed", sans-serif; letter-spacing: .06em; text-transform: uppercase; margin-right: 14px; }
+.hv-nav .brand i { color: #e11d48; font-style: normal; }
+.hv-nav .links { display: flex; gap: 2px; }
+.hv-nav .links > a, .hv-nav .dd > button { font: 700 15px "Barlow Condensed", sans-serif; letter-spacing: .07em; text-transform: uppercase; color: #8b95a7; padding: 8px 12px; border-radius: 6px; background: none; border: 0; cursor: pointer; }
+.hv-nav .links > a:hover, .hv-nav .dd > button:hover { color: #e8edf5; }
+.hv-nav .links a[aria-current], .hv-nav .dd.on > button { color: #e8edf5; box-shadow: inset 0 -2px #e11d48; }
+.hv-nav .dd { position: relative; }
+.hv-nav .menu { display: none; position: absolute; top: 46px; left: 0; min-width: 210px; background: #111827; border: 1px solid #1f2937; border-radius: 10px; padding: 6px; box-shadow: 0 12px 30px rgba(0, 0, 0, .55); }
+.hv-nav .dd.open .menu { display: block; }
+.hv-nav .menu a { display: block; padding: 8px 12px; border-radius: 6px; font-size: 14px; }
+.hv-nav .menu a:hover { background: #1e293b; }
+.hv-nav .menu a[aria-current] { color: #7cb3ff; }
+.hv-nav .burger { display: none; margin-left: auto; width: 40px; height: 40px; border: 1px solid #1f2937; border-radius: 8px; background: #111827; color: #e8edf5; font-size: 20px; cursor: pointer; }
+.hv-nav .sheet { display: none; border-top: 1px solid #1f2937; background: #111827; padding: 6px 14px 14px; max-height: calc(100vh - var(--nav-h)); overflow-y: auto; }
+.hv-nav .sheet.open { display: block; }
+.hv-nav .sheet > a { display: block; padding: 12px 4px; border-bottom: 1px solid #1f2937; font: 700 17px "Barlow Condensed", sans-serif; letter-spacing: .06em; text-transform: uppercase; }
+.hv-nav .sheet a[aria-current] { color: #7cb3ff; }
+.hv-nav .sheet .sub a { display: block; font: 600 15px Inter, system-ui, sans-serif; color: #8b95a7; padding: 9px 4px 9px 18px; }
+.hv-nav .sheet .sub a[aria-current] { color: #7cb3ff; }
+/* Pages with their own sticky header sit under the menu. */
+.hv-has-nav header.bar, .hv-has-nav header.sd-bar { top: 54px; }
+@media (max-width: 760px) { .hv-nav .links { display: none; } .hv-nav .burger { display: block; } }
