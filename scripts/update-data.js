@@ -30,6 +30,8 @@ import { emptyRecent, addRecent, recentFile, emptySeason, addGame, fromPbp, line
 import { getPlayByPlay } from '../src/nhlApi.js';
 import { parsePartner, mergeOdds } from '../src/odds.js';
 import { predictGame } from '../src/predict.js';
+import { getStandings, getClubSchedule } from '../src/nhlApi.js';
+import { buildStandings } from '../src/standings.js';
 
 const args = process.argv.slice(2);
 const outDir = args.find((a) => !a.startsWith('--')) ?? 'data';
@@ -248,6 +250,34 @@ try {
   if (!same) { await writeFile(oddsFile, `${JSON.stringify(odds)}\n`); changed++; }
 } catch (err) {
   console.warn(`Odds step failed: ${err.message}`);
+}
+
+// Standings page: the NHL standings plus our projection (playoff odds from 10,000 simulated seasons, see src/standings.js).
+// Re-run only when the standings changed (a game finished); schedules are re-fetched at most every 6 hours.
+try {
+  const st = await getStandings();
+  const sig = `${st.standings.length}:${st.standings.reduce((n, t) => n + t.gamesPlayed * 1000 + t.points, 0)}:${total.games}`;
+  const stFile = join(outDir, 'standings.json');
+  const old = JSON.parse(await readFile(stFile, 'utf8').catch(() => 'null'));
+  if (old?.sig !== sig || old?.v !== 1) {
+    const schedFile = join(outDir, 'standings-sched.json');
+    let sched = JSON.parse(await readFile(schedFile, 'utf8').catch(() => 'null'));
+    if (!sched || Date.now() - Date.parse(sched.fetched) > 6 * 3600_000) {
+      const teams = {};
+      for (const t of st.standings) {
+        teams[t.teamAbbrev.default] = await getClubSchedule(t.teamAbbrev.default);
+        await new Promise((r) => setTimeout(r, 300));
+      }
+      sched = { fetched: new Date().toISOString(), teams };
+      await writeFile(schedFile, `${JSON.stringify(sched)}\n`);
+    }
+    const prev = JSON.parse(await readFile(join(opt('seasons', 'seasons/seasons'), `${season - 10001}.json`), 'utf8').catch(() => 'null'));
+    const out = buildStandings({ standings: st, sched: sched.teams, total, prev, today, sims: 10000 });
+    await writeFile(stFile, `${JSON.stringify({ v: 1, sig, updated: new Date().toISOString(), ...out })}\n`);
+    changed++;
+  }
+} catch (err) {
+  console.warn(`Standings step failed: ${err.message}`);
 }
 
 console.log(`NHL date ${today}: fetched ${fetched} days, ${boxFetched} box scores (${boxFailed} failed) and ${linesFetched} player-line games, ${changed} files changed`);
