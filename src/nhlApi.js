@@ -75,3 +75,17 @@ export async function getGameDetailRaw(gameId) {
 export function getPlayer(playerId) {
   return getJson(`player/${playerId}/landing`, 60 * 60_000);
 }
+
+/** League standings right now (api-web follows a redirect to the dated URL). */
+export function getStandings() {
+  return getJson('standings/now', 60_000);
+}
+
+/** One team's full regular-season schedule, as { id, date, home, away, state } in date order. */
+export async function getClubSchedule(abbrev) {
+  const json = await getJson(`club-schedule-season/${abbrev}/now`, 6 * 3600_000);
+  return (json.games ?? [])
+    .filter((g) => g.gameType === 2)
+    .map((g) => ({ id: g.id, date: g.gameDate, home: g.homeTeam.abbrev, away: g.awayTeam.abbrev, state: g.gameState }))
+    .sort((a, b) => a.date.localeCompare(b.date) || a.id - b.id);
+}

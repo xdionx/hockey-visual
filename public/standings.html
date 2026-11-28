@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="icons/favicon.svg?v=hv2" type="image/svg+xml">
+  <link rel="icon" href="icons/favicon.ico?v=hv2" sizes="any">
+  <link rel="icon" href="icons/favicon-32.png?v=hv2" type="image/png" sizes="32x32">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=hv2">
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#0a0e17">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="NHL Scores">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Standings</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=Inter:wght@400;500;600;700;800&display=swap">
+  <link rel="stylesheet" href="standings/standings.css">
+</head>
+<body class="sd-page">
+  <header class="sd-bar">
+    <a class="sd-back" href="./">&#8249; Scores</a>
+    <span class="sd-title">Standings</span>
+    <span class="sd-asof" id="asof"></span>
+  </header>
+  <nav class="sd-tabs" id="tabs" aria-label="Standings views"></nav>
+  <main id="standings" class="sd-wrap" aria-live="polite"><p class="sd-msg">Loading…</p></main>
+  <script type="module" src="standings/standings.js"></script>
+</body>
+</html>

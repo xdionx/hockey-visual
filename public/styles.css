@@ -338,6 +338,7 @@ main { padding-left: 20px; padding-right: 20px; }
 /* Link to the momentum stats page */
 .nav-link { margin-left: auto; padding: 7px 12px; border: 1px solid var(--line); border-radius: 4px; background: var(--card); color: var(--ink); text-decoration: none; font: 700 15px "Barlow Condensed", sans-serif; letter-spacing: .06em; text-transform: uppercase; white-space: nowrap; }
 .nav-link:hover, .nav-link:focus-visible { border-color: var(--accent); }
+.nav-link + .nav-link { margin-left: 0; }
 
 .edge { display: inline-block; padding: 1px 7px; border-radius: 999px; background: #3b2a05; color: #fbbf24; font: 700 11px/1.5 Inter, sans-serif; letter-spacing: .02em; }
 .edges { grid-column: 1 / -1; padding: 12px 14px; border: 1px solid #5a4210; border-radius: 12px; background: rgba(251,191,36,.06); }

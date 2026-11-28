@@ -1,0 +1,59 @@
+/* Standings page: same dark Broadcast look as the box score and stats pages. */
+.sd-page { --bg: #0a0e17; --card: #111827; --ink: #e8edf5; --mute: #8b95a7; --line: #1f2937; --accent: #e11d48; --chip: #1e293b; --link: #7cb3ff; --pos: #34d399; --neg: #fb7185; color-scheme: dark; margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.4 Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+.sd-page *, .sd-page *::before, .sd-page *::after { box-sizing: border-box; }
+.sd-page table { border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.sd-bar { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); }
+.sd-back { text-decoration: none; font-weight: 600; white-space: nowrap; color: var(--ink); }
+.sd-title { font: 700 22px "Barlow Condensed", sans-serif; letter-spacing: .04em; text-transform: uppercase; }
+.sd-asof { margin-left: auto; color: var(--mute); font-size: 12px; text-align: right; }
+.sd-tabs { display: flex; gap: 6px; overflow-x: auto; padding: 10px 14px; max-width: 1320px; margin: 0 auto; scrollbar-width: none; }
+.sd-tabs a { padding: 6px 14px; border-radius: 999px; background: var(--chip); color: var(--mute); font-weight: 600; font-size: 13px; white-space: nowrap; text-decoration: none; }
+.sd-tabs a[aria-current] { background: var(--ink); color: var(--card); }
+.sd-wrap { max-width: 1280px; margin: 0 auto; padding: 0 12px 40px; }
+.sd-msg { text-align: center; color: var(--mute); padding: 64px 16px; }
+.sd-conf { margin-bottom: 22px; }
+.sd-conf h2 { font: 700 26px "Barlow Condensed", sans-serif; margin: 14px 0 6px; letter-spacing: .02em; }
+.sd-scroll { overflow-x: auto; background: var(--card); border: 1px solid var(--line); border-radius: 12px; }
+.sd-table { width: 100%; font-size: 13px; }
+.sd-table th, .sd-table td { padding: 7px 6px; text-align: center; white-space: nowrap; }
+.sd-table th { font-size: 11px; color: var(--mute); font-weight: 700; letter-spacing: .04em; border-bottom: 1px solid var(--line); }
+.sd-table small { display: block; font-size: 10px; color: var(--mute); font-weight: 500; letter-spacing: 0; }
+.sd-table td.tm, .sd-table th.tm { text-align: left; position: sticky; left: 0; background: var(--card); z-index: 1; }
+.sd-team { display: flex; align-items: center; gap: 8px; }
+.sd-team small { font-size: 11px; }
+.sd-logo { width: 30px; height: 30px; flex: none; object-fit: contain; }
+.sd-logo.logo-fallback { display: inline-grid; place-items: center; font-weight: 700; font-size: 10px; background: var(--chip); border-radius: 50%; }
+.sd-table td.pos { color: var(--mute); width: 22px; }
+.sd-table td.pts { font-weight: 800; font-size: 15px; }
+.sd-table td.x { color: var(--mute); }
+.sd-table .up { color: var(--pos); } .sd-table .neg { color: var(--neg); }
+.sd-table tr.grp th { text-align: left; font: 700 15px "Barlow Condensed", sans-serif; letter-spacing: .06em; text-transform: uppercase; color: var(--ink); padding-top: 14px; background: var(--card); }
+.sd-table tr.grp.dim th { color: var(--mute); font-size: 12px; }
+.sd-table tbody.wc tr:last-child td { border-bottom: 2px dashed color-mix(in srgb, var(--accent) 80%, transparent); }
+.sd-table tbody.out td { opacity: .8; }
+.sd-table tbody tr:not(.grp):hover td { background: color-mix(in srgb, var(--ink) 5%, transparent); }
+.sd-table td.mdl, .sd-table th.mdl { background: color-mix(in srgb, var(--link) 7%, transparent); }
+.sd-table th.mdl { color: var(--link); }
+.sd-table td.mdl.s { font-weight: 700; }
+.sd-odds { display: inline-block; min-width: 44px; padding: 2px 7px; border-radius: 999px; font-weight: 700; font-size: 12px; text-align: center; }
+.sd-odds.hi { background: #065f46; color: #d1fae5; } .sd-odds.mid { background: #14532d99; color: #bbf7d0; }
+.sd-odds.lo { background: #78350f; color: #fde68a; } .sd-odds.no { background: var(--chip); color: var(--mute); }
+/* Scenarios */
+.sd-scen th.g { color: #6ee7b7; } .sd-scen th.w { color: #fcd34d; }
+.sd-scen tr.sub th { padding-top: 0; }
+.sd-scen td.h { font-weight: 700; width: 46px; background: color-mix(in srgb, var(--col) calc(var(--a) * 70%), transparent); color: color-mix(in srgb, #fff calc(40% + var(--a) * 60%), var(--mute)); }
+.sd-scen td.h.g { --col: #10b981; } .sd-scen td.h.w { --col: #f59e0b; } .sd-scen td.h.m { --col: #64748b; color: var(--mute); }
+.sd-scen td.opp, .sd-scen th.opp { text-align: left; color: var(--mute); font-size: 12px; }
+.sd-scen tbody tr:not(.grp) { border-top: 1px solid #1f293755; }
+.sd-legend { color: var(--mute); font-size: 12px; line-height: 1.5; margin-top: 14px; }
+.sd-legend b { color: var(--ink); } .sd-legend a { color: var(--link); }
+.sd-legend .k { color: var(--link); font-weight: 700; padding: 1px 6px; border-radius: 4px; margin-right: 4px; background: color-mix(in srgb, var(--link) 10%, transparent); }
+@media (max-width: 700px) {
+  .sd-table { font-size: 12px; }
+  .sd-table td.tm b { display: none; }
+  .sd-table th, .sd-table td { padding: 7px 5px; }
+  .sd-scen th:nth-child(9), .sd-scen td.opp { display: none; }
+  .sd-scen td.h { width: 34px; padding: 6px 3px; }
+  .sd-scen td.tm small { display: none; }
+  .sd-asof { font-size: 11px; }
+}
